@@ -4,6 +4,56 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Design system
+
+Added `designsystem/`, and refactored every existing screen onto it.
+
+- **Spacing**: one 4dp scale (4/8/12/16/24/32/48) plus a 48dp minimum touch
+  target. No ad-hoc padding values remain in the UI code.
+- **Typography**: Inter 4.1 bundled as a single variable font (859 KB,
+  SIL OFL 1.1, licence in `licenses/`). One file covers every weight;
+  three static weights would have been ~1.2 MB and still fixed the choice
+  at three. Display sizes use Light with negative tracking.
+- **Colour**: warm off-white and near-black neutrals, never pure #FFF or
+  #000. Six accents, each with a separate tone for light and dark.
+- **Shapes**: 8dp controls, 12dp cards, 20dp sheets, fully round chips.
+- **Motion**: 150/250/350ms with a standard curve, springs for anything
+  following a finger. Panels slide and fade; chips animate their selection.
+- **Haptics**: tick, long-press, drag start/end, via
+  `View.performHapticFeedback` — which needs no permission, unlike driving
+  the Vibrator directly.
+- **Surfaces**: four tonal layers. Depth is never a drop shadow.
+- **Material You** as an option (Android 12+), off by default. The manual
+  accent row greys out while it is on rather than disappearing.
+- **Design preview screen** at Settings → Design preview, rendering every
+  token: type scale, colour roles, tonal layers, controls, the spacing
+  scale and a motion demo.
+
+Fixed during the build:
+- Five font chips in an equal-weight Row squeezed "Monospace" until it
+  broke mid-word. `ChoiceRow` now uses `FlowRow`, so chips size to their
+  text and wrap.
+
+Known and deliberate — panels are opaque, not frosted glass:
+- `Window.setBackgroundBlurRadius` was implemented and tested on a device.
+  It blurs the windows *behind* yours, and a launcher declares
+  `windowShowWallpaper`, so the wallpaper belongs to our own window and
+  there is nothing behind to blur. It produced a translucent panel over a
+  sharp wallpaper, which is worse than either extreme.
+- Blurring the wallpaper ourselves needs `WallpaperManager.getDrawable()`
+  and a storage permission, which this app does not request.
+- `Modifier.blurBehind()` remains in `Surfaces.kt` and does work, because
+  it blurs our own composables. It is intended for in-app overlays such as
+  an open folder.
+
+Verified on the emulator:
+- No crashes. Lint 0 errors, 1 warning (the deliberate targetSdk hold).
+- Inter renders in both themes; accent swatches switch to their dark tones
+  under the dark theme; panels are readable over the wallpaper.
+- Release APK 1.4 MB -> 1.9 MB. The font is 859 KB on disk; compression and
+  R8 bring the delta to about 500 KB. Target for the performance pass is
+  under 10 MB.
+
 ### Feature 2 — Customisation
 
 Added:

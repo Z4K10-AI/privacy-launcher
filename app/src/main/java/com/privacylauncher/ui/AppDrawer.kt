@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -45,6 +46,10 @@ import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
+import com.privacylauncher.designsystem.Radii
+import com.privacylauncher.designsystem.Spacing
+import com.privacylauncher.designsystem.panelSurface
+import com.privacylauncher.designsystem.rememberHaptics
 import com.privacylauncher.ui.components.AppCell
 import com.privacylauncher.ui.components.LauncherIcons
 
@@ -74,15 +79,17 @@ fun AppDrawer(
     onHide: (AppEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberHaptics()
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            // Fully opaque. At 0.97 the home screen's clock and Apps button
-            // ghosted through the drawer, which read as a rendering fault
-            // rather than as deliberate translucency.
-            .background(MaterialTheme.colorScheme.background)
+            // Translucent where the system blurs behind the window,
+            // near-opaque where it does not. The home screen fades out as the
+            // drawer opens, so what shows through is blurred wallpaper rather
+            // than the clock ghosting through, which was the old bug.
+            .panelSurface()
             // safeDrawing is the union of system bars, display cutout AND the
             // IME, so adding imePadding() here would shift the content up by
             // the keyboard height twice.
@@ -94,13 +101,13 @@ fun AppDrawer(
                 .fillMaxWidth()
                 .clickable(onClick = onClose)
                 .semantics { contentDescription = closeLabel }
-                .padding(vertical = 10.dp),
+                .padding(vertical = Spacing.sm),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 Modifier
                     .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .clip(RoundedCornerShape(Radii.pill))
                     .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
             )
         }
@@ -111,7 +118,7 @@ fun AppDrawer(
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = Spacing.md, vertical = Spacing.xs),
             placeholder = { Text(stringResource(R.string.drawer_search_hint)) },
             leadingIcon = { Icon(LauncherIcons.Search, contentDescription = null) },
             trailingIcon = {
@@ -138,7 +145,7 @@ fun AppDrawer(
             },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 20.dp, bottom = 4.dp),
+            modifier = Modifier.padding(start = Spacing.lg, bottom = Spacing.xxs),
         )
 
         if (apps.isEmpty()) {
@@ -158,8 +165,8 @@ fun AppDrawer(
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = Spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
                 items(items = apps, key = { it.key }) { entry ->
@@ -169,7 +176,10 @@ fun AppDrawer(
                         iconSize = iconSize,
                         labelColor = MaterialTheme.colorScheme.onBackground,
                         onClick = { onLaunch(entry) },
-                        onLongClick = { menuFor = entry },
+                        onLongClick = {
+                            haptics.longPress()
+                            menuFor = entry
+                        },
                     )
                 }
             }
@@ -216,7 +226,7 @@ private fun AppActionsDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.md))
                 if (onHome) {
                     DialogAction(stringResource(R.string.remove_from_home), onRemoveFromHome)
                 } else {
@@ -249,8 +259,9 @@ private fun DialogAction(
         color = tint,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(Radii.small))
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
+            .defaultMinSize(minHeight = Spacing.touchTarget)
+            .padding(vertical = Spacing.sm, horizontal = Spacing.xs),
     )
 }

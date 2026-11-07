@@ -1,6 +1,5 @@
 package com.privacylauncher.ui.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,13 +14,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
+import com.privacylauncher.designsystem.Spacing
+import com.privacylauncher.designsystem.panelSurface
 import com.privacylauncher.ui.components.LauncherIcons
 
 /**
- * Shared frame for the full-screen panels: opaque background, a back arrow
- * and a title. Written by hand rather than with Material3's Scaffold and
+ * Shared frame for full-screen panels: a floating surface, a back arrow and a
+ * title. Written by hand rather than with Material3's Scaffold and
  * TopAppBar, both of which are still experimental API.
  */
 @Composable
@@ -33,11 +33,13 @@ fun ScreenScaffold(
     Column(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .panelSurface()
             .safeDrawingPadding(),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = Spacing.md, top = Spacing.xs, bottom = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {

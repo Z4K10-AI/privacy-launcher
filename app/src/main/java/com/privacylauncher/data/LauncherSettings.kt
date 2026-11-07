@@ -17,7 +17,14 @@ enum class AccentColor { TEAL, BLUE, VIOLET, AMBER, ROSE, SLATE }
  * All four are families Android already ships, so no font files are bundled
  * and the APK does not grow.
  */
-enum class FontChoice { SYSTEM, SANS_SERIF, SERIF, MONOSPACE }
+enum class FontChoice {
+    /** Inter, bundled with the app. The default. */
+    INTER,
+    SYSTEM,
+    SANS_SERIF,
+    SERIF,
+    MONOSPACE,
+}
 
 /** Icon sizes offered in settings, in dp. */
 enum class IconSize(val dp: Int) {
@@ -35,7 +42,15 @@ enum class IconSize(val dp: Int) {
 data class LauncherSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: AccentColor = AccentColor.TEAL,
-    val font: FontChoice = FontChoice.SYSTEM,
+    /**
+     * Material You: let the system derive colours from the wallpaper.
+     *
+     * Off by default. It is computed on-device and involves no permission,
+     * but contrast over an arbitrary wallpaper is unpredictable, so the
+     * hand-checked accents are the safer default.
+     */
+    val dynamicColor: Boolean = false,
+    val font: FontChoice = FontChoice.INTER,
     val iconSize: IconSize = IconSize.MEDIUM,
     val drawerColumns: Int = DEFAULT_DRAWER_COLUMNS,
     val homeColumns: Int = DEFAULT_HOME_COLUMNS,

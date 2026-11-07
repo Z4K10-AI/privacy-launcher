@@ -3,6 +3,7 @@ package com.privacylauncher.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -30,7 +31,8 @@ class SettingsRepository(private val context: Context) {
         LauncherSettings(
             themeMode = p[KEY_THEME]?.toEnum<ThemeMode>() ?: ThemeMode.SYSTEM,
             accent = p[KEY_ACCENT]?.toEnum<AccentColor>() ?: AccentColor.TEAL,
-            font = p[KEY_FONT]?.toEnum<FontChoice>() ?: FontChoice.SYSTEM,
+            dynamicColor = p[KEY_DYNAMIC_COLOR] ?: false,
+            font = p[KEY_FONT]?.toEnum<FontChoice>() ?: FontChoice.INTER,
             iconSize = p[KEY_ICON_SIZE]?.toEnum<IconSize>() ?: IconSize.MEDIUM,
             drawerColumns = p[KEY_DRAWER_COLUMNS]
                 ?: LauncherSettings.DEFAULT_DRAWER_COLUMNS,
@@ -46,6 +48,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAccent(value: AccentColor) = put(KEY_ACCENT, value.name)
 
     suspend fun setFont(value: FontChoice) = put(KEY_FONT, value.name)
+
+    suspend fun setDynamicColor(value: Boolean) {
+        context.dataStore.edit { it[KEY_DYNAMIC_COLOR] = value }
+    }
 
     suspend fun setIconSize(value: IconSize) = put(KEY_ICON_SIZE, value.name)
 
@@ -113,6 +119,7 @@ class SettingsRepository(private val context: Context) {
     private companion object {
         val KEY_THEME = stringPreferencesKey("theme_mode")
         val KEY_ACCENT = stringPreferencesKey("accent_color")
+        val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val KEY_FONT = stringPreferencesKey("font_choice")
         val KEY_ICON_SIZE = stringPreferencesKey("icon_size")
         val KEY_DRAWER_COLUMNS = intPreferencesKey("drawer_columns")

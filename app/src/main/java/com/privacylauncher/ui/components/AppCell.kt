@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
+import com.privacylauncher.designsystem.Radii
+import com.privacylauncher.designsystem.Spacing
 
 /**
  * One app: icon above its name.
@@ -60,7 +62,7 @@ fun AppCell(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(Radii.card))
             .then(
                 if (interactive) {
                     Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
@@ -68,7 +70,7 @@ fun AppCell(
                     Modifier
                 }
             )
-            .padding(vertical = 8.dp, horizontal = 2.dp),
+            .padding(vertical = Spacing.xs, horizontal = Spacing.xxs),
     ) {
         Box {
             AppIconImage(entry = entry, loader = iconLoader, size = iconSize)
@@ -91,7 +93,7 @@ fun AppCell(
                 }
             }
         }
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(Spacing.xxs))
         Text(
             text = entry.label,
             style = labelStyle,

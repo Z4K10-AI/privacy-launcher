@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
 import com.privacylauncher.ui.components.AppIconImage
+import com.privacylauncher.designsystem.Spacing
 
 /**
  * Lists every installed app with a switch to keep it out of the drawer.
@@ -46,7 +48,7 @@ fun HiddenAppsScreen(
             text = stringResource(R.string.hidden_apps_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xs),
         )
         LazyColumn(Modifier.fillMaxSize()) {
             items(items = apps, key = { it.key }) { entry ->
@@ -55,7 +57,8 @@ fun HiddenAppsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onToggle(entry, !isHidden) }
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.xs)
+                        .defaultMinSize(minHeight = Spacing.touchTarget),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
@@ -64,7 +67,7 @@ fun HiddenAppsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         AppIconImage(entry = entry, loader = iconLoader, size = 36.dp)
-                        Spacer(Modifier.width(16.dp))
+                        Spacer(Modifier.width(Spacing.md))
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = entry.label,

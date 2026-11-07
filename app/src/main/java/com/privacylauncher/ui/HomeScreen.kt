@@ -53,6 +53,9 @@ import androidx.compose.ui.zIndex
 import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
+import com.privacylauncher.designsystem.Radii
+import com.privacylauncher.designsystem.Spacing
+import com.privacylauncher.designsystem.rememberHaptics
 import com.privacylauncher.ui.components.AppCell
 import com.privacylauncher.ui.components.LauncherIcons
 import kotlinx.coroutines.delay
@@ -109,7 +112,7 @@ fun HomeScreen(
             Clock(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 64.dp, start = 24.dp, end = 24.dp),
+                    .padding(top = Spacing.xxl, start = Spacing.lg, end = Spacing.lg),
             )
 
             Spacer(Modifier.weight(1f))
@@ -122,7 +125,7 @@ fun HomeScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 40.dp, vertical = 16.dp),
+                        .padding(horizontal = Spacing.xl, vertical = Spacing.md),
                 )
             } else {
                 HomeGrid(
@@ -135,7 +138,7 @@ fun HomeScreen(
                     onEnterEditMode = onEnterEditMode,
                     onRemove = onRemove,
                     onMove = onMove,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xs),
                 )
             }
 
@@ -171,6 +174,7 @@ private fun HomeGrid(
     onMove: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberHaptics()
     var dragIndex by remember { mutableIntStateOf(-1) }
     var targetIndex by remember { mutableIntStateOf(-1) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
@@ -186,7 +190,7 @@ private fun HomeGrid(
 
     BoxWithConstraints(modifier) {
         val cellWidth = maxWidth / columns
-        val cellHeight = iconSize + 44.dp
+        val cellHeight = iconSize + Spacing.xl + Spacing.sm
         val density = LocalDensity.current
         val cellWpx = with(density) { cellWidth.toPx() }
         val cellHpx = with(density) { cellHeight.toPx() }
@@ -223,6 +227,7 @@ private fun HomeGrid(
                                         Modifier.pointerInput(index, columns, apps.size) {
                                             detectDragGesturesAfterLongPress(
                                                 onDragStart = {
+                                                    haptics.dragStart()
                                                     dragIndex = index
                                                     targetIndex = index
                                                     dragOffset = Offset.Zero
@@ -240,10 +245,18 @@ private fun HomeGrid(
                                                         .coerceIn(0, columns - 1)
                                                     val tr = (cy / cellHpx).toInt()
                                                         .coerceAtLeast(0)
-                                                    targetIndex = (tr * columns + tc)
+                                                    val next = (tr * columns + tc)
                                                         .coerceIn(0, apps.lastIndex)
+                                                    // Tick only when the drop
+                                                    // target actually changes,
+                                                    // not on every frame.
+                                                    if (next != targetIndex) {
+                                                        haptics.tick()
+                                                    }
+                                                    targetIndex = next
                                                 },
                                                 onDragEnd = {
+                                                    haptics.dragEnd()
                                                     if (targetIndex >= 0 &&
                                                         targetIndex != dragIndex
                                                     ) {
@@ -263,7 +276,10 @@ private fun HomeGrid(
                                     } else {
                                         Modifier.combinedClickable(
                                             onClick = { onLaunch(entry) },
-                                            onLongClick = onEnterEditMode,
+                                            onLongClick = {
+                                                haptics.longPress()
+                                                onEnterEditMode()
+                                            },
                                         )
                                     }
                                 ),
@@ -273,11 +289,11 @@ private fun HomeGrid(
                                 Box(
                                     Modifier
                                         .fillMaxSize()
-                                        .padding(4.dp)
+                                        .padding(Spacing.xxs)
                                         .border(
                                             width = 2.dp,
                                             color = Color.White.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(14.dp),
+                                            shape = RoundedCornerShape(Radii.card),
                                         ),
                                 )
                             }
@@ -317,7 +333,7 @@ private fun BottomBar(
     onExitEditMode: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (editMode) {
@@ -326,7 +342,7 @@ private fun BottomBar(
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 10.dp, start = 24.dp, end = 24.dp),
+                modifier = Modifier.padding(bottom = Spacing.sm, start = Spacing.lg, end = Spacing.lg),
             )
             HomePill(
                 label = stringResource(R.string.home_edit_done),
@@ -340,7 +356,7 @@ private fun BottomBar(
                     contentDescription = stringResource(R.string.drawer_open),
                     onClick = onOpenDrawer,
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.xs))
                 IconButton(onClick = onOpenSettings) {
                     Icon(
                         imageVector = LauncherIcons.Settings,
@@ -357,11 +373,11 @@ private fun BottomBar(
 private fun HomePill(label: String, contentDescription: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(percent = 50))
+            .clip(RoundedCornerShape(Radii.pill))
             .background(Color.Black.copy(alpha = 0.35f))
             .clickable(onClick = onClick)
             .semantics { this.contentDescription = contentDescription }
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
     ) {
         Text(
             text = label,
@@ -404,7 +420,7 @@ private fun Clock(modifier: Modifier = Modifier) {
             color = Color.White,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Spacing.xxs))
         Text(
             text = now.format(dateFormatter),
             style = MaterialTheme.typography.titleLarge.copy(shadow = shadow),

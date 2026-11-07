@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Which full-screen panel is showing, if any. */
-enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS }
+enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS, DESIGN_PREVIEW }
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -160,10 +160,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         panel = Panel.HIDDEN_APPS
     }
 
+    fun openDesignPreview() {
+        panel = Panel.DESIGN_PREVIEW
+    }
+
     /** Back behaviour: the hide-apps screen returns to settings, not home. */
     fun closePanel() {
         panel = when (panel) {
-            Panel.HIDDEN_APPS -> Panel.SETTINGS
+            Panel.HIDDEN_APPS, Panel.DESIGN_PREVIEW -> Panel.SETTINGS
             else -> Panel.NONE
         }
         if (panel == Panel.NONE) _query.value = ""
@@ -204,6 +208,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setAccent(v: AccentColor) = edit { settingsRepository.setAccent(v) }
 
     fun setFont(v: FontChoice) = edit { settingsRepository.setFont(v) }
+
+    fun setDynamicColor(v: Boolean) = edit { settingsRepository.setDynamicColor(v) }
 
     fun setIconSize(v: IconSize) = edit { settingsRepository.setIconSize(v) }
 

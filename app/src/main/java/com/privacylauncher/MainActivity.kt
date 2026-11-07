@@ -12,6 +12,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
@@ -20,19 +23,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.privacylauncher.data.LauncherSettings
+import com.privacylauncher.designsystem.LauncherTheme
+import com.privacylauncher.designsystem.Motion
+import com.privacylauncher.designsystem.resolveIsDark
 import com.privacylauncher.ui.AppDrawer
 import com.privacylauncher.ui.HomeScreen
 import com.privacylauncher.ui.LauncherViewModel
 import com.privacylauncher.ui.Panel
+import com.privacylauncher.ui.settings.DesignPreviewScreen
 import com.privacylauncher.ui.settings.HiddenAppsScreen
 import com.privacylauncher.ui.settings.SettingsScreen
-import com.privacylauncher.ui.theme.PrivacyLauncherTheme
-import com.privacylauncher.ui.theme.resolveIsDark
 
 /**
  * The launcher's one and only Activity.
@@ -70,7 +76,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
 
-            PrivacyLauncherTheme(settings = settings) {
+            LauncherTheme(settings = settings) {
                 LauncherRoot(viewModel, settings)
             }
         }
@@ -83,8 +89,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // The user may have changed the default home app, or installed or
-        // removed something, while we were in the background.
         viewModel.refreshDefaultHome()
     }
 }
@@ -99,6 +103,19 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
 
     val iconSize = settings.iconSize.dp.dp
     val panel = viewModel.panel
+    val panelOpen = panel != Panel.NONE
+
+    // Fade the home screen out underneath an open panel.
+    //
+    // There is no wallpaper blur here on purpose: see Surfaces.panelSurface
+    // for why Window.setBackgroundBlurRadius cannot blur a launcher's own
+    // wallpaper, and why reading the wallpaper bitmap instead would cost a
+    // storage permission this app does not ask for.
+    val homeAlpha by animateFloatAsState(
+        targetValue = if (panelOpen) 0f else 1f,
+        animationSpec = Motion.medium(),
+        label = "homeAlpha",
+    )
 
     // Status/nav bar icons must contrast with whatever is drawn beneath them.
     //
@@ -108,7 +125,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     //    white with a shadow, so light icons always match.
     val view = LocalView.current
     val isDark = settings.themeMode.resolveIsDark()
-    val lightBackgroundBehindBars = panel != Panel.NONE && !isDark
+    val lightBackgroundBehindBars = panelOpen && !isDark
     SideEffect {
         val window = (view.context as Activity).window
         WindowCompat.getInsetsController(window, view).apply {
@@ -118,29 +135,31 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     }
 
     Box(Modifier.fillMaxSize()) {
-        HomeScreen(
-            homeApps = homeApps,
-            columns = settings.homeColumns,
-            iconSize = iconSize,
-            iconLoader = viewModel.iconLoader,
-            editMode = viewModel.homeEditMode,
-            // With a panel up the home screen is covered, and while reordering
-            // a vertical drag belongs to the grid. Either way its swipe
-            // detector has to be off or stray drags fall through to it.
-            gesturesEnabled = panel == Panel.NONE && !viewModel.homeEditMode,
-            onLaunch = viewModel::launch,
-            onEnterEditMode = { viewModel.setHomeEditing(true) },
-            onExitEditMode = { viewModel.setHomeEditing(false) },
-            onRemove = viewModel::removeFromHome,
-            onMove = viewModel::moveHomeApp,
-            onOpenDrawer = viewModel::openDrawer,
-            onOpenSettings = viewModel::openSettings,
-        )
+        Box(Modifier.graphicsLayer { alpha = homeAlpha }) {
+            HomeScreen(
+                homeApps = homeApps,
+                columns = settings.homeColumns,
+                iconSize = iconSize,
+                iconLoader = viewModel.iconLoader,
+                editMode = viewModel.homeEditMode,
+                // With a panel up the home screen is covered, and while
+                // reordering a vertical drag belongs to the grid. Either way
+                // its swipe detector must be off or stray drags reach it.
+                gesturesEnabled = !panelOpen && !viewModel.homeEditMode,
+                onLaunch = viewModel::launch,
+                onEnterEditMode = { viewModel.setHomeEditing(true) },
+                onExitEditMode = { viewModel.setHomeEditing(false) },
+                onRemove = viewModel::removeFromHome,
+                onMove = viewModel::moveHomeApp,
+                onOpenDrawer = viewModel::openDrawer,
+                onOpenSettings = viewModel::openSettings,
+            )
+        }
 
         AnimatedVisibility(
             visible = panel == Panel.DRAWER,
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it }),
+            enter = slideInVertically(Motion.panelSlide()) { it } + fadeIn(Motion.medium()),
+            exit = slideOutVertically(Motion.panelSlide()) { it } + fadeOut(Motion.exit()),
         ) {
             AppDrawer(
                 apps = drawerApps,
@@ -161,24 +180,26 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
             )
         }
 
-        if (panel == Panel.SETTINGS) {
+        PanelTransition(panel == Panel.SETTINGS) {
             SettingsScreen(
                 settings = settings,
                 isDefaultHome = viewModel.isDefaultHome,
                 onBack = viewModel::closePanel,
                 onThemeMode = viewModel::setThemeMode,
                 onAccent = viewModel::setAccent,
+                onDynamicColor = viewModel::setDynamicColor,
                 onFont = viewModel::setFont,
                 onIconSize = viewModel::setIconSize,
                 onDrawerColumns = viewModel::setDrawerColumns,
                 onHomeColumns = viewModel::setHomeColumns,
                 onWallpaper = { viewModel.openWallpaperPicker() },
                 onHiddenApps = viewModel::openHiddenApps,
+                onDesignPreview = viewModel::openDesignPreview,
                 onSetDefaultHome = { viewModel.openHomeAppPicker() },
             )
         }
 
-        if (panel == Panel.HIDDEN_APPS) {
+        PanelTransition(panel == Panel.HIDDEN_APPS) {
             HiddenAppsScreen(
                 apps = allApps,
                 hidden = settings.hiddenApps,
@@ -187,6 +208,10 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onToggle = viewModel::setAppHidden,
             )
         }
+
+        PanelTransition(panel == Panel.DESIGN_PREVIEW) {
+            DesignPreviewScreen(onBack = viewModel::closePanel)
+        }
     }
 
     // Back closes whatever is open, then leaves edit mode, then does nothing.
@@ -194,9 +219,24 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     // falling through to the default handler is wrong on a home screen.
     BackHandler(enabled = true) {
         when {
-            panel != Panel.NONE -> viewModel.closePanel()
+            panelOpen -> viewModel.closePanel()
             viewModel.homeEditMode -> viewModel.setHomeEditing(false)
             else -> Unit // already home; there is nowhere to go back to
         }
+    }
+}
+
+/**
+ * Standard entrance for the full-screen panels: a short rise plus a fade, so
+ * nothing ever appears or vanishes instantly.
+ */
+@Composable
+private fun PanelTransition(visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(Motion.panelSlide()) { it / 8 } + fadeIn(Motion.medium()),
+        exit = fadeOut(Motion.exit()),
+    ) {
+        content()
     }
 }

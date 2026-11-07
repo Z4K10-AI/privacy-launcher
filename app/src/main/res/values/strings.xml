@@ -43,8 +43,12 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_accent">Accent colour</string>
+    <string name="settings_material_you">Material You</string>
+    <string name="settings_material_you_body">Take colours from your wallpaper. Worked out on the phone; nothing is sent anywhere.</string>
+    <string name="settings_material_you_unavailable">Needs Android 12 or newer.</string>
     <string name="settings_font">Font</string>
-    <string name="settings_font_system">System default</string>
+    <string name="settings_font_inter">Inter</string>
+    <string name="settings_font_system">System</string>
     <string name="settings_font_sans">Sans serif</string>
     <string name="settings_font_serif">Serif</string>
     <string name="settings_font_mono">Monospace</string>
@@ -56,6 +60,9 @@
     <string name="settings_icon_large">Large</string>
     <string name="settings_drawer_columns">Drawer columns</string>
     <string name="settings_home_columns">Home screen columns</string>
+
+    <string name="settings_design_preview">Design preview</string>
+    <string name="settings_design_preview_body">Every colour, type size and control in one place.</string>
 
     <string name="settings_group_system">System</string>
     <string name="settings_wallpaper">Change wallpaper</string>
@@ -73,4 +80,18 @@
     <!-- Hidden apps screen -->
     <string name="hidden_apps_title">Hidden apps</string>
     <string name="hidden_apps_body">Hidden apps stay installed and keep running. They are only removed from this launcher\'s drawer and home screen.</string>
+
+    <!-- Design preview -->
+    <string name="preview_title">Design preview</string>
+    <string name="preview_type">Type scale</string>
+    <string name="preview_colour">Colour</string>
+    <string name="preview_surfaces">Tonal surfaces</string>
+    <string name="preview_controls">Controls</string>
+    <string name="preview_spacing">Spacing scale</string>
+    <string name="preview_motion">Motion</string>
+    <string name="preview_motion_body">Tap to replay. 150ms short, 250ms medium, 350ms long.</string>
+    <string name="preview_blur_on">Content blur available (Android 12+). Panels over the wallpaper stay opaque: blurring your own wallpaper would need a storage permission this app does not ask for.</string>
+    <string name="preview_blur_off">Content blur needs Android 12 or newer. Panels are opaque either way.</string>
+    <string name="preview_sample_card">Card surface</string>
+    <string name="preview_sample_chip">Chip</string>
 </resources>

@@ -13,19 +13,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
 import com.privacylauncher.data.AccentColor
 import com.privacylauncher.data.FontChoice
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.ThemeMode
+import com.privacylauncher.designsystem.Spacing
+import com.privacylauncher.designsystem.dynamicColorAvailable
+import com.privacylauncher.designsystem.resolveIsDark
+import com.privacylauncher.designsystem.swatch
 import com.privacylauncher.ui.components.ChoiceRow
 import com.privacylauncher.ui.components.SettingsGroup
 import com.privacylauncher.ui.components.SettingsRow
+import com.privacylauncher.ui.components.SettingsSwitchRow
 import com.privacylauncher.ui.components.SwatchRow
-import com.privacylauncher.ui.theme.resolveIsDark
-import com.privacylauncher.ui.theme.swatch
 
 @Composable
 fun SettingsScreen(
@@ -34,15 +36,18 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onAccent: (AccentColor) -> Unit,
+    onDynamicColor: (Boolean) -> Unit,
     onFont: (FontChoice) -> Unit,
     onIconSize: (IconSize) -> Unit,
     onDrawerColumns: (Int) -> Unit,
     onHomeColumns: (Int) -> Unit,
     onWallpaper: () -> Unit,
     onHiddenApps: () -> Unit,
+    onDesignPreview: () -> Unit,
     onSetDefaultHome: () -> Unit,
 ) {
     val dark = settings.themeMode.resolveIsDark()
+    val dynamicOn = settings.dynamicColor && dynamicColorAvailable
 
     ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
@@ -64,14 +69,28 @@ fun SettingsScreen(
                     onSelect = onThemeMode,
                 )
 
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_material_you),
+                    subtitle = if (dynamicColorAvailable) {
+                        stringResource(R.string.settings_material_you_body)
+                    } else {
+                        stringResource(R.string.settings_material_you_unavailable)
+                    },
+                    checked = dynamicOn,
+                    enabled = dynamicColorAvailable,
+                    onCheckedChange = onDynamicColor,
+                )
+
                 SwatchRow(
                     title = stringResource(R.string.settings_accent),
                     swatches = AccentColor.entries.map { it.name to it.swatch(dark) },
                     selectedLabel = settings.accent.name,
+                    // Material You supplies its own colours, so the manual
+                    // accent has nothing to do while it is on. Greyed rather
+                    // than hidden, so the setting does not seem to vanish.
+                    enabled = !dynamicOn,
                     onSelect = { name ->
-                        AccentColor.entries
-                            .firstOrNull { it.name == name }
-                            ?.let(onAccent)
+                        AccentColor.entries.firstOrNull { it.name == name }?.let(onAccent)
                     },
                 )
 
@@ -82,6 +101,7 @@ fun SettingsScreen(
                     label = {
                         stringResource(
                             when (it) {
+                                FontChoice.INTER -> R.string.settings_font_inter
                                 FontChoice.SYSTEM -> R.string.settings_font_system
                                 FontChoice.SANS_SERIF -> R.string.settings_font_sans
                                 FontChoice.SERIF -> R.string.settings_font_serif
@@ -90,6 +110,12 @@ fun SettingsScreen(
                         )
                     },
                     onSelect = onFont,
+                )
+
+                SettingsRow(
+                    title = stringResource(R.string.settings_design_preview),
+                    subtitle = stringResource(R.string.settings_design_preview_body),
+                    onClick = onDesignPreview,
                 )
             }
 
@@ -149,7 +175,10 @@ fun SettingsScreen(
                         text = stringResource(R.string.settings_default_home_already),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(
+                            horizontal = Spacing.lg,
+                            vertical = Spacing.sm,
+                        ),
                     )
                 } else {
                     SettingsRow(
@@ -160,7 +189,7 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(Spacing.xl))
         }
     }
 }
