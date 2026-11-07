@@ -4,6 +4,82 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Focus mode and minimal mode
+
+Added:
+- **Focus mode.** Choose the apps that stay visible; everything else
+  leaves the home screen, the dock, the drawer and the search results
+  until focus ends. Start it by hand for 30 minutes, an hour, two,
+  four, or open-ended, or give it a daily window — which may run
+  overnight, as the 22:00–07:00 default does.
+- A calm theme while it runs: the accent is drained towards grey, app
+  icons are desaturated to a trace of their hue, and a veil settles
+  over the wallpaper.
+- A banner at the top of the drawer saying how many apps are set
+  aside, carrying **End focus**.
+- **Minimal mode.** A text-only home screen: app names in large type,
+  no icons, no grid, no dock. Folders are flattened and dock apps join
+  the list, so nothing becomes unreachable.
+
+Notes:
+- **No background work, and no alarm.** Focus is not an event with a
+  timer behind it; it is a question about the clock, answered whenever
+  something asks. The only timer is a coroutine `delay` — it cannot
+  wake a sleeping phone — and it sleeps until the next moment the
+  answer could change: the end of a timed session, the end of a
+  snooze, or the next edge of the schedule. It exists purely so a
+  screen someone is looking at redraws at the right minute.
+  `SCHEDULE_EXACT_ALARM` is not declared and no new permission was
+  added.
+- **That sleep is capped at an hour**, so during a nine-hour overnight
+  window it wakes hourly rather than once. The cap is a backstop: the
+  phone's clock can jump for a time zone or a daylight-saving change,
+  and a single long sleep computed before the jump would leave the
+  screen showing a stale answer. Coming back to the foreground
+  recomputes it too, which is what covers a phone that dozed straight
+  through the boundary.
+- **Ending a scheduled session snoozes the schedule** until that
+  window's own end. Without it, "end focus" inside a window would be
+  undone a second later by the schedule that started it, and the only
+  way out would be switching the whole schedule off.
+- **Focus hides, it does not block**, and the screen says so: a
+  set-aside app is still installed, still running, and still reachable
+  from a notification, a link or another launcher. The launcher's own
+  screens are never hidden, so focus can always be switched off.
+- Starting focus with no apps allowed is refused rather than obeyed —
+  it would empty the home screen and the drawer at once, which reads
+  as a crash, not a feature.
+- The theme swap is instant while the wallpaper veil fades. Animating
+  the colour scheme would rebuild it every frame, and a new
+  `ColorScheme` invalidates everything in the tree that reads a
+  colour; the veil is one rectangle.
+- The wallpaper itself is veiled rather than desaturated. Greying it
+  would mean reading the wallpaper bitmap, which costs a permission
+  this app does not take — the same reason panels are opaque rather
+  than frosted.
+- Material You is set aside while focus runs, for the same reason:
+  wallpaper-derived colours can be as saturated as the wallpaper is.
+- The schedule's times step in quarter hours rather than opening a
+  time picker. Material 3's `TimePicker` is still experimental API,
+  and the platform's `TimePickerDialog` arrives wearing the system's
+  theme rather than this one.
+- Both home screens now share one `homeGestures` modifier. A second
+  copy would have drifted from the first the moment either was fixed.
+
+Fixed:
+- **The minimal home swallowed its own gestures.** Its list of names
+  scrolled unconditionally, and a scrollable claims a drag before the
+  screen behind it sees one — so swiping up never opened the drawer
+  and swiping down never reached the notification shade, even with
+  three names and nothing to scroll. A swallowed swipe up from the
+  bottom then fell through to Android's navigation gesture, so the
+  launcher looked like it had shoved itself aside to show Recents.
+  Scrolling is now enabled only when the names really overflow, which
+  is the guard the ordinary home screen already had.
+- App names in minimal mode carry a heavier text shadow than the
+  clock. A name in headline weight has far less ink than a 64sp time,
+  and over the pale part of a wallpaper the thin strokes went first.
+
 ### Quick controls panel
 
 Added:

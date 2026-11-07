@@ -12,11 +12,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -55,8 +50,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -86,9 +79,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.sin
-
-/** Pinching to about four-fifths counts as a deliberate pinch in. */
-private const val PINCH_IN_THRESHOLD = 0.82f
 
 /**
  * The home screen: clock, an optional glance line, a grid of apps and
@@ -132,94 +122,20 @@ fun HomeScreen(
     onPinchIn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val swipeThresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
-
     Box(
         modifier = modifier
             .fillMaxSize()
-            .pointerInput(swipeThresholdPx, gesturesEnabled) {
-                if (!gesturesEnabled) return@pointerInput
-                // dragTotal is a plain local, NOT Compose state: state here
-                // would recompose the whole screen on every drag frame. The
-                // drawer's own position is an Animatable read inside a
-                // graphicsLayer block, for the same reason.
-                var dragTotal = 0f
-                var velocity = VelocityTracker()
-                detectVerticalDragGestures(
-                    onDragStart = {
-                        dragTotal = 0f
-                        velocity = VelocityTracker()
-                    },
-                    onDragEnd = {
-                        if (dragTotal > swipeThresholdPx) {
-                            // Downward past the threshold is the notification
-                            // shade, not the drawer. Release it back to rest
-                            // first in case the drag started upwards.
-                            onDrawerRelease(0f)
-                            onSwipeDown()
-                        } else {
-                            onDrawerRelease(velocity.calculateVelocity().y)
-                        }
-                    },
-                    onDragCancel = { onDrawerRelease(0f) },
-                ) { change, delta ->
-                    dragTotal += delta
-                    velocity.addPointerInputChange(change)
-                    onDrawerDrag(dragTotal)
-                }
-            }
-            .pointerInput(gesturesEnabled) {
-                if (!gesturesEnabled) return@pointerInput
-                // Right-to-left drags the quick controls panel in from the
-                // right. Deliberately a drag anywhere rather than one from
-                // the edge: on a phone with gesture navigation the right
-                // edge belongs to the system's Back gesture, and competing
-                // with it is a fight this would lose.
-                var dragTotal = 0f
-                var velocity = VelocityTracker()
-                detectHorizontalDragGestures(
-                    onDragStart = {
-                        dragTotal = 0f
-                        velocity = VelocityTracker()
-                        // Read the switches now rather than when the panel
-                        // composes: by then the sheet is already sliding in,
-                        // and every tile would show "Unknown" for the first
-                        // frames of the drag.
-                        onQuickDragStart()
-                    },
-                    onDragEnd = { onQuickRelease(velocity.calculateVelocity().x) },
-                    onDragCancel = { onQuickRelease(0f) },
-                ) { change, delta ->
-                    dragTotal += delta
-                    velocity.addPointerInputChange(change)
-                    onQuickDrag(dragTotal)
-                }
-            }
-            .pointerInput(gesturesEnabled) {
-                if (!gesturesEnabled) return@pointerInput
-                detectTapGestures(onDoubleTap = { onDoubleTap() })
-            }
-            .pointerInput(gesturesEnabled) {
-                if (!gesturesEnabled) return@pointerInput
-                // Hand-rolled rather than detectTransformGestures, which also
-                // reports single-finger pans and would fight the swipe-up
-                // detector above. This only ever observes: it consumes
-                // nothing, and ignores anything that is not two fingers.
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    var zoom = 1f
-                    var sawTwoFingers = false
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        if (event.changes.size >= 2) {
-                            sawTwoFingers = true
-                            zoom *= event.calculateZoom()
-                        }
-                        if (event.changes.none { it.pressed }) break
-                    }
-                    if (sawTwoFingers && zoom < PINCH_IN_THRESHOLD) onPinchIn()
-                }
-            }
+            .homeGestures(
+                enabled = gesturesEnabled,
+                onDrawerDrag = onDrawerDrag,
+                onDrawerRelease = onDrawerRelease,
+                onQuickDragStart = onQuickDragStart,
+                onQuickDrag = onQuickDrag,
+                onQuickRelease = onQuickRelease,
+                onSwipeDown = onSwipeDown,
+                onDoubleTap = onDoubleTap,
+                onPinchIn = onPinchIn,
+            )
             .safeDrawingPadding(),
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -251,7 +167,7 @@ fun HomeScreen(
                 ) {
                     val shortScreen = isShortWindow()
                     Column(Modifier.fillMaxWidth()) {
-                        Clock(
+                        HomeClock(
                             compact = shortScreen,
                             onClick = onOpenClock,
                             modifier = Modifier
@@ -641,7 +557,7 @@ private fun Dock(
 }
 
 @Composable
-private fun GlanceLine(glance: GlanceInfo, modifier: Modifier = Modifier) {
+internal fun GlanceLine(glance: GlanceInfo, modifier: Modifier = Modifier) {
     val parts = buildList {
         glance.nextAlarm?.let { add(stringResource(R.string.glance_alarm, it)) }
         glance.batteryPercent?.let {
@@ -736,7 +652,7 @@ private fun HomePill(label: String, contentDescription: String, onClick: () -> U
 }
 
 @Composable
-private fun Clock(compact: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun HomeClock(compact: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
     var now by remember { mutableStateOf(LocalDateTime.now()) }

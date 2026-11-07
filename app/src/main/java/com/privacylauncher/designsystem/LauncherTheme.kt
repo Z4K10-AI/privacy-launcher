@@ -38,21 +38,37 @@ val dynamicColorAvailable: Boolean
 @Composable
 fun LauncherTheme(
     settings: LauncherSettings,
+    /**
+     * Drain the colour out of the interface: focus mode is on.
+     *
+     * A hard swap rather than an animation, on purpose. Animating it would
+     * mean rebuilding the colour scheme on every frame, and a new ColorScheme
+     * invalidates everything in the tree that reads a colour -- a whole-app
+     * recomposition per frame, which is exactly the cost a 4 GB phone cannot
+     * absorb. The motion lives in the wallpaper veil instead, which is one
+     * rectangle and costs nothing to animate.
+     */
+    calm: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val dark = settings.themeMode.resolveIsDark()
     val context = LocalContext.current
-    val useDynamic = settings.dynamicColor && dynamicColorAvailable
+    // Material You is set aside while focus is on. Those colours come from
+    // the wallpaper and can be as saturated as the wallpaper is; there is no
+    // way to calm them without reading the wallpaper ourselves, which would
+    // cost a permission this app does not take.
+    val useDynamic = settings.dynamicColor && dynamicColorAvailable && !calm
 
-    val colorScheme: ColorScheme = remember(settings.accent, dark, useDynamic, context) {
+    val colorScheme: ColorScheme = remember(settings.accent, dark, useDynamic, calm, context) {
+        val accent = if (calm) settings.accent.palette().calmed() else settings.accent.palette()
         when {
             // Material You: colours derived from the wallpaper by the system.
             // This happens entirely on-device; no wallpaper data leaves the
             // phone and no permission is involved.
             useDynamic && dark -> dynamicDarkColorScheme(context)
             useDynamic -> dynamicLightColorScheme(context)
-            dark -> darkScheme(settings.accent.palette())
-            else -> lightScheme(settings.accent.palette())
+            dark -> darkScheme(accent)
+            else -> lightScheme(accent)
         }
     }
 
@@ -81,17 +97,19 @@ fun LauncherTheme(
         }
     }
 
-    val signal = remember(dark) {
-        if (dark) {
+    val signal = remember(dark, calm) {
+        val base = if (dark) {
             SignalColors(Signal.GoodDark, Signal.FairDark, Signal.AttentionDark)
         } else {
             SignalColors(Signal.GoodLight, Signal.FairLight, Signal.AttentionLight)
         }
+        if (calm) base.calmed() else base
     }
 
     CompositionLocalProvider(
         LocalSurfaceTones provides tones,
         LocalSignalColors provides signal,
+        LocalCalmMode provides calm,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

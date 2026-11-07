@@ -16,8 +16,15 @@ import com.privacylauncher.data.AccentColor
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.ContactMatch
 import com.privacylauncher.data.ContactRepository
+import com.privacylauncher.data.FocusClock
+import com.privacylauncher.data.FocusDuration
+import com.privacylauncher.data.FocusState
 import com.privacylauncher.data.FontChoice
 import com.privacylauncher.data.Fuzzy
+import com.privacylauncher.data.coversMinute
+import com.privacylauncher.data.minutesUntilChange
+import com.privacylauncher.data.nextFocusChangeMillis
+import com.privacylauncher.data.resolveFocus
 import com.privacylauncher.data.SettingsTarget
 import com.privacylauncher.data.SettingsTargets
 import com.privacylauncher.ui.quick.QuickTile
@@ -35,12 +42,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalTime
 
 /** Which full-screen panel is showing, if any. */
-enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS, DESIGN_PREVIEW, PRIVACY, QUICK }
+enum class Panel {
+    NONE,
+    DRAWER,
+    SETTINGS,
+    HIDDEN_APPS,
+    DESIGN_PREVIEW,
+    PRIVACY,
+    QUICK,
+    FOCUS,
+    FOCUS_APPS,
+}
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -57,6 +77,23 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     val settings: StateFlow<LauncherSettings> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, LauncherSettings())
+
+    // --- focus mode -------------------------------------------------------
+
+    /**
+     * Bumped whenever focus might have changed by itself.
+     *
+     * Focus is a question about the clock, not an event, so there is no alarm
+     * and no background work behind it. This exists only so that a screen
+     * someone is looking at redraws at the moment the answer changes.
+     */
+    private val focusTick = MutableStateFlow(0L)
+
+    val focus: StateFlow<FocusState> =
+        combine(settings, focusTick) { s, _ ->
+            val now = LocalTime.now()
+            resolveFocus(s, System.currentTimeMillis(), now.minuteOfDay())
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, FocusState())
 
     // --- app lists --------------------------------------------------------
 
@@ -80,8 +117,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     /** Everything the drawer draws: rows, section letters and the counts. */
     val drawerList: StateFlow<DrawerList> =
-        combine(allApps, settings, _query, launchCounts) { apps, s, q, counts ->
-            buildDrawerList(apps, s, q, counts)
+        combine(allApps, settings, _query, launchCounts, focus) { apps, s, q, counts, f ->
+            buildDrawerList(apps, s, q, counts, f)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, DrawerList())
 
     /**
@@ -98,10 +135,25 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         s: LauncherSettings,
         rawQuery: String,
         counts: Map<String, Int>,
+        focus: FocusState,
     ): DrawerList {
-        val visible = apps.filterNot { it.key in s.hiddenApps }
+        val notHidden = apps.filterNot { it.key in s.hiddenApps }
+        // Focus filters the same list the rest of the drawer is built from,
+        // search included: an app you have set aside should not come back the
+        // moment you type its name.
+        val visible = if (focus.active) {
+            notHidden.filter { focus.allows(it.key) }
+        } else {
+            notHidden
+        }
+        val setAside = notHidden.size - visible.size
         val total = visible.size
         val query = rawQuery.trim()
+
+        val rows = mutableListOf<DrawerRow>()
+        // First, so the letter-bar indices recorded below already account for
+        // it, and so it is the first thing read out by a screen reader.
+        if (focus.active) rows += DrawerRow.FocusNotice(setAside)
 
         if (query.isNotEmpty()) {
             val scored = visible
@@ -111,8 +163,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     compareByDescending<Pair<AppEntry, Int>> { it.second }
                         .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first.label },
                 )
+            scored.forEach { rows += DrawerRow.App(it.first, SECTION_SEARCH) }
             return DrawerList(
-                rows = scored.map { DrawerRow.App(it.first, SECTION_SEARCH) },
+                rows = rows,
                 letters = emptyList(),
                 matchCount = scored.size,
                 total = total,
@@ -121,7 +174,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             )
         }
 
-        val rows = mutableListOf<DrawerRow>()
         val letters = mutableListOf<LetterJump>()
 
         if (s.showMostUsed) {
@@ -257,13 +309,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      * [refreshApps], so an uninstalled app leaves no gap and no dead entry.
      */
     val homeTiles: StateFlow<List<HomeTile>> =
-        combine(allApps, settings) { apps, s ->
+        combine(allApps, settings, focus) { apps, s, f ->
             val byKey = apps.associateBy { it.key }
             s.homeItems.mapNotNull { item ->
                 when (item) {
-                    is HomeItem.App -> byKey[item.key]?.let { HomeTile.App(it) }
+                    is HomeItem.App ->
+                        byKey[item.key]?.takeIf { f.allows(it.key) }?.let { HomeTile.App(it) }
                     is HomeItem.Folder -> {
+                        // A folder is filtered rather than hidden whole: with
+                        // one allowed app inside it, hiding the folder would
+                        // put that app out of reach for no reason.
                         val entries = item.appKeys.mapNotNull { byKey[it] }
+                            .filter { f.allows(it.key) }
                         if (entries.isEmpty()) null
                         else HomeTile.Folder(item.id, item.name, entries)
                     }
@@ -273,9 +330,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     /** The dock, resolved and capped. */
     val dockApps: StateFlow<List<AppEntry>> =
-        combine(allApps, settings) { apps, s ->
+        combine(allApps, settings, focus) { apps, s, f ->
             val byKey = apps.associateBy { it.key }
             s.dockApps.mapNotNull { byKey[it] }
+                .filter { f.allows(it.key) }
                 .take(LauncherSettings.MAX_DOCK_APPS)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -333,6 +391,37 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             settingsTargets.value = SettingsTargets.available(application)
         }
+        startFocusClock()
+    }
+
+    /**
+     * Sleeps until the next moment focus could change, then nudges the state.
+     *
+     * Restarted whenever the three things that decide the timing change, and
+     * only those three: an accent colour change must not reset the clock.
+     * collectLatest is what cancels the sleep in flight when they do.
+     */
+    private fun startFocusClock() {
+        viewModelScope.launch {
+            settings
+                .distinctUntilChangedBy {
+                    Triple(it.focusUntil, it.focusSnoozeUntil, it.focusSchedule)
+                }
+                .collectLatest { s ->
+                    while (true) {
+                        val now = LocalTime.now()
+                        delay(
+                            nextFocusChangeMillis(
+                                settings = s,
+                                nowMillis = System.currentTimeMillis(),
+                                minuteOfDay = now.minuteOfDay(),
+                                secondOfMinuteMillis = now.millisIntoMinute(),
+                            )
+                        )
+                        focusTick.value = System.currentTimeMillis()
+                    }
+                }
+        }
     }
 
     override fun onCleared() {
@@ -357,6 +446,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      */
     fun refreshSystemState() {
         isDefaultHome = appRepository.isDefaultHome()
+        // The phone may have been asleep for hours, in which case the sleep
+        // in startFocusClock has not finished yet and the focus state on
+        // screen is whatever it was last night.
+        focusTick.value = System.currentTimeMillis()
         gestureServiceEnabled = LauncherAccessibilityService.isEnabled
         if (panel == Panel.PRIVACY) rescanPrivacy()
         // Coming back from Android's own settings is the usual way one of
@@ -455,6 +548,71 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun refreshQuickControls() {
         _quickState.value = quickControls.read()
+    }
+
+    // --- focus and minimal mode -------------------------------------------
+
+    fun openFocusScreen() {
+        homeEditMode = false
+        panel = Panel.FOCUS
+    }
+
+    fun openFocusApps() {
+        panel = Panel.FOCUS_APPS
+    }
+
+    fun setFocusAllowed(entry: AppEntry, allowed: Boolean) = edit {
+        settingsRepository.setFocusAllowed(entry.key, allowed)
+    }
+
+    fun startFocus(duration: FocusDuration) = edit {
+        val until = if (duration == FocusDuration.OPEN_ENDED) {
+            FocusClock.NO_END
+        } else {
+            System.currentTimeMillis() + duration.minutes * 60_000L
+        }
+        settingsRepository.startFocus(until)
+    }
+
+    /**
+     * Ends focus now.
+     *
+     * Inside a scheduled window this also snoozes the schedule until that
+     * window's own end, so "end focus" means what it says instead of being
+     * undone a second later by the schedule that started it.
+     */
+    fun endFocus() = edit {
+        val schedule = settings.value.focusSchedule
+        val now = LocalTime.now()
+        val minute = now.minuteOfDay()
+        val snoozeUntil = if (schedule.coversMinute(minute)) {
+            val remaining = schedule.minutesUntilChange(minute) ?: 0
+            System.currentTimeMillis() + remaining * 60_000L - now.millisIntoMinute()
+        } else {
+            0L
+        }
+        settingsRepository.endFocus(snoozeUntil)
+    }
+
+    fun setFocusScheduleEnabled(value: Boolean) = edit {
+        settingsRepository.setFocusScheduleEnabled(value)
+    }
+
+    /** Steps the window's start or end, wrapping round midnight. */
+    fun nudgeFocusWindow(startSteps: Int, endSteps: Int) = edit {
+        val schedule = settings.value.focusSchedule
+        val step = LauncherSettings.FOCUS_TIME_STEP
+        settingsRepository.setFocusWindow(
+            startMinute = schedule.startMinute + startSteps * step,
+            endMinute = schedule.endMinute + endSteps * step,
+        )
+    }
+
+    fun setMinimalMode(value: Boolean) = edit {
+        settingsRepository.setMinimalMode(value)
+        // There is no reordering in minimal mode, so edit mode must not be
+        // left switched on behind it with no way to leave.
+        if (value) homeEditMode = false
     }
 
     /**
@@ -569,7 +727,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** Back behaviour: the hide-apps screen returns to settings, not home. */
     fun closePanel() {
         panel = when (panel) {
-            Panel.HIDDEN_APPS, Panel.DESIGN_PREVIEW, Panel.PRIVACY -> Panel.SETTINGS
+            Panel.HIDDEN_APPS,
+            Panel.DESIGN_PREVIEW,
+            Panel.PRIVACY,
+            Panel.FOCUS,
+            -> Panel.SETTINGS
+            Panel.FOCUS_APPS -> Panel.FOCUS
             else -> Panel.NONE
         }
         if (panel == Panel.NONE) _query.value = ""
@@ -788,6 +951,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
         /** Roughly four writes a second while a brightness drag is running. */
         const val BRIGHTNESS_WRITE_INTERVAL_MS = 60L
+
+        fun LocalTime.minuteOfDay(): Int = hour * 60 + minute
+
+        fun LocalTime.millisIntoMinute(): Long = second * 1_000L + nano / 1_000_000L
     }
 
     private fun edit(block: suspend () -> Unit) {

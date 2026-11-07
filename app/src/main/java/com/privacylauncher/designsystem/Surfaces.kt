@@ -6,9 +6,12 @@ import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
@@ -44,6 +47,37 @@ data class SignalColors(val good: Color, val fair: Color, val attention: Color)
 
 val LocalSignalColors = staticCompositionLocalOf {
     SignalColors(Signal.GoodLight, Signal.FairLight, Signal.AttentionLight)
+}
+
+/**
+ * True while focus mode is draining the colour out of the interface.
+ *
+ * A CompositionLocal rather than a parameter because the thing that needs it
+ * most is the app icon, which is drawn from a dozen places. Threading a
+ * boolean through all of them would be a lot of noise for one filter.
+ */
+val LocalCalmMode = staticCompositionLocalOf { false }
+
+/**
+ * How much colour an app icon keeps in focus mode.
+ *
+ * Not zero. A grey Messaging icon and a grey Phone icon are told apart by
+ * shape alone, which is slower to read than it sounds; a trace of the
+ * original hue keeps them recognisable while still looking switched off.
+ */
+private const val CALM_ICON_SATURATION = 0.18f
+
+/** The icon filter for focus mode, or null when focus is off. */
+@Composable
+fun rememberCalmFilter(): ColorFilter? {
+    val calm = LocalCalmMode.current
+    return remember(calm) {
+        if (!calm) {
+            null
+        } else {
+            ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(CALM_ICON_SATURATION) })
+        }
+    }
 }
 
 internal val blurAvailable: Boolean

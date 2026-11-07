@@ -62,6 +62,9 @@ fun SettingsScreen(
     onDesignPreview: () -> Unit,
     onPrivacyDashboard: () -> Unit,
     onQuickPanel: () -> Unit,
+    focusActive: Boolean,
+    onFocus: () -> Unit,
+    onMinimalMode: (Boolean) -> Unit,
     onSetDefaultHome: () -> Unit,
 ) {
     val dark = settings.themeMode.resolveIsDark()
@@ -239,6 +242,25 @@ fun SettingsScreen(
                         ),
                     )
                 }
+            }
+
+            SettingsGroup(stringResource(R.string.settings_group_focus)) {
+                SettingsRow(
+                    title = stringResource(R.string.settings_focus),
+                    subtitle = if (focusActive) {
+                        stringResource(R.string.settings_focus_on)
+                    } else {
+                        stringResource(R.string.settings_focus_body)
+                    },
+                    onClick = onFocus,
+                )
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_minimal),
+                    subtitle = stringResource(R.string.settings_minimal_body),
+                    checked = settings.minimalMode,
+                    onCheckedChange = onMinimalMode,
+                )
             }
 
             SettingsGroup(stringResource(R.string.settings_group_privacy)) {

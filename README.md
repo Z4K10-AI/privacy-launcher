@@ -111,6 +111,50 @@ manifest.
     requires `GRANT_RUNTIME_PERMISSIONS`. App info is as close as an
     installable app gets.
 
+**Focus mode** (Settings → Focus and quiet → Focus mode)
+- Pick a handful of apps; everything else is set aside — gone from the home
+  screen, the dock and the drawer, and out of search results too — until
+  focus ends.
+- Start it by hand for 30 minutes, an hour, two, four, or until you stop it,
+  or set a daily window. The window may run overnight: 22:00 to 07:00 is the
+  default.
+- While it runs the interface drains of colour: the accent goes a warm grey,
+  app icons are desaturated to a trace of their hue, and a veil settles over
+  the wallpaper.
+- The drawer carries a banner saying how many apps are set aside, with **End
+  focus** on it. Ending a session the schedule started snoozes the schedule
+  until that window's own end, so "end" means end rather than "end for one
+  second".
+- **Nothing runs in the background.** No alarm, no service, no
+  `SCHEDULE_EXACT_ALARM`. Focus is a question about the clock, answered when
+  something asks. The one timer involved is a coroutine `delay`, which cannot
+  wake a sleeping phone; it sleeps until the next moment the answer could
+  change, and never longer than an hour — a backstop in case the clock itself
+  jumps for a time zone or a daylight-saving change. The state is recomputed
+  whenever the launcher returns to the foreground, so a phone that dozed
+  through the boundary is right again before you see it.
+- The screen states the limits: focus **hides, it does not block**. A
+  set-aside app is still installed, still running, and can still be opened
+  from a notification, a link, or another launcher. The launcher's own
+  screens are never hidden, so focus can always be switched off.
+- Starting focus with nothing allowed is refused rather than obeyed: the
+  button stays disabled and says why.
+
+**Minimal mode** (Settings → Focus and quiet → Minimal mode)
+- A text-only home screen: app names in large type, no icons, no grid, no
+  dock. The clock shrinks to make room for the list.
+- Folders are flattened, because "just app names" cannot draw a pile of
+  icons, and dock apps join the end of the list so nothing becomes
+  unreachable.
+- Every gesture still works — swipe up for the drawer, right-to-left for
+  quick controls, double-tap to lock — because both home screens share one
+  gesture modifier.
+- There is no reordering here; switch it off to rearrange. The drawer keeps
+  its grid: it is search-first, and an icon is the fastest way to recognise
+  an app you are hunting for.
+- It composes with focus mode: minimal changes how the home screen looks,
+  focus changes what is on it.
+
 **Customisation**, all stored on the device
 - Theme: light, dark, or follow system.
 - Accent colour: six choices, each with a separate tone for light and dark so
@@ -128,6 +172,7 @@ manifest.
   library, which would be a sizeable dependency for one dialog.
 - Search: auto keyboard, the most used row, clearing usage history, and
   contact search.
+- Focus and quiet: focus mode and its allowed apps, and minimal mode.
 - Set as default home app: a shortcut into Android's home-app picker.
 
 ## Design system

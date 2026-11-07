@@ -251,4 +251,52 @@
     <string name="gesture_explainer_title">What this service can do</string>
     <string name="gesture_explainer_body">Android does not let an ordinary app open the notification shade or lock the screen. An accessibility service can, so that is what this one is for.\n\nIt is set up as narrowly as Android allows:\n\n•  It is registered for no accessibility events, so the system never tells it what is on screen.\n•  It cannot read window content. The system refuses it that capability; it is not a promise we are making.\n•  It performs exactly two actions: open notifications, and lock the screen.\n\nNothing is logged, stored or sent anywhere. You can turn it off at any time in Android\'s accessibility settings, and the launcher keeps working — those two gestures simply stop.</string>
     <string name="gesture_explainer_continue">Open settings</string>
+
+    <!-- Focus mode -->
+    <string name="focus_title">Focus</string>
+    <string name="focus_banner_title">Focus is on</string>
+    <plurals name="focus_banner_set_aside">
+        <item quantity="one">%d app is set aside until focus ends</item>
+        <item quantity="other">%d apps are set aside until focus ends</item>
+    </plurals>
+    <string name="focus_start">Start focus</string>
+    <string name="focus_end">End focus</string>
+    <string name="focus_state_on">Focus is on</string>
+    <string name="focus_state_off">Focus is off</string>
+    <string name="focus_state_off_body">Your home screen and drawer are showing everything.</string>
+    <string name="focus_state_open_body">Running until you end it.</string>
+    <string name="focus_state_until_body">Running until %1$s.</string>
+    <string name="focus_state_scheduled_body">Started by your schedule. Ends at %1$s.</string>
+    <string name="focus_needs_apps">Choose at least one app first, or focus would leave you with an empty screen.</string>
+    <string name="focus_group_session">This session</string>
+    <string name="focus_length">How long</string>
+    <string name="focus_length_open">Until I stop it</string>
+    <string name="focus_length_30">30 min</string>
+    <string name="focus_length_60">1 hour</string>
+    <string name="focus_length_120">2 hours</string>
+    <string name="focus_length_240">4 hours</string>
+    <string name="focus_group_apps">Allowed apps</string>
+    <string name="focus_allowed_apps">Apps allowed in focus</string>
+    <string name="focus_allowed_body">These stay on your home screen and in the drawer while focus is on. Everything else is set aside until it ends.</string>
+    <plurals name="focus_allowed_count">
+        <item quantity="one">%d app allowed</item>
+        <item quantity="other">%d apps allowed</item>
+    </plurals>
+    <string name="focus_group_schedule">Schedule</string>
+    <string name="focus_schedule">Focus every day</string>
+    <string name="focus_schedule_off_body">Off. Focus only runs when you start it.</string>
+    <string name="focus_schedule_on_body">On, from %1$s to %2$s.</string>
+    <string name="focus_schedule_overnight_body">On, from %1$s to %2$s the next morning.</string>
+    <string name="focus_schedule_start">Starts at</string>
+    <string name="focus_schedule_end">Ends at</string>
+    <string name="focus_group_truth">What focus does, and does not do</string>
+    <string name="focus_truth_body">Focus hides apps. It does not block them.\n\nA set-aside app is still installed and still running whatever it was running. It can still be opened from a notification, from a link in another app, or from a different launcher. Only this launcher\'s home screen and drawer stop offering it.\n\nThe launcher\'s own screens are never hidden, so you can always get back here and switch focus off.\n\nNothing runs in the background to make this work. There is no alarm and no background service: the launcher simply looks at the clock when you look at the launcher.</string>
+
+    <!-- Minimal mode -->
+    <string name="settings_group_focus">Focus and quiet</string>
+    <string name="settings_focus">Focus mode</string>
+    <string name="settings_focus_body">Pick a few apps and set the rest aside, by hand or on a daily schedule.</string>
+    <string name="settings_focus_on">On. Tap to end it or change what is allowed.</string>
+    <string name="settings_minimal">Minimal mode</string>
+    <string name="settings_minimal_body">A text-only home screen: app names in large type, no icons. Folders are flattened, dock apps join the list, and there is no reordering — switch this off to rearrange.</string>
 </resources>

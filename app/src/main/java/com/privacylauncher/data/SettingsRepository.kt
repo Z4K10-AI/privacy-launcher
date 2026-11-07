@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -43,6 +44,15 @@ class SettingsRepository(private val context: Context) {
             showMostUsed = p[KEY_SHOW_MOST_USED] ?: true,
             searchContacts = p[KEY_SEARCH_CONTACTS] ?: false,
             lockHiddenApps = p[KEY_LOCK_HIDDEN] ?: true,
+            focusAllowed = p[KEY_FOCUS_ALLOWED].orEmpty(),
+            focusUntil = p[KEY_FOCUS_UNTIL] ?: 0L,
+            focusSnoozeUntil = p[KEY_FOCUS_SNOOZE] ?: 0L,
+            focusSchedule = FocusSchedule(
+                enabled = p[KEY_FOCUS_SCHEDULE_ON] ?: false,
+                startMinute = p[KEY_FOCUS_START] ?: FocusSchedule().startMinute,
+                endMinute = p[KEY_FOCUS_END] ?: FocusSchedule().endMinute,
+            ),
+            minimalMode = p[KEY_MINIMAL_MODE] ?: false,
         )
     }
 
@@ -151,6 +161,64 @@ class SettingsRepository(private val context: Context) {
             val current = prefs[KEY_HIDDEN_APPS].orEmpty()
             prefs[KEY_HIDDEN_APPS] = if (hidden) current + key else current - key
         }
+    }
+
+    // --- focus mode -------------------------------------------------------
+
+    suspend fun setFocusAllowed(key: String, allowed: Boolean) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEY_FOCUS_ALLOWED].orEmpty()
+            prefs[KEY_FOCUS_ALLOWED] = if (allowed) current + key else current - key
+        }
+    }
+
+    /**
+     * Starts a hand-run focus session.
+     *
+     * Clearing the snooze is the point of doing both in one edit: starting
+     * focus by hand inside a window that was snoozed earlier should hand
+     * control back to the schedule afterwards, rather than leave the rest of
+     * the window suppressed.
+     */
+    suspend fun startFocus(until: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FOCUS_UNTIL] = until
+            prefs[KEY_FOCUS_SNOOZE] = 0L
+        }
+    }
+
+    /**
+     * Ends focus now.
+     *
+     * [snoozeUntil] is when the schedule may take over again -- the end of
+     * the window that is currently running, worked out by the caller, which
+     * is the only place that knows what the clock says.
+     */
+    suspend fun endFocus(snoozeUntil: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FOCUS_UNTIL] = 0L
+            prefs[KEY_FOCUS_SNOOZE] = snoozeUntil
+        }
+    }
+
+    suspend fun setFocusScheduleEnabled(value: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FOCUS_SCHEDULE_ON] = value
+            // A schedule switched on should start clean. Leaving an old
+            // snooze in place would silently skip its first window.
+            if (value) prefs[KEY_FOCUS_SNOOZE] = 0L
+        }
+    }
+
+    suspend fun setFocusWindow(startMinute: Int, endMinute: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FOCUS_START] = startMinute.mod(FocusClock.MINUTES_PER_DAY)
+            prefs[KEY_FOCUS_END] = endMinute.mod(FocusClock.MINUTES_PER_DAY)
+        }
+    }
+
+    suspend fun setMinimalMode(value: Boolean) {
+        context.dataStore.edit { it[KEY_MINIMAL_MODE] = value }
     }
 
     // --- home layout ------------------------------------------------------
@@ -277,6 +345,10 @@ class SettingsRepository(private val context: Context) {
             val hidden = prefs[KEY_HIDDEN_APPS].orEmpty()
             val keptHidden = hidden.filter { it in installedKeys }.toSet()
             if (keptHidden.size != hidden.size) prefs[KEY_HIDDEN_APPS] = keptHidden
+
+            val allowed = prefs[KEY_FOCUS_ALLOWED].orEmpty()
+            val keptAllowed = allowed.filter { it in installedKeys }.toSet()
+            if (keptAllowed.size != allowed.size) prefs[KEY_FOCUS_ALLOWED] = keptAllowed
         }
     }
 
@@ -300,6 +372,13 @@ class SettingsRepository(private val context: Context) {
         val KEY_SEARCH_CONTACTS = booleanPreferencesKey("search_contacts")
         val KEY_LOCK_HIDDEN = booleanPreferencesKey("lock_hidden_apps")
         val KEY_LAUNCH_COUNTS = stringPreferencesKey("launch_counts")
+        val KEY_FOCUS_ALLOWED = stringSetPreferencesKey("focus_allowed")
+        val KEY_FOCUS_UNTIL = longPreferencesKey("focus_until")
+        val KEY_FOCUS_SNOOZE = longPreferencesKey("focus_snooze_until")
+        val KEY_FOCUS_SCHEDULE_ON = booleanPreferencesKey("focus_schedule_on")
+        val KEY_FOCUS_START = intPreferencesKey("focus_start_minute")
+        val KEY_FOCUS_END = intPreferencesKey("focus_end_minute")
+        val KEY_MINIMAL_MODE = booleanPreferencesKey("minimal_mode")
 
         const val MAX_COUNTED_APPS = 60
 

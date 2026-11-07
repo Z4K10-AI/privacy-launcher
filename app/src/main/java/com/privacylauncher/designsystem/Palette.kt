@@ -1,6 +1,7 @@
 package com.privacylauncher.designsystem
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.util.lerp
 import com.privacylauncher.data.AccentColor
 
 /**
@@ -112,3 +113,45 @@ internal object Signal {
 /** The swatch shown in the picker, for the theme currently active. */
 internal fun AccentColor.swatch(dark: Boolean): Color =
     palette().let { if (dark) it.onDark else it.onLight }
+
+/**
+ * How far focus mode drains the colour out of the interface.
+ *
+ * Not 1.0. Pure grey loses the difference between a selected chip and an
+ * unselected one, and between a switch that is on and one that is off, which
+ * turns a calm screen into an unreadable one. At 0.82 the accent is a
+ * barely-there warm grey, and the contrast that carries meaning survives.
+ */
+private const val CALM_AMOUNT = 0.82f
+
+/**
+ * Pulls a colour towards its own brightness, leaving a trace of the hue.
+ *
+ * The weights are the Rec. 709 luminance coefficients -- the eye is far more
+ * sensitive to green than to blue, so a plain average of the channels turns
+ * a saturated blue into a grey that looks much lighter than the original.
+ */
+internal fun Color.greyed(amount: Float = CALM_AMOUNT): Color {
+    val grey = 0.2126f * red + 0.7152f * green + 0.0722f * blue
+    return Color(
+        red = lerp(red, grey, amount),
+        green = lerp(green, grey, amount),
+        blue = lerp(blue, grey, amount),
+        alpha = alpha,
+    )
+}
+
+/** The accent, drained of colour, for focus mode. */
+internal fun AccentPalette.calmed(): AccentPalette = AccentPalette(
+    onLight = onLight.greyed(),
+    onDark = onDark.greyed(),
+    containerLight = containerLight.greyed(),
+    containerDark = containerDark.greyed(),
+)
+
+/** The score ring's three tones, drained of colour, for focus mode. */
+internal fun SignalColors.calmed(): SignalColors = SignalColors(
+    good = good.greyed(),
+    fair = fair.greyed(),
+    attention = attention.greyed(),
+)

@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.privacylauncher.data.ContactRepository
+import com.privacylauncher.data.FocusState
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.designsystem.LauncherTheme
 import com.privacylauncher.designsystem.Motion
@@ -58,11 +60,14 @@ import com.privacylauncher.ui.FolderSheet
 import com.privacylauncher.ui.rememberSheetSwipe
 import com.privacylauncher.ui.HomeScreen
 import com.privacylauncher.ui.HomeTile
+import com.privacylauncher.ui.MinimalHome
 import com.privacylauncher.ui.LauncherViewModel
 import com.privacylauncher.ui.Panel
 import com.privacylauncher.ui.components.rememberGlance
 import com.privacylauncher.ui.settings.DesignPreviewScreen
 import com.privacylauncher.ui.settings.GestureExplainerDialog
+import com.privacylauncher.ui.focus.FocusAppsScreen
+import com.privacylauncher.ui.focus.FocusScreen
 import com.privacylauncher.ui.privacy.PrivacyDashboardScreen
 import com.privacylauncher.ui.quick.QuickPanel
 import com.privacylauncher.ui.settings.HiddenAppsScreen
@@ -103,9 +108,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
+            val focus by viewModel.focus.collectAsStateWithLifecycle()
 
-            LauncherTheme(settings = settings) {
-                LauncherRoot(viewModel, settings)
+            LauncherTheme(settings = settings, calm = focus.active) {
+                LauncherRoot(viewModel, settings, focus)
             }
         }
     }
@@ -122,7 +128,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSettings) {
+private fun LauncherRoot(
+    viewModel: LauncherViewModel,
+    settings: LauncherSettings,
+    focus: FocusState,
+) {
     val drawerList by viewModel.drawerList.collectAsStateWithLifecycle()
     val extraRows by viewModel.extraRows.collectAsStateWithLifecycle()
     val privacyReport by viewModel.privacyReport.collectAsStateWithLifecycle()
@@ -228,6 +238,20 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
         label = "homeAlpha",
     )
 
+    // Focus mode's calm tint over the wallpaper.
+    //
+    // The interface itself is drained of colour by the theme (see
+    // LauncherTheme's `calm`), but the wallpaper is not ours to change: the
+    // only way to desaturate it would be to read the wallpaper bitmap, which
+    // costs a permission this app does not ask for. A veil over it is the
+    // honest version, and it is one rectangle, so unlike the colour scheme it
+    // is cheap enough to animate.
+    val calmVeil = animateFloatAsState(
+        targetValue = if (focus.active) CALM_VEIL_ALPHA else 0f,
+        animationSpec = Motion.long(),
+        label = "calmVeil",
+    )
+
     // Status/nav bar icons must contrast with whatever is drawn beneath them.
     //
     //  - A panel is open: that surface follows the launcher theme, so light
@@ -260,56 +284,101 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 // Real frosted glass: these are our own composables, so
                 // RenderEffect can blur them. Window blur cannot do this for
                 // the wallpaper -- see Surfaces.panelSurface for why.
-                .blurBehind(active = openFolder != null || quickVisible),
+                .blurBehind(active = openFolder != null || quickVisible)
+                // Behind the home content, in front of the wallpaper. Read
+                // inside the draw lambda, so the fade redraws without
+                // recomposing the home screen.
+                .drawBehind {
+                    if (calmVeil.value > 0.001f) {
+                        drawRect(color = CALM_VEIL, alpha = calmVeil.value)
+                    }
+                },
         ) {
-            HomeScreen(
-                tiles = homeTiles,
-                dock = dock,
-                glance = glance,
-                columns = adaptiveColumns(settings.homeColumns),
-                iconSize = iconSize,
-                iconLoader = viewModel.iconLoader,
-                editMode = viewModel.homeEditMode,
-                // With a panel up the home screen is covered, and while
-                // reordering a vertical drag belongs to the grid. Either way
-                // its swipe detector must be off or stray drags reach it.
-                gesturesEnabled = !panelOpen &&
-                    !viewModel.homeEditMode &&
-                    openFolder == null,
-                onLaunch = viewModel::launch,
-                onOpenFolder = viewModel::openFolder,
-                onEnterEditMode = { viewModel.setHomeEditing(true) },
-                onExitEditMode = { viewModel.setHomeEditing(false) },
-                onRemoveTile = viewModel::removeHomeTile,
-                onMove = viewModel::moveHomeItem,
-                onCombine = viewModel::combineHomeItems,
-                onOpenDrawer = viewModel::openDrawer,
-                onOpenSettings = viewModel::openSettings,
-                onOpenClock = { viewModel.openClock() },
-                onDrawerDrag = drawerSwipe::dragFromClosed,
-                onDrawerRelease = { velocity ->
-                    if (drawerSwipe.shouldOpen(velocity, wasOpen = false)) {
-                        // Setting the panel is what makes it open as far as
-                        // back, search and the rest of the app are concerned;
-                        // the LaunchedEffect above springs the sheet up.
-                        viewModel.openDrawer()
-                    } else {
-                        drawerSwipe.settle(0f)
-                    }
-                },
-                onQuickDragStart = viewModel::refreshQuickControls,
-                onQuickDrag = quickSwipe::dragFromClosed,
-                onQuickRelease = { velocity ->
-                    if (quickSwipe.shouldOpen(velocity, wasOpen = false)) {
-                        viewModel.openQuickPanel()
-                    } else {
-                        quickSwipe.settle(0f)
-                    }
-                },
-                onSwipeDown = viewModel::onSwipeDown,
-                onDoubleTap = viewModel::onDoubleTap,
-                onPinchIn = viewModel::onPinchIn,
-            )
+            if (settings.minimalMode) {
+                MinimalHome(
+                    tiles = homeTiles,
+                    dock = dock,
+                    glance = glance,
+                    focusActive = focus.active,
+                    // No edit mode here, so the only reasons to stop
+                    // listening are a panel or an open folder.
+                    gesturesEnabled = !panelOpen && openFolder == null,
+                    onLaunch = viewModel::launch,
+                    onOpenDrawer = viewModel::openDrawer,
+                    onOpenSettings = viewModel::openSettings,
+                    onOpenClock = { viewModel.openClock() },
+                    onOpenFocus = viewModel::openFocusScreen,
+                    onDrawerDrag = drawerSwipe::dragFromClosed,
+                    onDrawerRelease = { velocity ->
+                        if (drawerSwipe.shouldOpen(velocity, wasOpen = false)) {
+                            viewModel.openDrawer()
+                        } else {
+                            drawerSwipe.settle(0f)
+                        }
+                    },
+                    onQuickDragStart = viewModel::refreshQuickControls,
+                    onQuickDrag = quickSwipe::dragFromClosed,
+                    onQuickRelease = { velocity ->
+                        if (quickSwipe.shouldOpen(velocity, wasOpen = false)) {
+                            viewModel.openQuickPanel()
+                        } else {
+                            quickSwipe.settle(0f)
+                        }
+                    },
+                    onSwipeDown = viewModel::onSwipeDown,
+                    onDoubleTap = viewModel::onDoubleTap,
+                    onPinchIn = viewModel::onPinchIn,
+                )
+            } else {
+                HomeScreen(
+                    tiles = homeTiles,
+                    dock = dock,
+                    glance = glance,
+                    columns = adaptiveColumns(settings.homeColumns),
+                    iconSize = iconSize,
+                    iconLoader = viewModel.iconLoader,
+                    editMode = viewModel.homeEditMode,
+                    // With a panel up the home screen is covered, and while
+                    // reordering a vertical drag belongs to the grid. Either way
+                    // its swipe detector must be off or stray drags reach it.
+                    gesturesEnabled = !panelOpen &&
+                        !viewModel.homeEditMode &&
+                        openFolder == null,
+                    onLaunch = viewModel::launch,
+                    onOpenFolder = viewModel::openFolder,
+                    onEnterEditMode = { viewModel.setHomeEditing(true) },
+                    onExitEditMode = { viewModel.setHomeEditing(false) },
+                    onRemoveTile = viewModel::removeHomeTile,
+                    onMove = viewModel::moveHomeItem,
+                    onCombine = viewModel::combineHomeItems,
+                    onOpenDrawer = viewModel::openDrawer,
+                    onOpenSettings = viewModel::openSettings,
+                    onOpenClock = { viewModel.openClock() },
+                    onDrawerDrag = drawerSwipe::dragFromClosed,
+                    onDrawerRelease = { velocity ->
+                        if (drawerSwipe.shouldOpen(velocity, wasOpen = false)) {
+                            // Setting the panel is what makes it open as far as
+                            // back, search and the rest of the app are concerned;
+                            // the LaunchedEffect above springs the sheet up.
+                            viewModel.openDrawer()
+                        } else {
+                            drawerSwipe.settle(0f)
+                        }
+                    },
+                    onQuickDragStart = viewModel::refreshQuickControls,
+                    onQuickDrag = quickSwipe::dragFromClosed,
+                    onQuickRelease = { velocity ->
+                        if (quickSwipe.shouldOpen(velocity, wasOpen = false)) {
+                            viewModel.openQuickPanel()
+                        } else {
+                            quickSwipe.settle(0f)
+                        }
+                    },
+                    onSwipeDown = viewModel::onSwipeDown,
+                    onDoubleTap = viewModel::onDoubleTap,
+                    onPinchIn = viewModel::onPinchIn,
+                )
+            }
         }
 
         if (openFolder != null) {
@@ -373,6 +442,8 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                     onOpenContact = viewModel::openContact,
                     onEnableContacts = askForContacts,
                     onOwnAppInfo = { viewModel.openOwnAppInfo() },
+                    onEndFocus = viewModel::endFocus,
+                    onOpenFocus = viewModel::openFocusScreen,
                 )
             }
         }
@@ -406,6 +477,9 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onDesignPreview = viewModel::openDesignPreview,
                 onPrivacyDashboard = viewModel::openPrivacyDashboard,
                 onQuickPanel = viewModel::openQuickPanel,
+                focusActive = focus.active,
+                onFocus = viewModel::openFocusScreen,
+                onMinimalMode = viewModel::setMinimalMode,
                 onSetDefaultHome = { viewModel.openHomeAppPicker() },
             )
         }
@@ -468,6 +542,30 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
             )
         }
 
+        PanelTransition(panel == Panel.FOCUS) {
+            FocusScreen(
+                settings = settings,
+                focus = focus,
+                allowedCount = settings.focusAllowed.size,
+                onBack = viewModel::closePanel,
+                onStart = viewModel::startFocus,
+                onEnd = viewModel::endFocus,
+                onPickApps = viewModel::openFocusApps,
+                onScheduleEnabled = viewModel::setFocusScheduleEnabled,
+                onNudgeWindow = viewModel::nudgeFocusWindow,
+            )
+        }
+
+        PanelTransition(panel == Panel.FOCUS_APPS) {
+            FocusAppsScreen(
+                apps = allApps,
+                allowed = settings.focusAllowed,
+                iconLoader = viewModel.iconLoader,
+                onBack = viewModel::closePanel,
+                onToggle = viewModel::setFocusAllowed,
+            )
+        }
+
         PanelTransition(panel == Panel.DESIGN_PREVIEW) {
             DesignPreviewScreen(onBack = viewModel::closePanel)
         }
@@ -491,6 +589,18 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
 
 /** Wider than this the panel stops reading as a sheet and starts as a screen. */
 private val QUICK_PANEL_MAX_WIDTH = 380.dp
+
+/**
+ * The wallpaper veil in focus mode.
+ *
+ * Half-strength, not opaque: the point is to quieten the wallpaper, not to
+ * replace it with a black rectangle. The home screen's own text is white with
+ * a shadow, so a darker wallpaper makes it easier to read, not harder.
+ */
+private const val CALM_VEIL_ALPHA = 0.5f
+
+/** The same near-black as the dark theme's background, rather than pure black. */
+private val CALM_VEIL = ComposeColor(0xFF0E0E11)
 
 /**
  * Standard entrance for the full-screen panels: a short rise plus a fade, so

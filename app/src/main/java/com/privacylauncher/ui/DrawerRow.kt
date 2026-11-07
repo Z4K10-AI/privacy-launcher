@@ -54,6 +54,17 @@ sealed interface DrawerRow {
     }
 
     /**
+     * The banner at the top of the drawer while focus mode is on.
+     *
+     * It carries the way out as well as the explanation. Focus hides most of
+     * the drawer, so an "end focus" that lived only in Settings would be
+     * found by reading, when it should be found by looking.
+     */
+    data class FocusNotice(val setAside: Int) : DrawerRow {
+        override val id: String get() = "focus-notice"
+    }
+
+    /**
      * The row that offers contact search, shown only while searching and
      * only while the feature is off. Tapping it is the one thing in this app
      * that asks for a permission.

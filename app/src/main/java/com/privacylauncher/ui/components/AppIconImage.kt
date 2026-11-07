@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
+import com.privacylauncher.designsystem.rememberCalmFilter
 
 /**
  * One app icon.
@@ -46,6 +47,10 @@ fun AppIconImage(
         Image(
             bitmap = current,
             contentDescription = null, // the label next to it already names the app
+            // Drained of colour while focus is on. App icons are supplied by
+            // other apps and are the loudest thing on the screen, so a calm
+            // theme that left them alone would not look calm at all.
+            colorFilter = rememberCalmFilter(),
             modifier = modifier.size(size),
         )
     } else {
@@ -83,6 +88,10 @@ fun PackageIconImage(
         Image(
             bitmap = current,
             contentDescription = null, // the label next to it already names the app
+            // Drained of colour while focus is on. App icons are supplied by
+            // other apps and are the loudest thing on the screen, so a calm
+            // theme that left them alone would not look calm at all.
+            colorFilter = rememberCalmFilter(),
             modifier = modifier.size(size),
         )
     } else {

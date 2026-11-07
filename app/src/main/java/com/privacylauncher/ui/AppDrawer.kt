@@ -73,6 +73,7 @@ import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.SettingsTarget
 import com.privacylauncher.designsystem.Radii
 import com.privacylauncher.designsystem.Spacing
+import com.privacylauncher.designsystem.cardSurface
 import com.privacylauncher.designsystem.panelSurface
 import com.privacylauncher.designsystem.rememberHaptics
 import com.privacylauncher.ui.components.AppCell
@@ -129,6 +130,8 @@ fun AppDrawer(
     onOpenContact: (ContactMatch) -> Unit,
     onEnableContacts: () -> Unit,
     onOwnAppInfo: () -> Unit,
+    onEndFocus: () -> Unit,
+    onOpenFocus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -331,6 +334,11 @@ fun AppDrawer(
                                 title = row.match.name,
                                 onClick = { onOpenContact(row.match) },
                             )
+                            is DrawerRow.FocusNotice -> FocusNotice(
+                                setAside = row.setAside,
+                                onEndFocus = onEndFocus,
+                                onOpenFocus = onOpenFocus,
+                            )
                             is DrawerRow.ContactPrompt -> ResultRow(
                                 icon = LauncherIcons.Person,
                                 title = if (row.permanentlyDenied) {
@@ -382,6 +390,51 @@ fun AppDrawer(
             onRemoveFromDock = { menuFor = null; onRemoveFromDock(entry) },
             onHide = { menuFor = null; onHide(entry) },
         )
+    }
+}
+
+/**
+ * The banner at the top of the drawer while focus mode is on.
+ *
+ * Says what is happening, how much is being held back, and carries the way
+ * out. Tapping the body opens the focus screen; the button ends the session
+ * outright, which is the thing most likely to be wanted in a hurry.
+ */
+@Composable
+private fun FocusNotice(
+    setAside: Int,
+    onEndFocus: () -> Unit,
+    onOpenFocus: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.xs, vertical = Spacing.xxs)
+            .clip(RoundedCornerShape(Radii.card))
+            .cardSurface(level = 2)
+            .clickable(onClick = onOpenFocus)
+            .padding(start = Spacing.md, top = Spacing.sm, bottom = Spacing.sm),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.focus_banner_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = pluralStringResource(
+                    R.plurals.focus_banner_set_aside,
+                    setAside,
+                    setAside,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        TextButton(onClick = onEndFocus) {
+            Text(stringResource(R.string.focus_end))
+        }
     }
 }
 

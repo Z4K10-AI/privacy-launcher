@@ -88,6 +88,38 @@ data class LauncherSettings(
     val searchContacts: Boolean = false,
     /** Require the device PIN, pattern or biometric to open hidden apps. */
     val lockHiddenApps: Boolean = true,
+    /**
+     * Component keys that stay visible while focus mode is on.
+     *
+     * Empty by default, which is why the focus screen refuses to start a
+     * session until at least one app is chosen: focus with nothing allowed
+     * would empty the home screen and the drawer at once.
+     */
+    val focusAllowed: Set<String> = emptySet(),
+    /**
+     * When a hand-started focus session ends, as epoch milliseconds.
+     *
+     * 0 means no session. [FocusClock.NO_END] means one with no end time.
+     * Stored rather than held in memory so a session survives the launcher
+     * being killed, which on a 4 GB phone happens often.
+     */
+    val focusUntil: Long = 0L,
+    /**
+     * Ignore the schedule until this instant, as epoch milliseconds.
+     *
+     * What "end focus" does during a scheduled window. Without it, ending a
+     * session the schedule had started would simply switch it straight back
+     * on, and the only way out would be to turn the whole schedule off.
+     */
+    val focusSnoozeUntil: Long = 0L,
+    val focusSchedule: FocusSchedule = FocusSchedule(),
+    /**
+     * Minimal mode: a text-only home screen.
+     *
+     * A separate setting from focus mode, and they compose: minimal mode
+     * changes how the home screen looks, focus changes what is on it.
+     */
+    val minimalMode: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_DRAWER_COLUMNS = 4
@@ -99,5 +131,8 @@ data class LauncherSettings(
 
         /** How many apps the "most used" row shows. */
         const val MOST_USED_COUNT = 4
+
+        /** The step the focus schedule's time controls move in, in minutes. */
+        const val FOCUS_TIME_STEP = 15
     }
 }
