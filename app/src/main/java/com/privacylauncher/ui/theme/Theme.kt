@@ -5,59 +5,67 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.ThemeMode
 
-private val DarkScheme = darkColorScheme(
-    primary = Teal200,
-    onPrimary = Ink900,
-    primaryContainer = Teal700,
-    onPrimaryContainer = Ink100,
-    secondary = Teal200,
-    onSecondary = Ink900,
-    background = Ink900,
-    onBackground = Ink100,
-    surface = Ink800,
-    onSurface = Ink100,
-    surfaceVariant = Ink700,
-    onSurfaceVariant = Ink100,
-    outline = Ink700,
-)
-
-private val LightScheme = lightColorScheme(
-    primary = Teal400,
-    onPrimary = Color.White,
-    primaryContainer = Teal200,
-    onPrimaryContainer = Ink900,
-    secondary = Teal400,
-    onSecondary = Color.White,
-    background = Paper,
-    onBackground = Ink900,
-    surface = Paper,
-    onSurface = Ink900,
-    surfaceVariant = PaperDim,
-    onSurfaceVariant = Ink800,
-    outline = PaperDim,
-)
-
 /**
- * Wraps the whole launcher in a colour scheme.
+ * Wraps the launcher in a colour scheme and typography built from the user's
+ * settings.
  *
- * Note there is no "dynamic colour" / Material You here. That feature reads
- * the wallpaper to pick colours, which is a local operation and harmless, but
- * it pulls in extra code and gives inconsistent contrast over arbitrary
- * wallpapers. Feature 2 adds a manual accent picker instead.
+ * There is deliberately no Material You / dynamic colour. It derives colours
+ * from the wallpaper, which is a local operation and harmless for privacy,
+ * but gives unpredictable contrast over an arbitrary wallpaper. A fixed set
+ * of hand-checked accents is more reliable.
  */
 @Composable
 fun PrivacyLauncherTheme(
-    themeMode: ThemeMode,
+    settings: LauncherSettings,
     content: @Composable () -> Unit,
 ) {
-    val dark = themeMode.resolveIsDark()
+    val dark = settings.themeMode.resolveIsDark()
+    val palette = remember(settings.accent) { settings.accent.palette() }
+
+    val colorScheme = remember(settings.accent, dark) {
+        if (dark) {
+            darkColorScheme(
+                primary = palette.onDark,
+                onPrimary = Ink900,
+                primaryContainer = palette.containerDark,
+                onPrimaryContainer = Ink100,
+                secondary = palette.onDark,
+                onSecondary = Ink900,
+                background = Ink900,
+                onBackground = Ink100,
+                surface = Ink800,
+                onSurface = Ink100,
+                surfaceVariant = Ink700,
+                onSurfaceVariant = Ink100,
+                outline = Ink700,
+            )
+        } else {
+            lightColorScheme(
+                primary = palette.onLight,
+                onPrimary = Color.White,
+                primaryContainer = palette.containerLight,
+                onPrimaryContainer = Ink900,
+                secondary = palette.onLight,
+                onSecondary = Color.White,
+                background = Paper,
+                onBackground = Ink900,
+                surface = Paper,
+                onSurface = Ink900,
+                surfaceVariant = PaperDim,
+                onSurfaceVariant = Ink800,
+                outline = PaperDim,
+            )
+        }
+    }
 
     MaterialTheme(
-        colorScheme = if (dark) DarkScheme else LightScheme,
-        typography = LauncherTypography,
+        colorScheme = colorScheme,
+        typography = remember(settings.font) { launcherTypography(settings.font) },
         content = content,
     )
 }

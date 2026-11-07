@@ -4,6 +4,62 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Feature 2 — Customisation
+
+Added:
+- A real settings screen replacing the one-off dialog, with three groups:
+  Appearance, Layout and System.
+- Theme, plus six accent colours and four fonts. Each accent carries two
+  tones: a hue readable as text on white is too dim on near-black, so
+  light and dark schemes use different values of the same colour.
+- Fonts are families Android already ships (default, sans, serif, mono),
+  so nothing is bundled and the APK does not grow.
+- Icon size (small / medium / large) and column count (3-6), set
+  separately for the drawer and the home screen.
+- Home screen app grid. Long-press to enter edit mode, then drag to
+  rearrange or tap the ✕ badge to remove.
+- Add to / remove from home screen, and hide from drawer, in the drawer's
+  long-press menu.
+- Hidden apps screen with a switch per app, stating plainly that hiding is
+  cosmetic: the app stays installed, keeps running and keeps its
+  permissions.
+- Wallpaper: opens Android's own picker via ACTION_SET_WALLPAPER. The
+  launcher deliberately does not browse images itself, which would need a
+  storage permission and break the zero-permission property.
+- Settings that reference uninstalled apps are pruned automatically.
+
+Notes on the implementation:
+- All preferences are read as one `LauncherSettings` object from a single
+  Flow, so a change recomposes once rather than through eight separate
+  subscriptions.
+- The home grid is a plain Column of Rows, not a LazyVerticalGrid. Every
+  cell is on screen and at a known position, which is what drag-to-reorder
+  needs; computing it against a lazy layout's scroll state would be more
+  code for no benefit at this size.
+- Home apps are stored newline-joined rather than as a preference Set,
+  because order matters and DataStore sets are unordered.
+- `AppCell` takes an `interactive` flag. While reordering, a
+  `combinedClickable` on the cell would claim the pointer stream and the
+  parent's drag detector would never see the gesture.
+
+Fixed during the build:
+- `setHomeEditMode` clashed with the JVM setter Kotlin generates for the
+  `homeEditMode` property; renamed to `setHomeEditing`.
+- `tools/emulator.sh` backgrounded the emulator without `nohup`, so it
+  could be killed when the script exited.
+- The home remove badge and the drawer's close handle had no content
+  description, so a screen reader announced nothing for either.
+
+Verified on the emulator:
+- No crashes across the whole session.
+- Four apps added to the home screen, then the first dragged to last:
+  order became Camera, Contacts, Files, Clock as expected.
+- Accent change recolours the whole UI live; icon size and 5-column drawer
+  both applied.
+- Hiding Calendar removed it from the drawer and the count fell to 11.
+- Serif font, violet accent, large icons and the reordered home apps all
+  survived a `force-stop` and relaunch.
+
 ### First run on a device (Android 15 / API 35 emulator, AOSP arm64)
 
 Fixed:

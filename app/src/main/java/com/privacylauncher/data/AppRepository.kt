@@ -77,6 +77,21 @@ class AppRepository(private val context: Context) {
     }
 
     /**
+     * Opens Android's own wallpaper picker.
+     *
+     * The launcher deliberately does not browse or set wallpapers itself:
+     * doing so would mean reading the user's photo library, which needs a
+     * storage permission. Handing off to the system picker keeps this app at
+     * zero permissions and still lets the user change their wallpaper.
+     */
+    fun openWallpaperPicker(): Boolean {
+        val intent = Intent(Intent.ACTION_SET_WALLPAPER)
+        val chooser = Intent.createChooser(intent, null)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching { context.startActivity(chooser) }.isSuccess
+    }
+
+    /**
      * True when this app is currently the system's home screen.
      *
      * On API 29+ this asks RoleManager, which reports whether *we* hold the

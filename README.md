@@ -7,7 +7,7 @@ file inside its own private directory.
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **feature 1 (basic launcher) — working. Verified on an Android 15
+Status: **features 1 and 2 complete and working. Verified on an Android 15
 (API 35) AOSP emulator; not yet tested on physical hardware.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
@@ -20,15 +20,31 @@ permissions and no reference to `INTERNET` anywhere in the merged manifest.
 
 ## What it does today
 
-- **Home screen** — clock (12 or 24 hour, following the phone's own setting),
-  date, and the system wallpaper showing through.
-- **App drawer** — swipe up on the home screen, or tap **Apps**. A searchable
-  grid of every installed app. Search matches part of a name (`tele` finds
-  Telegram) and initials (`gm` finds Google Maps).
-- **Long-press an app** — opens **App info** (Android's own page, where you can
-  revoke that app's permissions) or **Uninstall**.
-- **Theme** — light, dark, or follow the system. Saved on the device.
-- **Set as default home app** — a shortcut into Android's home-app picker.
+**Home screen**
+- Clock (12 or 24 hour, following the phone's own setting) and date, over
+  your wallpaper.
+- A grid of apps you choose. Long-press any of them to enter edit mode, then
+  drag to rearrange or tap ✕ to remove.
+- Swipe up, or tap **Apps**, for the drawer.
+
+**App drawer**
+- Every installed, non-hidden app in a searchable grid. Search matches part of
+  a name (`tele` finds Telegram) and initials (`gm` finds Google Maps).
+- Long-press an app for: add to / remove from home screen, hide from drawer,
+  **App info** (Android's own page, where you revoke permissions), uninstall.
+
+**Customisation**, all stored on the device
+- Theme: light, dark, or follow system.
+- Accent colour: six choices, each with a separate tone for light and dark so
+  contrast holds either way.
+- Font: system default, sans serif, serif or monospace — all families Android
+  already ships, so nothing is bundled.
+- Icon size: small, medium or large.
+- Grid columns: 3–6, set separately for the drawer and the home screen.
+- Wallpaper: opens Android's own picker.
+- Hidden apps: a switch per app, with a clear note that hiding is cosmetic —
+  the app stays installed, keeps running, and keeps its permissions.
+- Set as default home app: a shortcut into Android's home-app picker.
 
 ## Privacy properties
 
@@ -106,17 +122,20 @@ privacy-launcher/
             ├── MainActivity.kt         the only Activity
             ├── data/
             │   ├── AppEntry.kt          one app + search matching
-            │   ├── AppRepository.kt     reads installed apps, launches them
-            │   ├── IconLoader.kt        background icon decode + LRU cache
+            │   ├── AppRepository.kt      reads installed apps, launches them
+            │   ├── IconLoader.kt         background icon decode + LRU cache
+            │   ├── LauncherSettings.kt   every preference, one data class
             │   └── SettingsRepository.kt local settings (DataStore)
             └── ui/
                 ├── LauncherViewModel.kt state that survives rotation
-                ├── HomeScreen.kt        clock, swipe-up gesture
+                ├── HomeScreen.kt        clock, app grid, drag-to-reorder
                 ├── AppDrawer.kt         search + lazy grid
-                ├── SettingsDialog.kt    theme and default-home
-                ├── components/AppIconImage.kt
-                ├── components/LauncherIcons.kt
-                └── theme/               colours, typography, scheme
+                ├── settings/
+                │   ├── SettingsScreen.kt      all preferences
+                │   ├── HiddenAppsScreen.kt    per-app hide switches
+                │   └── ScreenScaffold.kt      shared header + back
+                ├── components/          icons, cells, settings widgets
+                └── theme/               colours, accents, typography
 ```
 
 ## Running on a 4 GB phone

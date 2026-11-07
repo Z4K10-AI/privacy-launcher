@@ -12,7 +12,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.privacylauncher.PrivacyLauncherApp
+import com.privacylauncher.data.AccentColor
 import com.privacylauncher.data.AppEntry
+import com.privacylauncher.data.FontChoice
+import com.privacylauncher.data.IconSize
+import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,70 +26,76 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/**
- * Holds all launcher state that must survive a configuration change
- * (rotation, dark-mode switch, font-size change).
- *
- * Extends AndroidViewModel so Compose's default `viewModel()` factory can
- * build it with no extra wiring.
- */
+/** Which full-screen panel is showing, if any. */
+enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS }
+
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
     private val launcherApp = application as PrivacyLauncherApp
     private val appRepository = launcherApp.appRepository
-    private val settings = launcherApp.settingsRepository
+    private val settingsRepository = launcherApp.settingsRepository
 
     val iconLoader = launcherApp.iconLoader
 
-    // --- app list ---------------------------------------------------------
+    // --- settings ---------------------------------------------------------
+
+    val settings: StateFlow<LauncherSettings> = settingsRepository.settings
+        .stateIn(viewModelScope, SharingStarted.Eagerly, LauncherSettings())
+
+    // --- app lists --------------------------------------------------------
 
     private val allApps = MutableStateFlow<List<AppEntry>>(emptyList())
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
 
-    /** The app list after the search box has been applied. */
-    val visibleApps: StateFlow<List<AppEntry>> =
-        combine(allApps, _query) { apps, q ->
-            if (q.isBlank()) apps else apps.filter { it.matches(q) }
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = emptyList(),
-        )
+    /** Everything installed, for the hide-apps screen (hidden ones included). */
+    val allInstalledApps: StateFlow<List<AppEntry>> = allApps
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Total installed apps, regardless of the current search. */
-    val totalAppCount: StateFlow<Int> = allApps
-        .map { it.size }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    /** The drawer list: hidden apps removed, then the search applied. */
+    val drawerApps: StateFlow<List<AppEntry>> =
+        combine(allApps, settings, _query) { apps, s, q ->
+            apps.asSequence()
+                .filterNot { it.key in s.hiddenApps }
+                .filter { it.matches(q) }
+                .toList()
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** How many apps the drawer would show with no search active. */
+    val drawerTotal: StateFlow<Int> =
+        combine(allApps, settings) { apps, s ->
+            apps.count { it.key !in s.hiddenApps }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+
+    /**
+     * The home screen's apps, in the user's order.
+     *
+     * Keys that no longer resolve are skipped here and pruned from storage by
+     * [refreshApps], so an uninstalled app leaves no gap and no dead entry.
+     */
+    val homeApps: StateFlow<List<AppEntry>> =
+        combine(allApps, settings) { apps, s ->
+            val byKey = apps.associateBy { it.key }
+            s.homeApps.mapNotNull { byKey[it] }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // --- UI state ---------------------------------------------------------
 
-    /** Whether the app drawer is showing. Compose state, so the UI recomposes. */
-    var drawerOpen by mutableStateOf(false)
+    var panel by mutableStateOf(Panel.NONE)
         private set
 
-    /** Whether the settings sheet is showing. */
-    var settingsOpen by mutableStateOf(false)
+    /** Long-press on the home grid turns on reordering. */
+    var homeEditMode by mutableStateOf(false)
         private set
 
-    /** Whether this app is currently the phone's home screen. */
     var isDefaultHome by mutableStateOf(false)
         private set
 
-    // --- settings ---------------------------------------------------------
-
-    val themeMode: StateFlow<ThemeMode> = settings.themeMode
-        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+    val drawerOpen: Boolean get() = panel == Panel.DRAWER
 
     // --- package install/uninstall tracking -------------------------------
 
-    /**
-     * Refreshes the drawer when apps are installed, removed or updated.
-     *
-     * These are system broadcasts, so RECEIVER_NOT_EXPORTED is correct: no
-     * other app should be able to poke this receiver.
-     */
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             iconLoader.clear()
@@ -107,7 +117,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             filter,
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
-
         refreshApps()
         refreshDefaultHome()
     }
@@ -120,7 +129,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     // --- actions ----------------------------------------------------------
 
     fun refreshApps() {
-        viewModelScope.launch { allApps.value = appRepository.loadApps() }
+        viewModelScope.launch {
+            val apps = appRepository.loadApps()
+            allApps.value = apps
+            // Drop home/hidden entries for apps that have been uninstalled.
+            settingsRepository.pruneMissing(apps.mapTo(mutableSetOf()) { it.key })
+        }
     }
 
     fun refreshDefaultHome() {
@@ -133,30 +147,46 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun openDrawer() {
         _query.value = ""
-        drawerOpen = true
-    }
-
-    fun closeDrawer() {
-        drawerOpen = false
-        _query.value = ""
+        homeEditMode = false
+        panel = Panel.DRAWER
     }
 
     fun openSettings() {
-        settingsOpen = true
+        homeEditMode = false
+        panel = Panel.SETTINGS
     }
 
-    fun closeSettings() {
-        settingsOpen = false
+    fun openHiddenApps() {
+        panel = Panel.HIDDEN_APPS
+    }
+
+    /** Back behaviour: the hide-apps screen returns to settings, not home. */
+    fun closePanel() {
+        panel = when (panel) {
+            Panel.HIDDEN_APPS -> Panel.SETTINGS
+            else -> Panel.NONE
+        }
+        if (panel == Panel.NONE) _query.value = ""
+    }
+
+    fun closeAllPanels() {
+        panel = Panel.NONE
+        homeEditMode = false
+        _query.value = ""
+    }
+
+    /**
+     * Named `setHomeEditing`, not `setHomeEditMode`: the latter is the JVM
+     * setter Kotlin already generates for the `homeEditMode` property, and
+     * declaring both is a signature clash.
+     */
+    fun setHomeEditing(enabled: Boolean) {
+        homeEditMode = enabled
     }
 
     fun launch(entry: AppEntry) {
-        if (appRepository.launch(entry)) {
-            // Leave the drawer closed so returning home shows the home screen.
-            closeDrawer()
-        } else {
-            // The app was uninstalled while the list was on screen.
-            refreshApps()
-        }
+        if (homeEditMode) return
+        if (appRepository.launch(entry)) closeAllPanels() else refreshApps()
     }
 
     fun openAppInfo(entry: AppEntry) = appRepository.openAppInfo(entry.packageName)
@@ -165,7 +195,41 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun openHomeAppPicker() = appRepository.openHomeAppPicker()
 
-    fun setThemeMode(mode: ThemeMode) {
-        viewModelScope.launch { settings.setThemeMode(mode) }
+    fun openWallpaperPicker() = appRepository.openWallpaperPicker()
+
+    // --- settings writes --------------------------------------------------
+
+    fun setThemeMode(v: ThemeMode) = edit { settingsRepository.setThemeMode(v) }
+
+    fun setAccent(v: AccentColor) = edit { settingsRepository.setAccent(v) }
+
+    fun setFont(v: FontChoice) = edit { settingsRepository.setFont(v) }
+
+    fun setIconSize(v: IconSize) = edit { settingsRepository.setIconSize(v) }
+
+    fun setDrawerColumns(v: Int) = edit { settingsRepository.setDrawerColumns(v) }
+
+    fun setHomeColumns(v: Int) = edit { settingsRepository.setHomeColumns(v) }
+
+    fun setAppHidden(entry: AppEntry, hidden: Boolean) = edit {
+        settingsRepository.setAppHidden(entry.key, hidden)
+        // A hidden app should not linger on the home screen.
+        if (hidden) settingsRepository.removeFromHome(entry.key)
+    }
+
+    fun addToHome(entry: AppEntry) = edit { settingsRepository.addToHome(entry.key) }
+
+    fun removeFromHome(entry: AppEntry) = edit {
+        settingsRepository.removeFromHome(entry.key)
+    }
+
+    fun moveHomeApp(from: Int, to: Int) = edit {
+        settingsRepository.moveHomeApp(from, to)
+    }
+
+    fun isOnHome(entry: AppEntry): Boolean = entry.key in settings.value.homeApps
+
+    private fun edit(block: suspend () -> Unit) {
+        viewModelScope.launch { block() }
     }
 }

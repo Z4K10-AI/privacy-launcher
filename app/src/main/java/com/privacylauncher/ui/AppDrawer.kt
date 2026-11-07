@@ -1,12 +1,11 @@
 package com.privacylauncher.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +17,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,40 +35,45 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
-import com.privacylauncher.ui.components.AppIconImage
+import com.privacylauncher.ui.components.AppCell
 import com.privacylauncher.ui.components.LauncherIcons
-import com.privacylauncher.ui.components.DefaultIconSize
 
 /**
- * The app drawer: a searchable grid of every installed app.
+ * The app drawer: a searchable grid of every installed, non-hidden app.
  *
- * Uses [LazyVerticalGrid], so only the cells currently on screen exist. That
- * plus the on-demand icon loading in [AppIconImage] is what keeps this usable
- * on a 4 GB phone with a couple of hundred apps installed.
+ * Uses [LazyVerticalGrid], so only cells on screen exist. That plus the
+ * on-demand icon loading in AppIconImage is what keeps this usable on a 4 GB
+ * phone with a couple of hundred apps.
  */
 @Composable
 fun AppDrawer(
     apps: List<AppEntry>,
     totalAppCount: Int,
     query: String,
+    columns: Int,
+    iconSize: Dp,
     iconLoader: IconLoader,
+    isOnHome: (AppEntry) -> Boolean,
     onQueryChange: (String) -> Unit,
     onLaunch: (AppEntry) -> Unit,
     onClose: () -> Unit,
     onAppInfo: (AppEntry) -> Unit,
     onUninstall: (AppEntry) -> Unit,
+    onAddToHome: (AppEntry) -> Unit,
+    onRemoveFromHome: (AppEntry) -> Unit,
+    onHide: (AppEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Which app's long-press menu is open, if any.
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
 
     Column(
@@ -82,12 +88,12 @@ fun AppDrawer(
             // the keyboard height twice.
             .safeDrawingPadding(),
     ) {
-        // Tap-to-close handle. Back also closes the drawer, but on a phone with
-        // gesture navigation a visible affordance is easier to find.
+        val closeLabel = stringResource(R.string.drawer_close_handle)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClose)
+                .semantics { contentDescription = closeLabel }
                 .padding(vertical = 10.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -107,9 +113,7 @@ fun AppDrawer(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             placeholder = { Text(stringResource(R.string.drawer_search_hint)) },
-            leadingIcon = {
-                Icon(LauncherIcons.Search, contentDescription = null)
-            },
+            leadingIcon = { Icon(LauncherIcons.Search, contentDescription = null) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
@@ -120,18 +124,13 @@ fun AppDrawer(
                     }
                 }
             },
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                // Pressing the keyboard's search key opens the top result.
+            keyboardActions = KeyboardActions(
                 onSearch = { apps.firstOrNull()?.let(onLaunch) },
             ),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                imeAction = ImeAction.Search,
-            ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         )
 
         Text(
-            // Showing the full install count while a search is narrowing the
-            // list would be misleading, so swap to the match count.
             text = if (query.isBlank()) {
                 pluralStringResource(R.plurals.app_count, totalAppCount, totalAppCount)
             } else {
@@ -146,7 +145,10 @@ fun AppDrawer(
             // weight(1f), not fillMaxSize(): inside a Column the latter asks for
             // the full parent height rather than what is left after the search
             // field, which pushes the bottom of the list off screen.
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
                     text = stringResource(R.string.drawer_empty),
                     style = MaterialTheme.typography.bodyMedium,
@@ -155,12 +157,8 @@ fun AppDrawer(
             }
         } else {
             LazyVerticalGrid(
-                // Fixed at 4 for now; feature 2 makes this a setting.
-                columns = GridCells.Fixed(4),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    horizontal = 12.dp,
-                    vertical = 8.dp,
-                ),
+                columns = GridCells.Fixed(columns),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
@@ -168,6 +166,8 @@ fun AppDrawer(
                     AppCell(
                         entry = entry,
                         iconLoader = iconLoader,
+                        iconSize = iconSize,
+                        labelColor = MaterialTheme.colorScheme.onBackground,
                         onClick = { onLaunch(entry) },
                         onLongClick = { menuFor = entry },
                     )
@@ -179,43 +179,13 @@ fun AppDrawer(
     menuFor?.let { entry ->
         AppActionsDialog(
             entry = entry,
+            onHome = isOnHome(entry),
             onDismiss = { menuFor = null },
-            onAppInfo = {
-                menuFor = null
-                onAppInfo(entry)
-            },
-            onUninstall = {
-                menuFor = null
-                onUninstall(entry)
-            },
-        )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun AppCell(
-    entry: AppEntry,
-    iconLoader: IconLoader,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
-    ) {
-        AppIconImage(entry = entry, loader = iconLoader, size = DefaultIconSize)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = entry.label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
+            onAppInfo = { menuFor = null; onAppInfo(entry) },
+            onUninstall = { menuFor = null; onUninstall(entry) },
+            onAddToHome = { menuFor = null; onAddToHome(entry) },
+            onRemoveFromHome = { menuFor = null; onRemoveFromHome(entry) },
+            onHide = { menuFor = null; onHide(entry) },
         )
     }
 }
@@ -223,17 +193,19 @@ private fun AppCell(
 @Composable
 private fun AppActionsDialog(
     entry: AppEntry,
+    onHome: Boolean,
     onDismiss: () -> Unit,
     onAppInfo: () -> Unit,
     onUninstall: () -> Unit,
+    onAddToHome: () -> Unit,
+    onRemoveFromHome: () -> Unit,
+    onHide: () -> Unit,
 ) {
-    // Both actions are rows in the body, and the only button is Cancel.
+    // Every action is a row in the body and the only button is Cancel.
     //
-    // The earlier version put Uninstall in AlertDialog's dismissButton slot --
+    // An earlier version put Uninstall in AlertDialog's dismissButton slot --
     // bottom-left, exactly where Cancel normally lives. That invites someone
     // dismissing the dialog by habit to start uninstalling an app instead.
-    // Android would still show its own confirmation, but a destructive action
-    // does not belong in the slot muscle memory treats as "get me out".
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(entry.label) },
@@ -245,10 +217,13 @@ private fun AppActionsDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(16.dp))
-                DialogAction(
-                    label = stringResource(R.string.app_info),
-                    onClick = onAppInfo,
-                )
+                if (onHome) {
+                    DialogAction(stringResource(R.string.remove_from_home), onRemoveFromHome)
+                } else {
+                    DialogAction(stringResource(R.string.add_to_home), onAddToHome)
+                }
+                DialogAction(stringResource(R.string.hide_app), onHide)
+                DialogAction(stringResource(R.string.app_info), onAppInfo)
                 DialogAction(
                     label = stringResource(R.string.uninstall),
                     onClick = onUninstall,
@@ -257,9 +232,7 @@ private fun AppActionsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }

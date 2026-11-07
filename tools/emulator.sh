@@ -25,11 +25,14 @@ fi
 WINDOW="-no-window"
 [ "$1" = "--window" ] && WINDOW=""
 
-echo "Booting $AVD..."
+LOG="${TMPDIR:-/tmp}/privacy-launcher-emulator.log"
+echo "Booting $AVD (log: $LOG)..."
+# nohup, so the emulator outlives this script rather than being killed with
+# it when the shell exits.
 # shellcheck disable=SC2086
-"$ANDROID_HOME/emulator/emulator" -avd "$AVD" $WINDOW \
+nohup "$ANDROID_HOME/emulator/emulator" -avd "$AVD" $WINDOW \
     -no-audio -no-boot-anim -no-snapshot -memory 2048 \
-    -gpu swiftshader_indirect &
+    -gpu swiftshader_indirect > "$LOG" 2>&1 &
 
 adb wait-for-device
 printf "Waiting for boot"
