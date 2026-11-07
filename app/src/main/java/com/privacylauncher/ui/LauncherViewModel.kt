@@ -173,6 +173,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (panel == Panel.NONE) _query.value = ""
     }
 
+    /**
+     * What the Back gesture should do, in priority order.
+     *
+     * Clearing a search before closing the drawer matters: typing three
+     * letters, realising it is the wrong app and pressing back used to throw
+     * away the whole drawer, so you had to open it and scroll from the top
+     * again.
+     */
+    fun onBack() {
+        when {
+            panel == Panel.DRAWER && _query.value.isNotBlank() -> _query.value = ""
+            panel != Panel.NONE -> closePanel()
+            homeEditMode -> homeEditMode = false
+        }
+    }
+
     fun closeAllPanels() {
         panel = Panel.NONE
         homeEditMode = false

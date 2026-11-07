@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.designsystem.LauncherTheme
 import com.privacylauncher.designsystem.Motion
+import com.privacylauncher.designsystem.adaptiveColumns
 import com.privacylauncher.designsystem.resolveIsDark
 import com.privacylauncher.ui.AppDrawer
 import com.privacylauncher.ui.HomeScreen
@@ -138,7 +139,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
         Box(Modifier.graphicsLayer { alpha = homeAlpha }) {
             HomeScreen(
                 homeApps = homeApps,
-                columns = settings.homeColumns,
+                columns = adaptiveColumns(settings.homeColumns),
                 iconSize = iconSize,
                 iconLoader = viewModel.iconLoader,
                 editMode = viewModel.homeEditMode,
@@ -165,7 +166,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 apps = drawerApps,
                 totalAppCount = drawerTotal,
                 query = query,
-                columns = settings.drawerColumns,
+                columns = adaptiveColumns(settings.drawerColumns),
                 iconSize = iconSize,
                 iconLoader = viewModel.iconLoader,
                 isOnHome = viewModel::isOnHome,
@@ -217,13 +218,10 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     // Back closes whatever is open, then leaves edit mode, then does nothing.
     // The handler stays enabled throughout: see the class comment for why
     // falling through to the default handler is wrong on a home screen.
-    BackHandler(enabled = true) {
-        when {
-            panelOpen -> viewModel.closePanel()
-            viewModel.homeEditMode -> viewModel.setHomeEditing(false)
-            else -> Unit // already home; there is nowhere to go back to
-        }
-    }
+    // Nothing to go back to on a bare home screen, so the press is swallowed
+    // here rather than reaching the Activity's default handler. See the class
+    // comment for why finishing a home Activity is wrong.
+    BackHandler(enabled = true) { viewModel.onBack() }
 }
 
 /**

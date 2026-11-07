@@ -4,6 +4,54 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Bug hunt and usability pass
+
+Fixed — layout:
+- **The Apps button and settings gear could be pushed off the screen.**
+  With eleven apps on the home screen at a large Display size, the grid
+  grew past the available height and the bottom bar went with it, leaving
+  the swipe-up gesture as the only way into the drawer — which a new user
+  has no reason to know exists. The clock and grid now live in a
+  scrollable area and the bottom bar never scrolls.
+- Making that area scrollable then swallowed swipe-up-to-open-drawer,
+  because a `verticalScroll` consumes vertical drags even with nothing to
+  scroll. Scrolling is now enabled only when the content really overflows.
+- The clock wrapped "3:40 PM" onto two lines, and the date onto three, at
+  large Display sizes. It now steps down through the display scale on
+  narrow or short windows instead of wrapping.
+- Landscape sliced the second row of apps in half. Column counts now
+  double in a wide window (capped at eight) and the clock goes compact on
+  a short one.
+- Home cell height ignored the user's font scale, so two-line app names
+  were clipped at larger text sizes.
+- Window size is read from `LocalWindowInfo` rather than
+  `Configuration.screenWidthDp`, which describes the screen rather than
+  the window and over-reports in split-screen.
+
+Fixed — behaviour:
+- The clock could show a stale time after the phone had been dozing: the
+  minute ticker does not run on schedule in app standby, so unlocking
+  could show the wrong time for up to a minute on the one screen whose
+  job is telling you the time. It now re-reads on every resume.
+- Changing the phone's 12/24-hour setting had no effect until the
+  launcher's process restarted. Also re-read on resume.
+- Back in the drawer threw away the whole drawer even with a search
+  typed. It now clears the search first and closes on the second press.
+- The drawer's empty state always read "No apps match that search", even
+  with every app hidden and no search typed.
+
+Changed:
+- Long-press on a home icon now carries straight into a drag. Entering
+  edit mode and dragging used to be two separate gestures: long-press,
+  release, then long-press again to move anything.
+
+Verified on the emulator (paths that existed but had never been run):
+- The ✕ badge removes an app and the grid reflows.
+- Hiding an app that is on the home screen removes it from both.
+- Tap still launches; long-press-and-drag reorders in one motion.
+- Back clears a search, then closes the drawer, then exits edit mode.
+- Portrait and landscape both fit with no clipping; no crashes.
+
 ### Design system
 
 Added `designsystem/`, and refactored every existing screen onto it.

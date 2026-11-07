@@ -5,8 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,6 +46,9 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -55,6 +62,7 @@ import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
 import com.privacylauncher.designsystem.Radii
 import com.privacylauncher.designsystem.Spacing
+import com.privacylauncher.designsystem.isShortWindow
 import com.privacylauncher.designsystem.rememberHaptics
 import com.privacylauncher.ui.components.AppCell
 import com.privacylauncher.ui.components.LauncherIcons
@@ -109,13 +117,51 @@ fun HomeScreen(
             .safeDrawingPadding(),
     ) {
         Column(Modifier.fillMaxSize()) {
+            // The clock and grid scroll; the bottom bar never does.
+            //
+            // This was a real failure, not a precaution. With eleven apps on
+            // the home screen at a large Display size, the grid grew past the
+            // available height, the Apps button and settings gear were pushed
+            // off the bottom of the screen, and the only remaining way into
+            // the drawer was the swipe-up gesture -- which a new user has no
+            // reason to know exists.
+            //
+            // heightIn(min = viewport) is what lets Arrangement.SpaceBetween
+            // still work inside a scrollable Column: without it the content is
+            // measured against infinite height and the arrangement does
+            // nothing.
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val viewportHeight = maxHeight
+                val scrollState = rememberScrollState()
+                // Scrolling is enabled only when the content genuinely
+                // overflows. An always-on verticalScroll swallows the
+                // swipe-up-to-open-drawer gesture even with nothing to
+                // scroll, which silently broke the launcher's main gesture.
+                // maxValue is Int.MAX_VALUE until the first measurement, so
+                // that case has to be excluded too.
+                val canScroll = scrollState.maxValue > 0 &&
+                    scrollState.maxValue != Int.MAX_VALUE
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState, enabled = canScroll)
+                        .heightIn(min = viewportHeight),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+            // On a short screen -- landscape, or a small phone -- a 64sp
+            // clock plus 48dp of padding ate enough height to slice the
+            // second row of apps in half. Step both down.
+            val shortScreen = isShortWindow()
             Clock(
+                compact = shortScreen,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = Spacing.xxl, start = Spacing.lg, end = Spacing.lg),
+                    .padding(
+                        top = if (shortScreen) Spacing.md else Spacing.xxl,
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                    ),
             )
-
-            Spacer(Modifier.weight(1f))
 
             if (homeApps.isEmpty()) {
                 Text(
@@ -140,6 +186,8 @@ fun HomeScreen(
                     onMove = onMove,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xs),
                 )
+            }
+                }
             }
 
             BottomBar(
@@ -190,7 +238,11 @@ private fun HomeGrid(
 
     BoxWithConstraints(modifier) {
         val cellWidth = maxWidth / columns
-        val cellHeight = iconSize + Spacing.xl + Spacing.sm
+        // Label space scales with the user's font size setting. At a fixed
+        // height, a two-line app name at 1.3x font scale is clipped.
+        val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 1.6f)
+        val labelSpace = (Spacing.xl + Spacing.sm) * fontScale
+        val cellHeight = iconSize + labelSpace
         val density = LocalDensity.current
         val cellWpx = with(density) { cellWidth.toPx() }
         val cellHpx = with(density) { cellHeight.toPx() }
@@ -222,12 +274,24 @@ private fun HomeGrid(
                                         alpha = 0.9f
                                     }
                                 }
-                                .then(
-                                    if (editMode) {
-                                        Modifier.pointerInput(index, columns, apps.size) {
+                                // Tap launches, but only when not editing.
+                                .pointerInput(editMode, entry.key) {
+                                    detectTapGestures(
+                                        onTap = { if (!editMode) onLaunch(entry) },
+                                    )
+                                }
+                                // Long-press starts a drag in the same motion.
+                                // Previously edit mode and dragging were two
+                                // separate gestures: long-press, let go, then
+                                // long-press again to actually move anything.
+                                // Entering edit mode from here means the first
+                                // long-press can carry straight into a drag,
+                                // which is what every other launcher does.
+                                .pointerInput(index, columns, apps.size) {
                                             detectDragGesturesAfterLongPress(
                                                 onDragStart = {
                                                     haptics.dragStart()
+                                                    onEnterEditMode()
                                                     dragIndex = index
                                                     targetIndex = index
                                                     dragOffset = Offset.Zero
@@ -272,17 +336,7 @@ private fun HomeGrid(
                                                     dragOffset = Offset.Zero
                                                 },
                                             )
-                                        }
-                                    } else {
-                                        Modifier.combinedClickable(
-                                            onClick = { onLaunch(entry) },
-                                            onLongClick = {
-                                                haptics.longPress()
-                                                onEnterEditMode()
-                                            },
-                                        )
-                                    }
-                                ),
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             if (isTarget) {
@@ -388,16 +442,20 @@ private fun HomePill(label: String, contentDescription: String, onClick: () -> U
 }
 
 @Composable
-private fun Clock(modifier: Modifier = Modifier) {
+private fun Clock(compact: Boolean, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val uses24Hour = remember { DateFormat.is24HourFormat(context) }
+
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    // Re-read on every resume, not once: the user can change this in Settings
+    // while we are in the background, and a launcher stuck on the wrong clock
+    // format until its process restarts looks broken.
+    var uses24Hour by remember { mutableStateOf(DateFormat.is24HourFormat(context)) }
 
     val timeFormatter = remember(uses24Hour) {
         DateTimeFormatter.ofPattern(if (uses24Hour) "HH:mm" else "h:mm a")
     }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d MMMM") }
 
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         // Tick on the minute boundary rather than every second, so the process
         // stays asleep almost all the time.
@@ -407,25 +465,61 @@ private fun Clock(modifier: Modifier = Modifier) {
         }
     }
 
+    // The minute ticker alone is not enough. While the phone is dozing or the
+    // app is in standby the coroutine does not run on schedule, so unlocking
+    // after a long sleep could show a stale time for up to a minute -- on the
+    // one screen whose main job is telling you the time. Resuming forces a
+    // re-read.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                now = LocalDateTime.now()
+                uses24Hour = DateFormat.is24HourFormat(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val shadow = Shadow(color = Color.Black.copy(alpha = 0.55f), blurRadius = 12f)
 
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = now.format(timeFormatter),
-            style = MaterialTheme.typography.displayLarge.copy(shadow = shadow),
-            color = Color.White,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(Spacing.xxs))
-        Text(
-            text = now.format(dateFormatter),
-            style = MaterialTheme.typography.titleLarge.copy(shadow = shadow),
-            color = Color.White.copy(alpha = 0.9f),
-            textAlign = TextAlign.Center,
-        )
+    BoxWithConstraints(modifier) {
+        // 64sp wrapped "3:38 PM" onto two lines at a large Display size, and
+        // pushed the date onto three. Step the scale down when the screen is
+        // narrow in dp rather than let it break.
+        val typography = MaterialTheme.typography
+        val timeStyle = when {
+            compact || maxWidth < 280.dp -> typography.displaySmall
+            maxWidth < 340.dp -> typography.displayMedium
+            else -> typography.displayLarge
+        }
+        val dateStyle = if (compact || maxWidth < 300.dp) {
+            typography.titleMedium
+        } else {
+            typography.titleLarge
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = now.format(timeFormatter),
+                style = timeStyle.copy(shadow = shadow),
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+            Spacer(Modifier.height(Spacing.xxs))
+            Text(
+                text = now.format(dateFormatter),
+                style = dateStyle.copy(shadow = shadow),
+                color = Color.White.copy(alpha = 0.9f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
     }
 }

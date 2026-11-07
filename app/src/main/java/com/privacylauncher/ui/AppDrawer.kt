@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
@@ -157,9 +158,18 @@ fun AppDrawer(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = stringResource(R.string.drawer_empty),
+                    // With everything hidden there is no search to blame, and
+                    // "No apps match that search" would send the user looking
+                    // for a search box they never typed in.
+                    text = if (query.isBlank()) {
+                        stringResource(R.string.drawer_empty_all)
+                    } else {
+                        stringResource(R.string.drawer_empty)
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = Spacing.xl),
                 )
             }
         } else {
