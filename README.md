@@ -12,8 +12,9 @@ turn it on yourself. [Contacts, in detail](#contacts-the-one-permission).
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **features 1 and 2 complete, on a design system. Verified on an
-Android 15 (API 35) AOSP emulator; not yet tested on physical hardware.**
+Status: **home screen and app drawer complete, on a design system. Verified
+on an Android 15 (API 35) AOSP emulator; not yet tested on physical
+hardware.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
@@ -46,13 +47,27 @@ the merged manifest.
   both read from the phone with no network and no permission. No weather,
   deliberately — it would need both.
 - Tapping the clock opens your clock app.
-- Swipe up, or tap **Apps**, for the drawer.
+- Swipe up, or tap **Apps**, for the drawer. The sheet follows your finger
+  and springs to open or closed when you let go.
 
 **App drawer**
-- Every installed, non-hidden app in a searchable grid. Search matches part of
-  a name (`tele` finds Telegram) and initials (`gm` finds Google Maps).
-- Long-press an app for: add to / remove from home screen, hide from drawer,
-  **App info** (Android's own page, where you revoke permissions), uninstall.
+- Every installed, non-hidden app in a grid, alphabetical with a heading per
+  letter and a fast-scroll letter bar once there are enough apps to need one.
+- Fuzzy search, reordered on every keystroke. Results are ranked in tiers:
+  the whole name, a prefix (`tele` finds Telegram), a word start (`maps`
+  finds Google Maps), initials (`gm` finds Google Maps, `wv` finds WebView
+  Browser Tester), anywhere in the name, then the letters in order with gaps.
+  Within a tier the shorter name wins.
+- The keyboard opens with the drawer, with a switch in Settings to stop it.
+- Search also finds **system settings screens** — Wi‑Fi, Display, Battery and
+  so on — and, if you switch it on, **contacts**. See
+  [Contacts, in detail](#contacts-the-one-permission).
+- An optional **most used** row at the top, counted on the phone, stored only
+  there, and erasable from Settings.
+- Drag the handle at the top to pull the drawer back down.
+- Long-press an app for: add to / remove from home screen, add to dock, hide
+  from drawer, **App info** (Android's own page, where you revoke
+  permissions), uninstall.
 
 **Customisation**, all stored on the device
 - Theme: light, dark, or follow system.
@@ -64,7 +79,13 @@ the merged manifest.
 - Grid columns: 3–6, set separately for the drawer and the home screen.
 - Wallpaper: opens Android's own picker.
 - Hidden apps: a switch per app, with a clear note that hiding is cosmetic —
-  the app stays installed, keeps running, and keeps its permissions.
+  the app stays installed, keeps running, and keeps its permissions. The list
+  itself can be put behind the phone's own lock: fingerprint or face where
+  they are enrolled, PIN, pattern or password otherwise. That uses the
+  platform's `createConfirmDeviceCredentialIntent`, not the `androidx.biometric`
+  library, which would be a sizeable dependency for one dialog.
+- Search: auto keyboard, the most used row, clearing usage history, and
+  contact search.
 - Set as default home app: a shortcut into Android's home-app picker.
 
 ## Design system

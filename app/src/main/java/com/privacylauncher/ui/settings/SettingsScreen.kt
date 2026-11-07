@@ -55,6 +55,8 @@ fun SettingsScreen(
     onHomeColumns: (Int) -> Unit,
     onWallpaper: () -> Unit,
     onHiddenApps: () -> Unit,
+    deviceSecure: Boolean,
+    onLockHiddenApps: (Boolean) -> Unit,
     gestureServiceEnabled: Boolean,
     onGestureService: () -> Unit,
     onDesignPreview: () -> Unit,
@@ -283,6 +285,27 @@ fun SettingsScreen(
                     },
                     onClick = onHiddenApps,
                 )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_lock_hidden),
+                    subtitle = stringResource(R.string.settings_lock_hidden_body),
+                    checked = settings.lockHiddenApps,
+                    onCheckedChange = onLockHiddenApps,
+                )
+                if (!deviceSecure) {
+                    // Left switchable on purpose: the preference is still
+                    // meaningful, and it starts working the moment a screen
+                    // lock exists. Saying so beats a greyed-out row that
+                    // gives no reason.
+                    Text(
+                        text = stringResource(R.string.settings_lock_hidden_unavailable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(
+                            horizontal = Spacing.lg,
+                            vertical = Spacing.xxs,
+                        ),
+                    )
+                }
                 if (isDefaultHome) {
                     Text(
                         text = stringResource(R.string.settings_default_home_already),

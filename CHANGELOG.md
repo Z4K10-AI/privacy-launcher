@@ -4,6 +4,25 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Hidden apps behind the phone's own lock
+
+Added:
+- Opening the hidden apps list can require the device credential:
+  fingerprint or face where they are enrolled, PIN, pattern or
+  password otherwise. On by default, with a switch in Settings.
+- A phone with no screen lock says so on that row rather than leaving a
+  switch that silently does nothing.
+
+Notes:
+- Built on `KeyguardManager.createConfirmDeviceCredentialIntent` rather
+  than `androidx.biometric`. The library is the usual answer, but it is
+  a dependency of some size for one dialog in a project meant to stay
+  small. The platform call needs no permission -- not even
+  USE_BIOMETRIC -- and shows the same system sheet, with the system
+  rather than this app deciding which factor to offer.
+- With no screen lock set the screen opens straight away. Refusing
+  would lock someone out of their own setting with no way back.
+
 ### Search beyond apps: settings screens and contacts
 
 Added:

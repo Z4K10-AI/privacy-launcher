@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +42,7 @@ import com.privacylauncher.designsystem.Motion
 import com.privacylauncher.designsystem.adaptiveColumns
 import com.privacylauncher.designsystem.blurBehind
 import com.privacylauncher.designsystem.resolveIsDark
+import com.privacylauncher.system.rememberDeviceUnlock
 import com.privacylauncher.ui.AppDrawer
 import com.privacylauncher.ui.FolderSheet
 import com.privacylauncher.ui.rememberDrawerSwipe
@@ -148,6 +150,21 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
             viewModel.onContactsPermissionResult(true)
         } else {
             contactsPermission.launch(ContactRepository.PERMISSION)
+        }
+    }
+
+    // Hidden apps can be put behind the phone's own lock. Resolved here
+    // because the result launcher has to be registered in composition.
+    val deviceUnlock = rememberDeviceUnlock()
+    val unlockTitle = stringResource(R.string.unlock_title)
+    val unlockDescription = stringResource(R.string.unlock_description)
+    val openHiddenApps = {
+        if (settings.lockHiddenApps) {
+            deviceUnlock.confirm(unlockTitle, unlockDescription) {
+                viewModel.openHiddenApps()
+            }
+        } else {
+            viewModel.openHiddenApps()
         }
     }
 
@@ -338,7 +355,9 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onDrawerColumns = viewModel::setDrawerColumns,
                 onHomeColumns = viewModel::setHomeColumns,
                 onWallpaper = { viewModel.openWallpaperPicker() },
-                onHiddenApps = viewModel::openHiddenApps,
+                onHiddenApps = openHiddenApps,
+                deviceSecure = deviceUnlock.isSecure,
+                onLockHiddenApps = viewModel::setLockHiddenApps,
                 gestureServiceEnabled = viewModel.gestureServiceEnabled,
                 onGestureService = { viewModel.showGestureExplainerDialog() },
                 onDesignPreview = viewModel::openDesignPreview,

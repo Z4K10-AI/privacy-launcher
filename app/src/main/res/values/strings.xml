@@ -138,6 +138,12 @@
     <string name="settings_default_home_already">Privacy Launcher is already your home app.</string>
 
     <!-- Hidden apps screen -->
+    <string name="settings_lock_hidden">Require unlock</string>
+    <string name="settings_lock_hidden_body">Ask for your PIN, pattern or fingerprint before showing the hidden apps list.</string>
+    <string name="settings_lock_hidden_unavailable">This phone has no screen lock set, so there is nothing to ask for. Set one in Android\'s Security settings and this starts working.</string>
+    <string name="unlock_title">Hidden apps</string>
+    <string name="unlock_description">Confirm it is you before showing the hidden apps list.</string>
+
     <string name="hidden_apps_title">Hidden apps</string>
     <string name="hidden_apps_body">Hidden apps stay installed and keep running. They are only removed from this launcher\'s drawer and home screen.</string>
 
