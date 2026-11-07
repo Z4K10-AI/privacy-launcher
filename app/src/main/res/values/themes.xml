@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The Activity window itself. Colours and typography all live in Compose
+      (ui/theme/Theme.kt); this style only has to do three things:
+        1. no action bar,
+        2. let the system wallpaper show through,
+        3. draw behind the status and navigation bars.
+      Parenting on android:Theme.Material means we do not need the AppCompat
+      library at all.
+    -->
+    <style name="Theme.PrivacyLauncher" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowContentTransitions">false</item>
+    </style>
+</resources>

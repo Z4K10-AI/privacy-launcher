@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A simple shield, drawn inside the 72dp safe zone of the 108dp canvas. -->
+    <path
+        android:fillColor="#7DD3C0"
+        android:pathData="M54,28 L72,35 L72,54 C72,66 64,74 54,79 C44,74 36,66 36,54 L36,35 Z" />
+    <path
+        android:fillColor="#1B1F2A"
+        android:pathData="M46,53 L51,58 L62,47 L65,50 L51,64 L43,56 Z" />
+</vector>
