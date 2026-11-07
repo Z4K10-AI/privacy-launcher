@@ -8,7 +8,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
@@ -31,6 +34,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.privacylauncher.data.ContactRepository
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.designsystem.LauncherTheme
 import com.privacylauncher.designsystem.Motion
@@ -106,6 +110,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSettings) {
     val drawerList by viewModel.drawerList.collectAsStateWithLifecycle()
+    val extraRows by viewModel.extraRows.collectAsStateWithLifecycle()
     val homeTiles by viewModel.homeTiles.collectAsStateWithLifecycle()
     val dock by viewModel.dockApps.collectAsStateWithLifecycle()
     val allApps by viewModel.allInstalledApps.collectAsStateWithLifecycle()
@@ -121,6 +126,30 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     // object just chases that, and the drag updates it directly in between.
     val drawerSwipe = rememberDrawerSwipe()
     LaunchedEffect(drawerOpen) { drawerSwipe.settle(if (drawerOpen) 1f else 0f) }
+
+    // The only permission request this app ever makes. It is reached from the
+    // row in the drawer and the switch in Settings, and from nowhere else.
+    val activity = LocalActivity.current
+    val contactsPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        // After a refusal, shouldShowRequestPermissionRationale is still true
+        // while Android is willing to ask again, and false once it has given
+        // up. That distinction is what decides whether the drawer keeps
+        // offering the switch or points at App info instead.
+        val willAskAgain = activity?.shouldShowRequestPermissionRationale(
+            ContactRepository.PERMISSION,
+        ) ?: true
+        viewModel.onContactsPermissionResult(granted, willAskAgain)
+    }
+    val askForContacts = {
+        if (viewModel.contactsPermissionGranted()) {
+            // Already granted from an earlier session; no need to ask again.
+            viewModel.onContactsPermissionResult(true)
+        } else {
+            contactsPermission.launch(ContactRepository.PERMISSION)
+        }
+    }
 
     // derivedStateOf, not a plain read: this only invalidates when the boolean
     // flips, so a drag does not recompose the whole tree 60 times a second.
@@ -252,6 +281,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
             ) {
                 AppDrawer(
                     list = drawerList,
+                    extraRows = extraRows,
                     query = query,
                     columns = adaptiveColumns(settings.drawerColumns),
                     iconSize = iconSize,
@@ -279,6 +309,10 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                     onAddToDock = viewModel::addToDock,
                     onRemoveFromDock = viewModel::removeFromDock,
                     onHide = { viewModel.setAppHidden(it, true) },
+                    onOpenSettingsScreen = viewModel::openSettingsScreen,
+                    onOpenContact = viewModel::openContact,
+                    onEnableContacts = askForContacts,
+                    onOwnAppInfo = { viewModel.openOwnAppInfo() },
                 )
             }
         }
@@ -295,6 +329,10 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onAutoKeyboard = viewModel::setAutoKeyboard,
                 onShowMostUsed = viewModel::setShowMostUsed,
                 onClearUsage = viewModel::clearUsageHistory,
+                onSearchContacts = { wanted ->
+                    if (wanted) askForContacts() else viewModel.disableContactSearch()
+                },
+                onAppInfo = { viewModel.openOwnAppInfo() },
                 onFont = viewModel::setFont,
                 onIconSize = viewModel::setIconSize,
                 onDrawerColumns = viewModel::setDrawerColumns,

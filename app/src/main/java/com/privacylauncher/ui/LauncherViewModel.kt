@@ -14,13 +14,19 @@ import androidx.lifecycle.viewModelScope
 import com.privacylauncher.PrivacyLauncherApp
 import com.privacylauncher.data.AccentColor
 import com.privacylauncher.data.AppEntry
+import com.privacylauncher.data.ContactMatch
+import com.privacylauncher.data.ContactRepository
 import com.privacylauncher.data.FontChoice
 import com.privacylauncher.data.Fuzzy
+import com.privacylauncher.data.SettingsTarget
+import com.privacylauncher.data.SettingsTargets
 import com.privacylauncher.data.HomeItem
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.ThemeMode
 import com.privacylauncher.system.LauncherAccessibilityService
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +43,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val launcherApp = application as PrivacyLauncherApp
     private val appRepository = launcherApp.appRepository
     private val settingsRepository = launcherApp.settingsRepository
+    private val contactRepository = launcherApp.contactRepository
 
     val iconLoader = launcherApp.iconLoader
 
@@ -147,6 +154,80 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
+    /** System settings screens this device actually has. Resolved once. */
+    private val settingsTargets = MutableStateFlow<List<SettingsTarget>>(emptyList())
+
+    private val contactMatches = MutableStateFlow<List<ContactMatch>>(emptyList())
+
+    /**
+     * Set when Android will no longer show the permission dialog.
+     *
+     * Once the system has decided to stop asking, it returns "denied"
+     * immediately and silently, so a prompt row that still looked tappable
+     * would do nothing at all. The row swaps to an explanation and a route
+     * to App info instead. One refusal is not this: the caller works it out
+     * from shouldShowRequestPermissionRationale after the dialog closes.
+     */
+    private val contactsBlocked = MutableStateFlow(false)
+
+    /**
+     * Non-app search results: settings screens, contacts, and the row that
+     * offers to turn contact search on.
+     *
+     * Kept apart from [drawerList] rather than folded into it because they
+     * come from somewhere else entirely -- a static table and a content
+     * provider -- and because the contact query is asynchronous while the
+     * app list is not. The drawer concatenates the two.
+     */
+    val extraRows: StateFlow<List<DrawerRow>> =
+        combine(
+            _query,
+            settings,
+            settingsTargets,
+            contactMatches,
+            contactsBlocked,
+        ) { q, s, targets, contacts, blocked ->
+            buildExtraRows(q.trim(), s, targets, contacts, blocked)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private fun buildExtraRows(
+        query: String,
+        s: LauncherSettings,
+        targets: List<SettingsTarget>,
+        contacts: List<ContactMatch>,
+        blocked: Boolean,
+    ): List<DrawerRow> {
+        if (query.isEmpty()) return emptyList()
+        val rows = mutableListOf<DrawerRow>()
+
+        val context = getApplication<Application>()
+        val matchedSettings = targets
+            .map { it to Fuzzy.score(context.getString(it.labelRes), query) }
+            .filter { it.second != Fuzzy.NO_MATCH }
+            .sortedByDescending { it.second }
+            .take(MAX_SETTINGS_RESULTS)
+        if (matchedSettings.isNotEmpty()) {
+            rows += DrawerRow.SettingsSearchHeader
+            matchedSettings.forEach { rows += DrawerRow.SettingsScreen(it.first) }
+        }
+
+        when {
+            contacts.isNotEmpty() -> {
+                rows += DrawerRow.ContactsHeader
+                contacts.forEach { rows += DrawerRow.Contact(it) }
+            }
+            // Offered, never assumed. Nothing is read, and no permission is
+            // requested, until this row is tapped. It carries the Contacts
+            // heading too, so it does not read as part of whatever section
+            // happens to be above it.
+            !s.searchContacts || !contactRepository.hasPermission() -> {
+                rows += DrawerRow.ContactsHeader
+                rows += DrawerRow.ContactPrompt(permanentlyDenied = blocked)
+            }
+        }
+        return rows
+    }
+
     /**
      * The home screen layout, resolved to drawable tiles.
      *
@@ -227,6 +308,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         )
         refreshApps()
         refreshSystemState()
+        viewModelScope.launch {
+            settingsTargets.value = SettingsTargets.available(application)
+        }
     }
 
     override fun onCleared() {
@@ -256,6 +340,65 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun onQueryChange(value: String) {
         _query.value = value
+        refreshContacts(value)
+    }
+
+    // --- contacts ---------------------------------------------------------
+
+    private var contactJob: Job? = null
+
+    /**
+     * Re-runs the contact search, debounced.
+     *
+     * Hand-rolled with a cancellable job rather than Flow.debounce so the
+     * whole path stays on stable coroutine API, and so the guard conditions
+     * are checked before anything is scheduled: with contact search off, or
+     * the permission not granted, this never touches the provider at all.
+     */
+    private fun refreshContacts(rawQuery: String) {
+        contactJob?.cancel()
+        val query = rawQuery.trim()
+        if (query.isEmpty() ||
+            !settings.value.searchContacts ||
+            !contactRepository.hasPermission()
+        ) {
+            contactMatches.value = emptyList()
+            return
+        }
+        contactJob = viewModelScope.launch {
+            delay(CONTACT_DEBOUNCE_MS)
+            contactMatches.value = contactRepository.search(query)
+        }
+    }
+
+    fun contactsPermissionGranted(): Boolean = contactRepository.hasPermission()
+
+    /**
+     * Called after the system permission dialog closes, either way.
+     *
+     * [willAskAgain] comes from shouldShowRequestPermissionRationale, which
+     * the system flips to false once it has stopped asking.
+     */
+    fun onContactsPermissionResult(granted: Boolean, willAskAgain: Boolean = true) {
+        contactsBlocked.value = !granted && !willAskAgain
+        edit {
+            settingsRepository.setSearchContacts(granted)
+            if (granted) refreshContacts(_query.value)
+        }
+    }
+
+    /** Turning the feature off. Android owns revoking the grant itself. */
+    fun disableContactSearch() = edit {
+        settingsRepository.setSearchContacts(false)
+        contactMatches.value = emptyList()
+    }
+
+    fun openContact(match: ContactMatch) {
+        if (contactRepository.open(match)) closeAllPanels()
+    }
+
+    fun openSettingsScreen(target: SettingsTarget) {
+        if (appRepository.openAction(target.action)) closeAllPanels()
     }
 
     fun openDrawer() {
@@ -332,6 +475,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openAppInfo(entry: AppEntry) = appRepository.openAppInfo(entry.packageName)
+
+    /** Android's own page for this launcher: permissions, storage, uninstall. */
+    fun openOwnAppInfo() = appRepository.openOwnAppInfo()
 
     fun requestUninstall(entry: AppEntry) = appRepository.requestUninstall(entry.packageName)
 
@@ -484,6 +630,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
          * worth skipping through.
          */
         const val MIN_APPS_FOR_SECTIONS = 24
+
+        /** Settings results should help, not bury the apps you searched for. */
+        const val MAX_SETTINGS_RESULTS = 4
+
+        /**
+         * Long enough that typing a word is one provider query rather than
+         * six, short enough that the results feel live.
+         */
+        const val CONTACT_DEBOUNCE_MS = 160L
     }
 
     private fun edit(block: suspend () -> Unit) {

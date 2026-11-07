@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
 
 /**
- * The three icons this launcher needs, defined in-repo.
+ * The handful of icons this launcher needs, defined in-repo.
  *
  * Why not a library: `androidx.compose.material:material-icons-core` stopped
  * at 1.7.8 and is no longer a dependency of material3 from 1.4.0 onwards. It
@@ -51,6 +51,14 @@ object LauncherIcons {
                 "1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-." +
                 "61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 " +
                 "3.6 3.6-1.62 3.6-3.6 3.6z",
+        )
+    }
+
+    val Person: ImageVector by lazy {
+        vector(
+            "Person",
+            "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 " +
+                "0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z",
         )
     }
 

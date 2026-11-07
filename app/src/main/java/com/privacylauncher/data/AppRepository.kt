@@ -104,11 +104,24 @@ class AppRepository(private val context: Context) {
     }
 
     /** Opens Android's accessibility settings, where the user enables ours. */
-    fun openAccessibilitySettings(): Boolean {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun openAccessibilitySettings(): Boolean =
+        openAction(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+
+    /**
+     * Starts a bare system intent action, such as one of the settings
+     * screens the drawer can search for.
+     *
+     * Returns false rather than throwing if nothing handles it. The targets
+     * are resolve-checked when the list is built, but a screen can disappear
+     * between then and the tap.
+     */
+    fun openAction(action: String): Boolean {
+        val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return runCatching { context.startActivity(intent) }.isSuccess
     }
+
+    /** Android's own App info page for this launcher. */
+    fun openOwnAppInfo(): Boolean = openAppInfo(context.packageName)
 
     /**
      * Opens Android's own wallpaper picker.

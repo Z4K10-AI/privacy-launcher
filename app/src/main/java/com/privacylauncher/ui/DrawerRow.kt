@@ -1,6 +1,8 @@
 package com.privacylauncher.ui
 
 import com.privacylauncher.data.AppEntry
+import com.privacylauncher.data.ContactMatch
+import com.privacylauncher.data.SettingsTarget
 
 /**
  * One slot in the drawer grid.
@@ -32,6 +34,32 @@ sealed interface DrawerRow {
 
     data class App(val entry: AppEntry, val section: String) : DrawerRow {
         override val id: String get() = "$section:${entry.key}"
+    }
+
+    /** Heading over the non-app results. */
+    data object SettingsSearchHeader : DrawerRow {
+        override val id: String get() = "h:settings"
+    }
+
+    data object ContactsHeader : DrawerRow {
+        override val id: String get() = "h:contacts"
+    }
+
+    data class SettingsScreen(val target: SettingsTarget) : DrawerRow {
+        override val id: String get() = target.id
+    }
+
+    data class Contact(val match: ContactMatch) : DrawerRow {
+        override val id: String get() = match.id
+    }
+
+    /**
+     * The row that offers contact search, shown only while searching and
+     * only while the feature is off. Tapping it is the one thing in this app
+     * that asks for a permission.
+     */
+    data class ContactPrompt(val permanentlyDenied: Boolean) : DrawerRow {
+        override val id: String get() = "contact-prompt"
     }
 }
 

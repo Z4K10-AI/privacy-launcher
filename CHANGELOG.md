@@ -4,6 +4,44 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Search beyond apps: settings screens and contacts
+
+Added:
+- Drawer search also finds system settings screens — Wi‑Fi, Display,
+  Battery, Accessibility and so on. The table is deliberately
+  optimistic and every entry is resolve-checked once on a background
+  thread, so screens this device does not have are simply dropped
+  rather than offering a result that opens nothing.
+- Optional contact search, off by default. While searching, the drawer
+  offers a "Search contacts too" row; tapping it is the only thing in
+  this app that ever requests a permission. There is also a switch in
+  Settings, and an App info row for taking the grant back.
+
+Changed:
+- The manifest now declares one permission, `READ_CONTACTS`. It
+  declared none before. Declaring it is what makes the runtime request
+  possible and grants nothing on its own. The README has the full
+  account of what is read; in short: matching happens inside the
+  contacts provider via the filter URI, only a display name and lookup
+  key are read, and nothing is cached, counted or written anywhere.
+  There is still no network permission of any kind.
+
+Notes:
+- The contact query is debounced with a cancellable job rather than
+  `Flow.debounce`, so the whole path stays on stable coroutine API and
+  the guards run before anything is scheduled: with the feature off, or
+  the permission not granted, the provider is never touched.
+- Settings labels are this app's own strings, not the system's. Asking
+  Android means `loadLabel` on each activity, and many settings
+  activities report a generic "Settings" — which would give a result
+  list of sixteen identical rows.
+
+Fixed:
+- A single refusal was treated as final, so the offer row immediately
+  turned into "go to App info" even though Android was still willing to
+  ask. It now reads `shouldShowRequestPermissionRationale` after the
+  dialog closes, which is how the system signals it has stopped asking.
+
 ### Drawer search and browsing
 
 Added:

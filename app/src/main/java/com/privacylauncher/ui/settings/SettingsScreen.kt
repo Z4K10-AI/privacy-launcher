@@ -47,6 +47,8 @@ fun SettingsScreen(
     onAutoKeyboard: (Boolean) -> Unit,
     onShowMostUsed: (Boolean) -> Unit,
     onClearUsage: () -> Unit,
+    onSearchContacts: (Boolean) -> Unit,
+    onAppInfo: () -> Unit,
     onFont: (FontChoice) -> Unit,
     onIconSize: (IconSize) -> Unit,
     onDrawerColumns: (Int) -> Unit,
@@ -214,6 +216,25 @@ fun SettingsScreen(
                         onClick = { confirmClearUsage = true },
                     )
                 }
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_contacts),
+                    subtitle = stringResource(R.string.settings_contacts_body),
+                    checked = settings.searchContacts,
+                    onCheckedChange = onSearchContacts,
+                )
+                if (!settings.searchContacts) {
+                    // Switching off stops every query, but only Android can
+                    // take the grant back, so say where that lives.
+                    Text(
+                        text = stringResource(R.string.settings_contacts_revoke),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(
+                            horizontal = Spacing.lg,
+                            vertical = Spacing.xxs,
+                        ),
+                    )
+                }
             }
 
             SettingsGroup(stringResource(R.string.settings_group_gestures)) {
@@ -279,6 +300,11 @@ fun SettingsScreen(
                         onClick = onSetDefaultHome,
                     )
                 }
+                SettingsRow(
+                    title = stringResource(R.string.settings_app_info),
+                    subtitle = stringResource(R.string.settings_app_info_body),
+                    onClick = onAppInfo,
+                )
             }
 
             Spacer(Modifier.height(Spacing.xl))

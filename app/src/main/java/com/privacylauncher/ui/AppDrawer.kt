@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -50,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
@@ -65,8 +67,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
+import com.privacylauncher.data.ContactMatch
 import com.privacylauncher.data.IconLoader
 import com.privacylauncher.data.LauncherSettings
+import com.privacylauncher.data.SettingsTarget
 import com.privacylauncher.designsystem.Radii
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.designsystem.panelSurface
@@ -95,6 +99,8 @@ private val BUBBLE_SIZE = 56.dp
 @Composable
 fun AppDrawer(
     list: DrawerList,
+    /** Settings screens, contacts and the contact-search offer. */
+    extraRows: List<DrawerRow>,
     query: String,
     columns: Int,
     iconSize: Dp,
@@ -119,6 +125,10 @@ fun AppDrawer(
     onAddToDock: (AppEntry) -> Unit,
     onRemoveFromDock: (AppEntry) -> Unit,
     onHide: (AppEntry) -> Unit,
+    onOpenSettingsScreen: (SettingsTarget) -> Unit,
+    onOpenContact: (ContactMatch) -> Unit,
+    onEnableContacts: () -> Unit,
+    onOwnAppInfo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -127,6 +137,10 @@ fun AppDrawer(
     val searchFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val gridState = rememberLazyGridState()
+
+    // One flat list, so settings and contact results scroll with the apps
+    // rather than being pinned somewhere the keyboard can cover.
+    val rows = remember(list.rows, extraRows) { list.rows + extraRows }
 
     // Tied to isOpen rather than to this composable entering the tree: the
     // drawer is composed as soon as a drag starts lifting it, and popping the
@@ -240,7 +254,7 @@ fun AppDrawer(
             modifier = Modifier.padding(start = Spacing.lg, bottom = Spacing.xxs),
         )
 
-        if (list.rows.isEmpty()) {
+        if (rows.isEmpty()) {
             // weight(1f), not fillMaxSize(): inside a Column the latter asks for
             // the full parent height rather than what is left after the search
             // field, which pushes the bottom of the list off screen.
@@ -281,7 +295,7 @@ fun AppDrawer(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(
-                        items = list.rows,
+                        items = rows,
                         key = { it.id },
                         span = { row ->
                             if (row is DrawerRow.App) GridItemSpan(1)
@@ -301,6 +315,38 @@ fun AppDrawer(
                                 onLongClick = {
                                     haptics.longPress()
                                     menuFor = row.entry
+                                },
+                            )
+                            DrawerRow.SettingsSearchHeader ->
+                                SectionHeader(stringResource(R.string.drawer_settings_results))
+                            DrawerRow.ContactsHeader ->
+                                SectionHeader(stringResource(R.string.drawer_contacts_results))
+                            is DrawerRow.SettingsScreen -> ResultRow(
+                                icon = LauncherIcons.Settings,
+                                title = stringResource(row.target.labelRes),
+                                onClick = { onOpenSettingsScreen(row.target) },
+                            )
+                            is DrawerRow.Contact -> ResultRow(
+                                icon = LauncherIcons.Person,
+                                title = row.match.name,
+                                onClick = { onOpenContact(row.match) },
+                            )
+                            is DrawerRow.ContactPrompt -> ResultRow(
+                                icon = LauncherIcons.Person,
+                                title = if (row.permanentlyDenied) {
+                                    stringResource(R.string.settings_app_info)
+                                } else {
+                                    stringResource(R.string.drawer_contact_prompt)
+                                },
+                                subtitle = if (row.permanentlyDenied) {
+                                    stringResource(R.string.drawer_contact_denied)
+                                } else {
+                                    stringResource(R.string.drawer_contact_prompt_body)
+                                },
+                                onClick = if (row.permanentlyDenied) {
+                                    onOwnAppInfo
+                                } else {
+                                    onEnableContacts
                                 },
                             )
                         }
@@ -336,6 +382,52 @@ fun AppDrawer(
             onRemoveFromDock = { menuFor = null; onRemoveFromDock(entry) },
             onHide = { menuFor = null; onHide(entry) },
         )
+    }
+}
+
+/**
+ * A full-width result that is not an app: a settings screen, a contact, or
+ * the offer to turn contact search on.
+ *
+ * Deliberately a row rather than a grid cell. These are not icons the user
+ * recognises by shape, and a one-word label in a 72dp square would truncate.
+ */
+@Composable
+private fun ResultRow(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    subtitle: String? = null,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radii.small))
+            .clickable(onClick = onClick)
+            .defaultMinSize(minHeight = Spacing.touchTarget)
+            .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(Spacing.md))
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

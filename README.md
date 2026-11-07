@@ -1,8 +1,13 @@
 # Privacy Launcher
 
-An Android home screen (launcher) built for privacy. It requests **no
-permissions at all**, cannot reach the network, and keeps every setting in a
-file inside its own private directory.
+An Android home screen (launcher) built for privacy. It **cannot reach the
+network**, keeps every setting in a file inside its own private directory, and
+declares exactly **one** Android permission, which it never asks for unless you
+switch on a feature that needs it.
+
+That permission is `READ_CONTACTS`, for the optional "search contacts" row in
+the app drawer. It is off by default; nothing is requested or read until you
+turn it on yourself. [Contacts, in detail](#contacts-the-one-permission).
 
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
@@ -13,8 +18,9 @@ Android 15 (API 35) AOSP emulator; not yet tested on physical hardware.**
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
 
-Debug APK: 9.0 MB. Verified with `aapt2 dump permissions` to hold no Android
-permissions and no reference to `INTERNET` anywhere in the merged manifest.
+Debug APK: 9.0 MB. Verified with `aapt2 dump permissions` to hold exactly one
+Android permission (`READ_CONTACTS`) and no reference to `INTERNET` anywhere in
+the merged manifest.
 
 ---
 
@@ -118,13 +124,46 @@ such as an open folder, where the thing being blurred is our own UI.
 
 | Property | How it is enforced |
 |---|---|
-| No permissions requested | `AndroidManifest.xml` declares none |
+| One permission, declared | `AndroidManifest.xml` declares `READ_CONTACTS` and nothing else. Declaring it grants nothing; see below |
+| Nothing asked for unprompted | The only call to `requestPermission` in the codebase is reached from the contact-search row in the drawer and the switch in Settings |
 | Cannot reach the network | `INTERNET` and `ACCESS_NETWORK_STATE` are removed from the merged manifest with `tools:node="remove"`, so no dependency can reintroduce them |
 | No advertising ID | `com.google.android.gms.permission.AD_ID` removed the same way |
 | No Google Play Services | Not a dependency. See the note below |
 | No analytics, ads or crash reporting | No such dependency exists in the build |
 | Settings stay on the phone | `android:allowBackup="false"` plus `data_extraction_rules.xml` excluding every domain from cloud backup and device transfer |
 | Narrow app visibility | The manifest's `<queries>` block asks only for apps with a launcher icon, not `QUERY_ALL_PACKAGES` |
+
+### Contacts: the one permission
+
+Drawer search can include the phone's contacts. That needs `READ_CONTACTS`,
+which is the only permission this app declares, so it is worth being exact
+about what the feature does and does not do.
+
+- **Off by default.** The launcher is fully usable without it, and in that
+  state no contact query is ever made.
+- **Nothing asks for it unprompted.** Not at startup, not on first run, not
+  when the drawer opens. The permission request happens when you tap "Search
+  contacts too" in the drawer or the switch in Settings, and at no other time.
+- **Matching happens in the provider, not here.** The query goes through
+  `ContactsContract.Contacts.CONTENT_FILTER_URI`, so this app never reads the
+  contact list — only the few rows that match what was typed.
+- **Two columns.** A display name and a lookup key. No numbers, no email
+  addresses, no postal addresses, no photos, no groups, no call history.
+- **Nothing is kept.** Results are not cached, counted, indexed or written
+  anywhere. They exist for as long as the search text does.
+- **Tapping a result hands off.** The lookup URI goes to whichever contacts
+  app is installed; this launcher does not display contact details itself.
+- **Reversible.** The switch in Settings stops every query. Only Android can
+  take the grant itself back, so Settings links to App info where you can.
+
+There is still no network permission of any kind, so nothing read here can
+leave the phone.
+
+The alternative design — no permission, and a result that opens the contacts
+app's own search — was considered and rejected: it cannot show a matching name
+in the drawer, which is the whole point of the feature. The compromise chosen
+instead is to declare the permission and make the asking entirely
+user-initiated.
 
 ### A note on "no Google"
 

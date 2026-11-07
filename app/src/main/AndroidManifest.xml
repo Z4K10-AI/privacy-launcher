@@ -5,7 +5,20 @@
     <!--
       PERMISSIONS
 
-      This app requests no permissions at all.
+      This app declares exactly one, and never asks for it unless you switch
+      contact search on yourself.
+
+      READ_CONTACTS is needed for the "search contacts" option in the app
+      drawer. Declaring it here is what makes the runtime request possible;
+      it grants nothing on its own. Nothing requests it at startup, on first
+      run, or when the drawer opens. The launcher is fully usable with the
+      option off, which is the default, and in that state no contact query is
+      ever made. When it is on, the search goes through the contacts
+      provider's filter URI, so only matching rows are read, and only a name
+      and a lookup key. See ContactRepository for the full account.
+
+      There is still no network permission of any kind, so nothing read here
+      can leave the phone.
 
       The three <uses-permission ... tools:node="remove" /> lines below are a
       safety net. If any library we depend on ever declares one of these
@@ -13,6 +26,8 @@
       APK. "node=remove" tells the merger to strip it instead, so the shipped
       APK provably cannot reach the network.
     -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
