@@ -12,14 +12,14 @@ turn it on yourself. [Contacts, in detail](#contacts-the-one-permission).
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **home screen and app drawer complete, on a design system. Verified
-on an Android 15 (API 35) AOSP emulator; not yet tested on physical
-hardware.**
+Status: **home screen, app drawer and privacy dashboard complete, on a design
+system. Verified on an Android 15 (API 35) AOSP emulator; not yet tested on
+physical hardware.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
 
-Debug APK: 9.0 MB. Verified with `aapt2 dump permissions` to hold exactly one
+Release APK: 2.0 MB. Verified with `aapt2 dump permissions` to hold exactly one
 Android permission (`READ_CONTACTS`) and no reference to `INTERNET` anywhere in
 the merged manifest.
 
@@ -68,6 +68,26 @@ the merged manifest.
 - Long-press an app for: add to / remove from home screen, add to dock, hide
   from drawer, **App info** (Android's own page, where you revoke
   permissions), uninstall.
+
+**Privacy dashboard** (Settings → Privacy)
+- A privacy score in an animated ring, with the arithmetic shown: which
+  permission group, how many apps, how much each took off.
+- A card per group — Location, Microphone, SMS, Camera, Contacts, Phone,
+  Files — expanding to the apps that hold it, with a tap through to Android's
+  App info.
+- The launcher lists itself. A privacy dashboard that leaves out the app
+  showing it has answered the wrong question.
+- Everything is computed on the phone, which the screen says in so many words.
+- What it deliberately does **not** do:
+  - It does not ask for `QUERY_ALL_PACKAGES`, so it lists the apps it can see
+    — the ones you can open — and says so rather than implying otherwise.
+  - It cannot show the recent-use timeline inline. Android 12 and later keep
+    one, but reading it needs `GET_APP_OPS_STATS`, which is
+    `signature|privileged`. The screen says this and links to Android's own
+    privacy settings. (A privileged build inside a ROM could hold it.)
+  - It cannot open the permission list directly: `MANAGE_APP_PERMISSIONS`
+    requires `GRANT_RUNTIME_PERMISSIONS`. App info is as close as an
+    installable app gets.
 
 **Customisation**, all stored on the device
 - Theme: light, dark, or follow system.
@@ -152,7 +172,7 @@ such as an open folder, where the thing being blurred is our own UI.
 | No Google Play Services | Not a dependency. See the note below |
 | No analytics, ads or crash reporting | No such dependency exists in the build |
 | Settings stay on the phone | `android:allowBackup="false"` plus `data_extraction_rules.xml` excluding every domain from cloud backup and device transfer |
-| Narrow app visibility | The manifest's `<queries>` block asks only for apps with a launcher icon, not `QUERY_ALL_PACKAGES` |
+| Narrow app visibility | The manifest's `<queries>` block asks only for apps with a launcher icon, not `QUERY_ALL_PACKAGES`. The privacy dashboard works within that limit and states it on screen |
 
 ### Contacts: the one permission
 

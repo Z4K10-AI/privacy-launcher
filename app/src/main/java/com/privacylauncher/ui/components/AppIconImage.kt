@@ -58,5 +58,42 @@ fun AppIconImage(
     }
 }
 
+/**
+ * The same, for a package rather than a drawer entry.
+ *
+ * The privacy dashboard lists packages, some of which have no launcher
+ * activity to take an icon from, so it asks the package manager for the
+ * application icon instead.
+ */
+@Composable
+fun PackageIconImage(
+    packageName: String,
+    loader: IconLoader,
+    size: Dp,
+    modifier: Modifier = Modifier,
+) {
+    var icon by remember(packageName) { mutableStateOf(loader.cachedPackage(packageName)) }
+
+    LaunchedEffect(packageName) {
+        if (icon == null) icon = loader.loadPackage(packageName)
+    }
+
+    val current = icon
+    if (current != null) {
+        Image(
+            bitmap = current,
+            contentDescription = null, // the label next to it already names the app
+            modifier = modifier.size(size),
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(size / 4))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        )
+    }
+}
+
 /** Default icon size used by the drawer grid. */
 val DefaultIconSize: Dp = 52.dp

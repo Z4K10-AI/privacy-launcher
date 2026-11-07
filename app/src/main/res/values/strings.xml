@@ -30,6 +30,56 @@
     <string name="drawer_contact_prompt_body">Asks for permission to read contacts. Nothing is read until you say yes, and nothing can leave the phone — this app has no network access.</string>
     <string name="drawer_contact_denied">Android is not showing the contacts request any more. Allow Contacts for this launcher in app info, or leave it off.</string>
 
+    <string name="privacy_title">Privacy</string>
+    <string name="privacy_score_label">Privacy score</string>
+    <string name="privacy_score_good">Looking good</string>
+    <string name="privacy_score_fair">Worth a look</string>
+    <string name="privacy_score_attention">Worth some attention</string>
+    <string name="privacy_on_device">Everything on this screen is worked out on your phone. Nothing is sent anywhere — this launcher has no network access at all.</string>
+    <string name="privacy_score_explainer">The score starts at 100 and comes down for each thing the apps you installed can reach. The more apps share one kind of access the more it costs, but with a ceiling per group. It is a rule of thumb, not a measurement, so here is exactly what it counted.</string>
+    <string name="privacy_score_perfect">Nothing came off. None of the apps you installed holds a sensitive permission.</string>
+    <plurals name="privacy_deduction_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <plurals name="privacy_scanned">
+        <item quantity="one">Looked at %1$d app you installed.</item>
+        <item quantity="other">Looked at %1$d apps you installed.</item>
+    </plurals>
+    <plurals name="privacy_scanned_preinstalled">
+        <item quantity="one">%1$d more came with the phone; it is listed but not scored, because you cannot remove it and every phone of this model ships the same set.</item>
+        <item quantity="other">%1$d more came with the phone; those are listed but not scored, because you cannot remove them and every phone of this model ships the same set.</item>
+    </plurals>
+    <string name="privacy_scope">Tap any app to open Android\'s App info page, where Permissions sits one tap further in. Only a system app may open the permission list directly, and this launcher is not one.\n\nThe list covers the apps this launcher can see, which is the apps you can open. It does not hold the all-packages permission, so background-only packages are invisible to it.</string>
+    <string name="privacy_scanning">Reading permissions…</string>
+    <string name="privacy_none_hold">No app you installed holds this.</string>
+    <string name="privacy_preinstalled_header">Came with the phone</string>
+    <string name="privacy_change">App info</string>
+    <string name="privacy_self">This launcher</string>
+    <string name="privacy_usage_title">Recent use</string>
+    <string name="privacy_usage_available">Android keeps a timeline of which app used the camera, microphone or location and when. Reading it needs a system-level privilege no installable app can hold, including this one. This opens Android\'s own privacy settings, where that timeline lives.</string>
+    <string name="privacy_usage_unavailable">Android on this phone is older than version 12, which is where the recent-use timeline was added. There is nothing to show and nothing to open.</string>
+    <string name="privacy_usage_open">Open Android\'s privacy settings</string>
+
+    <string name="perm_location">Location</string>
+    <string name="perm_location_body">Where you are, to within a few metres.</string>
+    <string name="perm_microphone">Microphone</string>
+    <string name="perm_microphone_body">Can record sound, including what is said near the phone.</string>
+    <string name="perm_sms">SMS</string>
+    <string name="perm_sms_body">Can read and send text messages, including security codes.</string>
+    <string name="perm_camera">Camera</string>
+    <string name="perm_camera_body">Can take photos and video.</string>
+    <string name="perm_contacts">Contacts</string>
+    <string name="perm_contacts_body">Can read the names, numbers and addresses in your contacts.</string>
+    <string name="perm_phone">Phone</string>
+    <string name="perm_phone_body">Can read your number, call log and call state.</string>
+    <string name="perm_files">Files</string>
+    <string name="perm_files_body">Can read photos, video, audio or documents stored on the phone.</string>
+
+    <string name="settings_group_privacy">Privacy</string>
+    <string name="settings_privacy_dashboard">Privacy dashboard</string>
+    <string name="settings_privacy_dashboard_body">Which apps can reach the camera, microphone, location and the rest</string>
+
     <string name="target_wifi">Wi\u2011Fi</string>
     <string name="target_bluetooth">Bluetooth</string>
     <string name="target_network">Network and internet</string>

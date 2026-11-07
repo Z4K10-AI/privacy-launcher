@@ -53,6 +53,7 @@ import com.privacylauncher.ui.Panel
 import com.privacylauncher.ui.components.rememberGlance
 import com.privacylauncher.ui.settings.DesignPreviewScreen
 import com.privacylauncher.ui.settings.GestureExplainerDialog
+import com.privacylauncher.ui.privacy.PrivacyDashboardScreen
 import com.privacylauncher.ui.settings.HiddenAppsScreen
 import com.privacylauncher.ui.settings.SettingsScreen
 
@@ -113,6 +114,7 @@ class MainActivity : ComponentActivity() {
 private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSettings) {
     val drawerList by viewModel.drawerList.collectAsStateWithLifecycle()
     val extraRows by viewModel.extraRows.collectAsStateWithLifecycle()
+    val privacyReport by viewModel.privacyReport.collectAsStateWithLifecycle()
     val homeTiles by viewModel.homeTiles.collectAsStateWithLifecycle()
     val dock by viewModel.dockApps.collectAsStateWithLifecycle()
     val allApps by viewModel.allInstalledApps.collectAsStateWithLifecycle()
@@ -361,6 +363,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 gestureServiceEnabled = viewModel.gestureServiceEnabled,
                 onGestureService = { viewModel.showGestureExplainerDialog() },
                 onDesignPreview = viewModel::openDesignPreview,
+                onPrivacyDashboard = viewModel::openPrivacyDashboard,
                 onSetDefaultHome = { viewModel.openHomeAppPicker() },
             )
         }
@@ -372,6 +375,16 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 iconLoader = viewModel.iconLoader,
                 onBack = viewModel::closePanel,
                 onToggle = viewModel::setAppHidden,
+            )
+        }
+
+        PanelTransition(panel == Panel.PRIVACY) {
+            PrivacyDashboardScreen(
+                report = privacyReport,
+                iconLoader = viewModel.iconLoader,
+                onBack = viewModel::closePanel,
+                onOpenPermissions = viewModel::openAppPermissions,
+                onOpenSystemPrivacy = viewModel::openSystemPrivacy,
             )
         }
 

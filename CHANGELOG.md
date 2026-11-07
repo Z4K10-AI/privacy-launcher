@@ -4,6 +4,70 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Privacy dashboard
+
+Added:
+- A Privacy screen reached from Settings, with a privacy score in an
+  animated ring and a plain-words breakdown of what came off it and
+  why.
+- A card per permission group -- Location, Microphone, SMS, Camera,
+  Contacts, Phone, Files -- each expanding to the apps that hold it,
+  with the icon, the app name and a tap through to Android's App info.
+- The launcher lists itself among them. A privacy dashboard that
+  quietly leaves out the app showing it has answered the wrong
+  question.
+- A statement on the screen that everything there is worked out on the
+  phone and nothing is sent anywhere.
+
+Notes:
+- **The score is scored on apps you installed.** Preinstalled apps are
+  listed under their group but not counted: you cannot remove them, and
+  every phone of a given model ships the same set, so counting them
+  would measure the manufacturer rather than anything you did.
+- **"Holds" means granted, not declared.** Read from PackageInfo's
+  requested-permission flags, so an app that asks for the camera in its
+  manifest and has never been given it does not appear.
+- **The list is what this launcher can see.** It does not hold
+  QUERY_ALL_PACKAGES, which is a sensitive permission that would
+  undercut the whole app, so background-only packages with no launcher
+  entry are invisible to it. The screen says so rather than implying
+  the list is exhaustive.
+- **Recent permission use cannot be shown inline.** Android 12 and
+  later do keep that timeline, but reading it needs GET_APP_OPS_STATS,
+  which is signature|privileged. The screen says this plainly and
+  offers to open Android's own privacy settings, where the timeline
+  lives. (In the ROM this launcher is eventually for, a privileged
+  system build could hold that permission.)
+- **"One tap to the permission page" is App info, not the permission
+  list.** `MANAGE_APP_PERMISSIONS` was tried first and is refused for
+  an ordinary app -- it requires GRANT_RUNTIME_PERMISSIONS. The row is
+  labelled App info for that reason, and the screen explains that
+  permissions are one tap further in.
+- The sweep is an `Animatable` read inside the Canvas draw lambda, so
+  it animates without recomposing, and the number beside it goes
+  through `derivedStateOf` so only the rounded integer invalidates it.
+- Nothing is scanned until the screen is opened. Walking every visible
+  package's permission list would otherwise be charged to every cold
+  start, for a screen most people open rarely.
+
+Fixed:
+- The first scoring model was so-much-per-app with a cap, and the
+  arithmetic made the feature useless: an ordinary phone with a
+  browser, a messenger, a camera app and a maps app ran past every cap
+  and floored at zero. Each group's cost now rises towards a weight and
+  levels off. On sample data a light phone scores about 79, a typical
+  one 57 and a heavily permissioned one 44.
+- `resolveActivity` returned null for the permission controller, which
+  has no launcher icon and so is hidden by package visibility, meaning
+  a "check it resolves first" guard sent every tap to the fallback. The
+  same class of bug as the default-home check earlier: visibility
+  filters queries, not implicit starts.
+- The breakdown read "Looked at 1 apps", and said "0 more came with the
+  phone; those are listed but not scored" when none were.
+- The recent-use card claimed to open Android's Privacy dashboard. On
+  Android 14 and later the same action opens Safety Center instead, so
+  it now says privacy settings.
+
 ### Hidden apps behind the phone's own lock
 
 Added:

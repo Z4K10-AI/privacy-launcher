@@ -38,6 +38,14 @@ internal val LocalSurfaceTones = staticCompositionLocalOf {
  */
 internal val LocalContentBlurSupported = staticCompositionLocalOf { blurAvailable }
 
+/** The three status tones, resolved for the theme currently active. */
+@Immutable
+data class SignalColors(val good: Color, val fair: Color, val attention: Color)
+
+val LocalSignalColors = staticCompositionLocalOf {
+    SignalColors(Signal.GoodLight, Signal.FairLight, Signal.AttentionLight)
+}
+
 internal val blurAvailable: Boolean
     get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 

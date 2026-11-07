@@ -81,8 +81,17 @@ fun LauncherTheme(
         }
     }
 
+    val signal = remember(dark) {
+        if (dark) {
+            SignalColors(Signal.GoodDark, Signal.FairDark, Signal.AttentionDark)
+        } else {
+            SignalColors(Signal.GoodLight, Signal.FairLight, Signal.AttentionLight)
+        }
+    }
+
     CompositionLocalProvider(
         LocalSurfaceTones provides tones,
+        LocalSignalColors provides signal,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

@@ -92,6 +92,23 @@ internal fun AccentColor.palette(): AccentPalette = when (this) {
     )
 }
 
+/**
+ * Three status tones, for the privacy score and nothing else.
+ *
+ * Deliberately not Material's error/warning/success: those are saturated
+ * enough to fight the accent and look like a different app's palette dropped
+ * in. These are the same desaturation as the accents above, so a red score
+ * ring still belongs to this design system.
+ */
+internal object Signal {
+    val GoodLight = Color(0xFF2F6B50)
+    val GoodDark = Color(0xFF8CCCAB)
+    val FairLight = Color(0xFF8A6210)
+    val FairDark = Color(0xFFE0C182)
+    val AttentionLight = Color(0xFF9A3B3B)
+    val AttentionDark = Color(0xFFE2A1A1)
+}
+
 /** The swatch shown in the picker, for the theme currently active. */
 internal fun AccentColor.swatch(dark: Boolean): Color =
     palette().let { if (dark) it.onDark else it.onLight }

@@ -60,6 +60,7 @@ fun SettingsScreen(
     gestureServiceEnabled: Boolean,
     onGestureService: () -> Unit,
     onDesignPreview: () -> Unit,
+    onPrivacyDashboard: () -> Unit,
     onSetDefaultHome: () -> Unit,
 ) {
     val dark = settings.themeMode.resolveIsDark()
@@ -237,6 +238,14 @@ fun SettingsScreen(
                         ),
                     )
                 }
+            }
+
+            SettingsGroup(stringResource(R.string.settings_group_privacy)) {
+                SettingsRow(
+                    title = stringResource(R.string.settings_privacy_dashboard),
+                    subtitle = stringResource(R.string.settings_privacy_dashboard_body),
+                    onClick = onPrivacyDashboard,
+                )
             }
 
             SettingsGroup(stringResource(R.string.settings_group_gestures)) {

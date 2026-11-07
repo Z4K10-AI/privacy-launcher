@@ -23,6 +23,7 @@ import com.privacylauncher.data.SettingsTargets
 import com.privacylauncher.data.HomeItem
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
+import com.privacylauncher.data.PrivacyReport
 import com.privacylauncher.data.ThemeMode
 import com.privacylauncher.system.LauncherAccessibilityService
 import kotlinx.coroutines.Job
@@ -36,7 +37,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Which full-screen panel is showing, if any. */
-enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS, DESIGN_PREVIEW }
+enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS, DESIGN_PREVIEW, PRIVACY }
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -44,6 +45,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val appRepository = launcherApp.appRepository
     private val settingsRepository = launcherApp.settingsRepository
     private val contactRepository = launcherApp.contactRepository
+    private val privacyScanner = launcherApp.privacyScanner
 
     val iconLoader = launcherApp.iconLoader
 
@@ -153,6 +155,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             searching = false,
         )
     }
+
+    /**
+     * The privacy dashboard's picture of the phone.
+     *
+     * Not computed until the screen is opened. Walking every visible
+     * package's permission list is real work, and it would be charged to
+     * every cold start of the launcher for a screen most people open rarely.
+     */
+    private val _privacyReport = MutableStateFlow(PrivacyReport())
+    val privacyReport: StateFlow<PrivacyReport> = _privacyReport
+
+    private var privacyScanJob: Job? = null
 
     /** System settings screens this device actually has. Resolved once. */
     private val settingsTargets = MutableStateFlow<List<SettingsTarget>>(emptyList())
@@ -336,6 +350,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun refreshSystemState() {
         isDefaultHome = appRepository.isDefaultHome()
         gestureServiceEnabled = LauncherAccessibilityService.isEnabled
+        if (panel == Panel.PRIVACY) rescanPrivacy()
     }
 
     fun onQueryChange(value: String) {
@@ -420,10 +435,38 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         panel = Panel.DESIGN_PREVIEW
     }
 
+    fun openPrivacyDashboard() {
+        panel = Panel.PRIVACY
+        rescanPrivacy()
+    }
+
+    /**
+     * Re-reads permissions.
+     *
+     * Called when the screen opens and again when the launcher comes back to
+     * the foreground, because the usual reason to leave this screen is to go
+     * and revoke something, and coming back to the old numbers would make it
+     * look as though nothing had happened.
+     */
+    fun rescanPrivacy() {
+        privacyScanJob?.cancel()
+        privacyScanJob = viewModelScope.launch {
+            _privacyReport.value = privacyScanner.scan()
+        }
+    }
+
+    fun openAppPermissions(packageName: String) {
+        privacyScanner.openPermissions(packageName)
+    }
+
+    fun openSystemPrivacy() {
+        privacyScanner.openSystemPrivacy()
+    }
+
     /** Back behaviour: the hide-apps screen returns to settings, not home. */
     fun closePanel() {
         panel = when (panel) {
-            Panel.HIDDEN_APPS, Panel.DESIGN_PREVIEW -> Panel.SETTINGS
+            Panel.HIDDEN_APPS, Panel.DESIGN_PREVIEW, Panel.PRIVACY -> Panel.SETTINGS
             else -> Panel.NONE
         }
         if (panel == Panel.NONE) _query.value = ""
