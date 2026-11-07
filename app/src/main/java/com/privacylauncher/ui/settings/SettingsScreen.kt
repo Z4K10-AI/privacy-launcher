@@ -61,6 +61,7 @@ fun SettingsScreen(
     onGestureService: () -> Unit,
     onDesignPreview: () -> Unit,
     onPrivacyDashboard: () -> Unit,
+    onQuickPanel: () -> Unit,
     onSetDefaultHome: () -> Unit,
 ) {
     val dark = settings.themeMode.resolveIsDark()
@@ -249,6 +250,11 @@ fun SettingsScreen(
             }
 
             SettingsGroup(stringResource(R.string.settings_group_gestures)) {
+                SettingsRow(
+                    title = stringResource(R.string.settings_quick_panel),
+                    subtitle = stringResource(R.string.settings_quick_panel_body),
+                    onClick = onQuickPanel,
+                )
                 SettingsRow(
                     title = stringResource(R.string.settings_gestures_enable),
                     subtitle = stringResource(R.string.settings_gestures_body),

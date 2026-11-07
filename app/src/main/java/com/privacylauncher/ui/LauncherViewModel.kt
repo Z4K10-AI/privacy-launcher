@@ -20,11 +20,14 @@ import com.privacylauncher.data.FontChoice
 import com.privacylauncher.data.Fuzzy
 import com.privacylauncher.data.SettingsTarget
 import com.privacylauncher.data.SettingsTargets
+import com.privacylauncher.ui.quick.QuickTile
 import com.privacylauncher.data.HomeItem
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.PrivacyReport
+import com.privacylauncher.data.QuickControlsState
 import com.privacylauncher.data.ThemeMode
+import com.privacylauncher.data.Toggle
 import com.privacylauncher.system.LauncherAccessibilityService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,7 +40,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Which full-screen panel is showing, if any. */
-enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS, DESIGN_PREVIEW, PRIVACY }
+enum class Panel { NONE, DRAWER, SETTINGS, HIDDEN_APPS, DESIGN_PREVIEW, PRIVACY, QUICK }
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -46,6 +49,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val settingsRepository = launcherApp.settingsRepository
     private val contactRepository = launcherApp.contactRepository
     private val privacyScanner = launcherApp.privacyScanner
+    private val quickControls = launcherApp.quickControls
 
     val iconLoader = launcherApp.iconLoader
 
@@ -167,6 +171,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     val privacyReport: StateFlow<PrivacyReport> = _privacyReport
 
     private var privacyScanJob: Job? = null
+
+    /** Live state behind the quick controls panel. */
+    private val _quickState = MutableStateFlow(QuickControlsState())
+    val quickState: StateFlow<QuickControlsState> = _quickState
 
     /** System settings screens this device actually has. Resolved once. */
     private val settingsTargets = MutableStateFlow<List<SettingsTarget>>(emptyList())
@@ -351,6 +359,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         isDefaultHome = appRepository.isDefaultHome()
         gestureServiceEnabled = LauncherAccessibilityService.isEnabled
         if (panel == Panel.PRIVACY) rescanPrivacy()
+        // Coming back from Android's own settings is the usual way one of
+        // these changes, so the panel must not still be showing the old
+        // state when the launcher returns to the foreground.
+        if (panel == Panel.QUICK) refreshQuickControls()
     }
 
     fun onQueryChange(value: String) {
@@ -433,6 +445,97 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun openDesignPreview() {
         panel = Panel.DESIGN_PREVIEW
+    }
+
+    fun openQuickPanel() {
+        homeEditMode = false
+        panel = Panel.QUICK
+        refreshQuickControls()
+    }
+
+    fun refreshQuickControls() {
+        _quickState.value = quickControls.read()
+    }
+
+    /**
+     * Starts watching the settings the panel shows. Returns the undo.
+     *
+     * Driven from the panel's own DisposableEffect rather than from here, so
+     * nothing is observed while the panel is closed.
+     */
+    fun observeQuickControls(): () -> Unit =
+        quickControls.observe { refreshQuickControls() }
+
+    /**
+     * What a tile does.
+     *
+     * Two of the eight act; the rest hand off to Android, which is the whole
+     * point of the panel being honest about what an app may change.
+     */
+    fun onQuickTile(tile: QuickTile) {
+        when (tile) {
+            QuickTile.FLASHLIGHT -> {
+                quickControls.setTorch(_quickState.value.torch != Toggle.ON)
+                // The torch callback normally reports the change, but it does
+                // not fire when the camera refuses, so read back either way.
+                refreshQuickControls()
+            }
+            QuickTile.LOCKDOWN -> {
+                closeAllPanels()
+                onLockDown()
+            }
+            QuickTile.WIFI -> quickControls.openWifi()
+            QuickTile.BLUETOOTH -> quickControls.openBluetooth()
+            QuickTile.LOCATION -> quickControls.openLocation()
+            QuickTile.DND -> quickControls.openDnd()
+            QuickTile.ROTATION -> quickControls.openRotation()
+            QuickTile.PRIVATE_DNS -> quickControls.openPrivateDns()
+        }
+    }
+
+    /**
+     * Locks the screen, or explains why it cannot.
+     *
+     * Same route as double-tap-to-lock: there is no lock API for an ordinary
+     * app, so it goes through the optional accessibility service.
+     */
+    private fun onLockDown() {
+        if (!LauncherAccessibilityService.lockScreenSupported) return
+        if (LauncherAccessibilityService.isEnabled) {
+            LauncherAccessibilityService.lockScreen()
+        } else {
+            showGestureExplainer = true
+        }
+    }
+
+    private var pendingBrightness: Float? = null
+    private var lastBrightnessWrite = 0L
+
+    /**
+     * Brightness, as the slider is dragged.
+     *
+     * Throttled. Each write goes through the Settings provider, and doing
+     * that on every frame of a drag is both slow and pointless -- the screen
+     * cannot change faster than the eye can see it. The last value is kept so
+     * [commitBrightness] can write it when the finger lifts, which is what
+     * stops the throttle from swallowing where the drag actually ended.
+     */
+    fun setBrightness(fraction: Float) {
+        pendingBrightness = fraction
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastBrightnessWrite < BRIGHTNESS_WRITE_INTERVAL_MS) return
+        lastBrightnessWrite = now
+        quickControls.setBrightness(fraction)
+    }
+
+    fun commitBrightness() {
+        pendingBrightness?.let { quickControls.setBrightness(it) }
+        pendingBrightness = null
+        refreshQuickControls()
+    }
+
+    fun requestWriteSettings() {
+        quickControls.requestWriteSettings()
     }
 
     fun openPrivacyDashboard() {
@@ -682,6 +785,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
          * six, short enough that the results feel live.
          */
         const val CONTACT_DEBOUNCE_MS = 160L
+
+        /** Roughly four writes a second while a brightness drag is running. */
+        const val BRIGHTNESS_WRITE_INTERVAL_MS = 60L
     }
 
     private fun edit(block: suspend () -> Unit) {

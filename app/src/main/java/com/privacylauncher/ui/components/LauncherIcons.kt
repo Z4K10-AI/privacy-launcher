@@ -69,6 +69,87 @@ object LauncherIcons {
         )
     }
 
+    // --- quick controls tiles -------------------------------------------
+
+    val Wifi: ImageVector by lazy {
+        vector(
+            "Wifi",
+            "M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-" +
+                "4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z",
+        )
+    }
+
+    val Bluetooth: ImageVector by lazy {
+        vector(
+            "Bluetooth",
+            "M17.71 7.71 12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-" +
+                "5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-" +
+                "3.76l1.88 1.88z",
+        )
+    }
+
+    val Location: ImageVector by lazy {
+        vector(
+            "Location",
+            "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 " +
+                "0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+        )
+    }
+
+    val Flashlight: ImageVector by lazy {
+        vector("Flashlight", "M7 2v11h3v9l7-12h-4l4-8z")
+    }
+
+    val DoNotDisturb: ImageVector by lazy {
+        vector(
+            "DoNotDisturb",
+            "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z",
+        )
+    }
+
+    val Rotation: ImageVector by lazy {
+        vector(
+            "Rotation",
+            "M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-.66.03 3.81 " +
+                "3.81 1.33-1.32zm-6.25-.77c-.59-.59-1.54-.59-2.12 0L1.75 8.11c-.59.59-.59 1.54 0 " +
+                "2.12l12.02 12.02c.59.59 1.54.59 2.12 0l6.36-6.36c.59-.59.59-1.54 0-2.12L10.23 " +
+                "1.75zm4.6 19.44L2.81 9.17l6.36-6.36 12.02 12.02-6.36 6.36zm-7.31.29C4.25 19.94 " +
+                "1.91 16.76 1.55 13H.05C.56 19.16 5.71 24 12 24l.66-.03-3.81-3.81-1.33 1.32z",
+        )
+    }
+
+    val Dns: ImageVector by lazy {
+        vector(
+            "Dns",
+            "M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 " +
+                "19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 " +
+                "1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 " +
+                "2-.9 2-2 2z",
+        )
+    }
+
+    val Lock: ImageVector by lazy {
+        vector(
+            "Lock",
+            "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 " +
+                "0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 " +
+                "2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z",
+        )
+    }
+
+    val Brightness: ImageVector by lazy {
+        vector(
+            "Brightness",
+            "M20 15.31 23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 " +
+                "23.31 15.31 20H20v-4.69zM12 18V6c3.31 0 6 2.69 6 6s-2.69 6-6 6z",
+        )
+    }
+
+    /** Marks a control that hands off to another app. */
+    val ArrowOut: ImageVector by lazy {
+        vector("ArrowOut", "M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5z")
+    }
+
     val ArrowBack: ImageVector by lazy {
         vector(
             "ArrowBack",

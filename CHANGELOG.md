@@ -4,6 +4,80 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Quick controls panel
+
+Added:
+- A side sheet of eight tiles, pulled in from the right by swiping
+  right-to-left anywhere on the home screen, or opened from Settings.
+  It follows the finger and springs to open or closed, like the drawer,
+  and the home screen behind it is genuinely blurred.
+- Tiles for Wi‑Fi, Bluetooth, Flashlight, Location, Do Not Disturb,
+  Auto-rotate, Private DNS and Lock down, each showing its current
+  state.
+- A brightness slider with a haptic tick every twentieth of the bar.
+
+Notes:
+- **One tile is a real switch.** `CameraManager.setTorchMode` needs no
+  permission, so the flashlight toggles. Everything else is closed to
+  ordinary apps: `setWifiEnabled` has been a no-op since Android 10,
+  `BluetoothAdapter.enable` since 13, and Do Not Disturb, auto-rotate
+  and Private DNS each need a permission or special access this
+  launcher does not take. Those tiles read the state, show it, carry a
+  corner arrow, and open Android's own screen. A line under the grid
+  says so in as many words.
+- **Wi‑Fi opens a Settings panel**, not a whole screen: on Android 10
+  and later `Settings.Panel.ACTION_WIFI` is an inline slice with a
+  working switch on it.
+- **State is read without permissions.** Wi‑Fi, Bluetooth, Do Not
+  Disturb, rotation and Private DNS come from the Settings provider,
+  which any app may read; location uses
+  `LocationManager.isLocationEnabled`, which needs none. Reading
+  Bluetooth through `BluetoothAdapter` would have cost BLUETOOTH_CONNECT
+  on Android 12 and later, and reading the live Private DNS state would
+  have cost ACCESS_NETWORK_STATE, which this app strips from the merged
+  manifest on purpose.
+- **Lock down is not Android's Lockdown**, and the panel says so.
+  Android's own, which also disables fingerprint unlock until the next
+  PIN entry, lives in the power menu and cannot be started by an app.
+  This tile locks the screen, through the same optional accessibility
+  service as double-tap-to-lock.
+- The panel is opened by a right-to-left drag anywhere rather than one
+  from the right edge. On a phone with gesture navigation that edge
+  belongs to the system Back gesture, and competing with it is a fight
+  this would lose.
+- Observers are registered while the panel is on screen and torn down
+  when it leaves, so a panel nobody is looking at costs nothing.
+
+Changed:
+- The manifest declares a second permission, `WRITE_SETTINGS`, for the
+  brightness slider. It is an app-op permission: declaring it grants
+  nothing, no dialog can grant it, and the user has to allow it in
+  Android's own "Modify system settings" screen. Until then the slider
+  is disabled and shows that screen one tap away. Android gives an
+  ordinary app no other way to change screen brightness, and nothing
+  else in the launcher uses it.
+- `DrawerSwipe` became `SheetSwipe`, with `heightPx` as `extentPx`. It
+  now drives two sheets on two axes and knew nothing about direction
+  anyway.
+
+Fixed:
+- The panel's travel distance was set from inside the block that
+  composes it, which only runs once it is already sliding. With the
+  default extent of one pixel, the first pixel of a drag slammed it
+  fully open.
+- The brightness slider wrote to the Settings provider on every frame
+  of a drag. Writes are throttled now, with the final value written
+  when the finger lifts so the throttle cannot swallow where the drag
+  ended.
+- Every tile read "Unknown" for the first frames of a drag, because
+  nothing had read the state until the panel composed. The read now
+  happens when the drag starts.
+- The "opens Android settings" marker was a chevron rotated 135
+  degrees, which read as a stray bracket rather than an arrow.
+- Private DNS showed "Unknown" when the setting had never been touched.
+  An absent key means the platform default, which has been
+  opportunistic since Android 9, so it now reads "Automatic".
+
 ### Privacy dashboard
 
 Added:

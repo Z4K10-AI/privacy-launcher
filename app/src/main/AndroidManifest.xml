@@ -5,8 +5,8 @@
     <!--
       PERMISSIONS
 
-      This app declares exactly one, and never asks for it unless you switch
-      contact search on yourself.
+      This app declares two, and neither does anything until you switch on
+      the feature that needs it.
 
       READ_CONTACTS is needed for the "search contacts" option in the app
       drawer. Declaring it here is what makes the runtime request possible;
@@ -16,6 +16,14 @@
       ever made. When it is on, the search goes through the contacts
       provider's filter URI, so only matching rows are read, and only a name
       and a lookup key. See ContactRepository for the full account.
+
+      WRITE_SETTINGS is an "app op" permission rather than a runtime one.
+      Declaring it grants nothing and no dialog can grant it: the user has to
+      open Android's own "Modify system settings" screen and allow it there.
+      Until they do, Settings.System.canWrite() is false and the brightness
+      slider in the quick controls panel is disabled, with that screen one tap
+      away. It is here for that slider and nothing else, because Android
+      gives an ordinary app no other way to change screen brightness.
 
       There is still no network permission of any kind, so nothing read here
       can leave the phone.
@@ -27,6 +35,7 @@
       APK provably cannot reach the network.
     -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />

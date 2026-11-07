@@ -2,26 +2,30 @@
 
 An Android home screen (launcher) built for privacy. It **cannot reach the
 network**, keeps every setting in a file inside its own private directory, and
-declares exactly **one** Android permission, which it never asks for unless you
-switch on a feature that needs it.
+declares **two** Android permissions, neither of which does anything until you
+switch on the feature that needs it.
 
-That permission is `READ_CONTACTS`, for the optional "search contacts" row in
-the app drawer. It is off by default; nothing is requested or read until you
-turn it on yourself. [Contacts, in detail](#contacts-the-one-permission).
+- `READ_CONTACTS`, for the optional "search contacts" row in the app drawer.
+  Off by default; nothing is requested or read until you turn it on yourself.
+  [Contacts, in detail](#contacts-a-permission-you-switch-on).
+- `WRITE_SETTINGS`, for the brightness slider in the quick controls panel. An
+  app-op permission: declaring it grants nothing and no dialog can grant it —
+  you allow it in Android's own "Modify system settings" screen, or the slider
+  stays disabled.
 
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **home screen, app drawer and privacy dashboard complete, on a design
-system. Verified on an Android 15 (API 35) AOSP emulator; not yet tested on
-physical hardware.**
+Status: **home screen, app drawer, privacy dashboard and quick controls
+complete, on a design system. Verified on an Android 15 (API 35) AOSP
+emulator; not yet tested on physical hardware.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
 
-Release APK: 2.0 MB. Verified with `aapt2 dump permissions` to hold exactly one
-Android permission (`READ_CONTACTS`) and no reference to `INTERNET` anywhere in
-the merged manifest.
+Release APK: 2.0 MB. Verified with `aapt2 dump permissions` to hold exactly
+those two permissions and no reference to `INTERNET` anywhere in the merged
+manifest.
 
 ---
 
@@ -61,13 +65,31 @@ the merged manifest.
 - The keyboard opens with the drawer, with a switch in Settings to stop it.
 - Search also finds **system settings screens** — Wi‑Fi, Display, Battery and
   so on — and, if you switch it on, **contacts**. See
-  [Contacts, in detail](#contacts-the-one-permission).
+  [Contacts, in detail](#contacts-a-permission-you-switch-on).
 - An optional **most used** row at the top, counted on the phone, stored only
   there, and erasable from Settings.
 - Drag the handle at the top to pull the drawer back down.
 - Long-press an app for: add to / remove from home screen, add to dock, hide
   from drawer, **App info** (Android's own page, where you revoke
   permissions), uninstall.
+
+**Quick controls** (swipe right-to-left on the home screen)
+- A side sheet of eight tiles over a blurred home screen, following the finger
+  and springing to open or closed.
+- **The flashlight is the only real switch**, because
+  `CameraManager.setTorchMode` is the one of these Android still lets an
+  ordinary app call. Wi‑Fi, Bluetooth, Location, Do Not Disturb, Auto-rotate
+  and Private DNS show their state, carry a corner arrow, and open Android's
+  own screen — Wi‑Fi opens an inline Settings *panel* with a working switch on
+  it. A line under the grid says all of this plainly.
+- **Lock down** locks the screen through the optional accessibility service.
+  It is not Android's own Lockdown, which also disables fingerprint unlock;
+  that lives in the power menu and no app can start it. The panel says so.
+- A brightness slider with a haptic tick every twentieth of the bar. Disabled
+  until you allow "Modify system settings"; the panel explains and links.
+- Every state is read without a permission: the Settings provider for Wi‑Fi,
+  Bluetooth, Do Not Disturb, rotation and Private DNS, and
+  `LocationManager.isLocationEnabled` for location.
 
 **Privacy dashboard** (Settings → Privacy)
 - A privacy score in an animated ring, with the arithmetic shown: which
@@ -165,8 +187,8 @@ such as an open folder, where the thing being blurred is our own UI.
 
 | Property | How it is enforced |
 |---|---|
-| One permission, declared | `AndroidManifest.xml` declares `READ_CONTACTS` and nothing else. Declaring it grants nothing; see below |
-| Nothing asked for unprompted | The only call to `requestPermission` in the codebase is reached from the contact-search row in the drawer and the switch in Settings |
+| Two permissions, declared | `AndroidManifest.xml` declares `READ_CONTACTS` and `WRITE_SETTINGS` and nothing else. Declaring either grants nothing; see below |
+| Nothing asked for unprompted | The only `requestPermission` call is reached from the contact-search row in the drawer and the switch in Settings. `WRITE_SETTINGS` cannot be requested at all — only allowed by the user in Android's own screen, reached from the disabled brightness slider |
 | Cannot reach the network | `INTERNET` and `ACCESS_NETWORK_STATE` are removed from the merged manifest with `tools:node="remove"`, so no dependency can reintroduce them |
 | No advertising ID | `com.google.android.gms.permission.AD_ID` removed the same way |
 | No Google Play Services | Not a dependency. See the note below |
@@ -174,11 +196,10 @@ such as an open folder, where the thing being blurred is our own UI.
 | Settings stay on the phone | `android:allowBackup="false"` plus `data_extraction_rules.xml` excluding every domain from cloud backup and device transfer |
 | Narrow app visibility | The manifest's `<queries>` block asks only for apps with a launcher icon, not `QUERY_ALL_PACKAGES`. The privacy dashboard works within that limit and states it on screen |
 
-### Contacts: the one permission
+### Contacts: a permission you switch on
 
 Drawer search can include the phone's contacts. That needs `READ_CONTACTS`,
-which is the only permission this app declares, so it is worth being exact
-about what the feature does and does not do.
+so it is worth being exact about what the feature does and does not do.
 
 - **Off by default.** The launcher is fully usable without it, and in that
   state no contact query is ever made.

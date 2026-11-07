@@ -20,18 +20,27 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,12 +49,13 @@ import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.designsystem.LauncherTheme
 import com.privacylauncher.designsystem.Motion
 import com.privacylauncher.designsystem.adaptiveColumns
+import com.privacylauncher.designsystem.windowSizeDp
 import com.privacylauncher.designsystem.blurBehind
 import com.privacylauncher.designsystem.resolveIsDark
 import com.privacylauncher.system.rememberDeviceUnlock
 import com.privacylauncher.ui.AppDrawer
 import com.privacylauncher.ui.FolderSheet
-import com.privacylauncher.ui.rememberDrawerSwipe
+import com.privacylauncher.ui.rememberSheetSwipe
 import com.privacylauncher.ui.HomeScreen
 import com.privacylauncher.ui.HomeTile
 import com.privacylauncher.ui.LauncherViewModel
@@ -54,6 +64,7 @@ import com.privacylauncher.ui.components.rememberGlance
 import com.privacylauncher.ui.settings.DesignPreviewScreen
 import com.privacylauncher.ui.settings.GestureExplainerDialog
 import com.privacylauncher.ui.privacy.PrivacyDashboardScreen
+import com.privacylauncher.ui.quick.QuickPanel
 import com.privacylauncher.ui.settings.HiddenAppsScreen
 import com.privacylauncher.ui.settings.SettingsScreen
 
@@ -115,6 +126,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     val drawerList by viewModel.drawerList.collectAsStateWithLifecycle()
     val extraRows by viewModel.extraRows.collectAsStateWithLifecycle()
     val privacyReport by viewModel.privacyReport.collectAsStateWithLifecycle()
+    val quickState by viewModel.quickState.collectAsStateWithLifecycle()
     val homeTiles by viewModel.homeTiles.collectAsStateWithLifecycle()
     val dock by viewModel.dockApps.collectAsStateWithLifecycle()
     val allApps by viewModel.allInstalledApps.collectAsStateWithLifecycle()
@@ -128,7 +140,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     // The drawer follows the finger, so its position is a fraction rather than
     // an on/off animation. The view model still owns "is the drawer open"; this
     // object just chases that, and the drag updates it directly in between.
-    val drawerSwipe = rememberDrawerSwipe()
+    val drawerSwipe = rememberSheetSwipe()
     LaunchedEffect(drawerOpen) { drawerSwipe.settle(if (drawerOpen) 1f else 0f) }
 
     // The only permission request this app ever makes. It is reached from the
@@ -175,6 +187,23 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     val drawerVisible by remember(drawerSwipe) {
         derivedStateOf { drawerSwipe.progress.value > 0.001f }
     }
+
+    // The quick controls panel, on the same machinery but horizontal.
+    val quickOpen = panel == Panel.QUICK
+    val quickSwipe = rememberSheetSwipe()
+    LaunchedEffect(quickOpen) { quickSwipe.settle(if (quickOpen) 1f else 0f) }
+    val quickVisible by remember(quickSwipe) {
+        derivedStateOf { quickSwipe.progress.value > 0.001f }
+    }
+
+    // Set here, not inside the `if` that composes the panel. The drag starts
+    // while the panel does not exist yet, and with the default extent of one
+    // pixel the first pixel of movement would slam it fully open.
+    val quickPanelWidth = minOf(QUICK_PANEL_MAX_WIDTH, windowSizeDp().width * 0.92f)
+    val density = LocalDensity.current
+    LaunchedEffect(quickPanelWidth, density) {
+        quickSwipe.extentPx = with(density) { quickPanelWidth.toPx() }
+    }
     val glance = rememberGlance(enabled = settings.showGlance)
     val openFolder = viewModel.openFolderId?.let { id ->
         homeTiles.filterIsInstance<HomeTile.Folder>().firstOrNull { it.id == id }
@@ -191,7 +220,10 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     // change re-runs the layer without recomposing. The drawer is excluded
     // because its own drag fraction drives the fade instead of a fixed tween.
     val homeAlpha = animateFloatAsState(
-        targetValue = if (panelOpen && !drawerOpen) 0f else 1f,
+        // The quick panel is excluded along with the drawer, but for the
+        // opposite reason: it is a side sheet with the home screen blurred
+        // behind it, so fading that to nothing would leave nothing to blur.
+        targetValue = if (panelOpen && !drawerOpen && !quickOpen) 0f else 1f,
         animationSpec = Motion.medium(),
         label = "homeAlpha",
     )
@@ -218,7 +250,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
             .fillMaxSize()
             // The drag works in pixels and the sheet's position is a fraction,
             // so the swipe state needs to know how tall the window is.
-            .onSizeChanged { drawerSwipe.heightPx = it.height.toFloat().coerceAtLeast(1f) },
+            .onSizeChanged { drawerSwipe.extentPx = it.height.toFloat().coerceAtLeast(1f) },
     ) {
         Box(
             Modifier
@@ -228,7 +260,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 // Real frosted glass: these are our own composables, so
                 // RenderEffect can blur them. Window blur cannot do this for
                 // the wallpaper -- see Surfaces.panelSurface for why.
-                .blurBehind(active = openFolder != null),
+                .blurBehind(active = openFolder != null || quickVisible),
         ) {
             HomeScreen(
                 tiles = homeTiles,
@@ -263,6 +295,15 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                         viewModel.openDrawer()
                     } else {
                         drawerSwipe.settle(0f)
+                    }
+                },
+                onQuickDragStart = viewModel::refreshQuickControls,
+                onQuickDrag = quickSwipe::dragFromClosed,
+                onQuickRelease = { velocity ->
+                    if (quickSwipe.shouldOpen(velocity, wasOpen = false)) {
+                        viewModel.openQuickPanel()
+                    } else {
+                        quickSwipe.settle(0f)
                     }
                 },
                 onSwipeDown = viewModel::onSwipeDown,
@@ -364,6 +405,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onGestureService = { viewModel.showGestureExplainerDialog() },
                 onDesignPreview = viewModel::openDesignPreview,
                 onPrivacyDashboard = viewModel::openPrivacyDashboard,
+                onQuickPanel = viewModel::openQuickPanel,
                 onSetDefaultHome = { viewModel.openHomeAppPicker() },
             )
         }
@@ -376,6 +418,44 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onBack = viewModel::closePanel,
                 onToggle = viewModel::setAppHidden,
             )
+        }
+
+        // The quick controls side sheet. Positioned by a graphicsLayer so it
+        // tracks the finger, like the drawer; see SheetSwipe.
+        if (quickOpen || quickVisible) {
+            Box(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = quickSwipe.progress.value * 0.4f }
+                        .background(ComposeColor.Black)
+                        // pointerInput rather than clickable: a scrim should
+                        // swallow the tap, not ripple at it.
+                        .pointerInput(Unit) {
+                            detectTapGestures { viewModel.closePanel() }
+                        },
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .width(quickPanelWidth)
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            translationX = (1f - quickSwipe.progress.value) * size.width
+                        },
+                ) {
+                    QuickPanel(
+                        state = quickState,
+                        gestureServiceEnabled = viewModel.gestureServiceEnabled,
+                        onObserve = viewModel::observeQuickControls,
+                        onRefresh = viewModel::refreshQuickControls,
+                        onTile = viewModel::onQuickTile,
+                        onBrightness = viewModel::setBrightness,
+                        onBrightnessFinished = viewModel::commitBrightness,
+                        onGrantWriteSettings = viewModel::requestWriteSettings,
+                    )
+                }
+            }
         }
 
         PanelTransition(panel == Panel.PRIVACY) {
@@ -408,6 +488,9 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     // comment for why finishing a home Activity is wrong.
     BackHandler(enabled = true) { viewModel.onBack() }
 }
+
+/** Wider than this the panel stops reading as a sheet and starts as a screen. */
+private val QUICK_PANEL_MAX_WIDTH = 380.dp
 
 /**
  * Standard entrance for the full-screen panels: a short rise plus a fade, so

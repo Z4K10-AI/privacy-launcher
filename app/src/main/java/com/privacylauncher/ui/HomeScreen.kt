@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -120,6 +121,12 @@ fun HomeScreen(
     onDrawerDrag: (Float) -> Unit,
     /** Drag released: vertical velocity in px/s, negative upwards. */
     onDrawerRelease: (Float) -> Unit,
+    /** A horizontal drag has begun, so the quick panel's state can be read. */
+    onQuickDragStart: () -> Unit,
+    /** Accumulated horizontal drag, negative leftwards, for the quick panel. */
+    onQuickDrag: (Float) -> Unit,
+    /** Horizontal drag released: velocity in px/s, negative leftwards. */
+    onQuickRelease: (Float) -> Unit,
     onSwipeDown: () -> Unit,
     onDoubleTap: () -> Unit,
     onPinchIn: () -> Unit,
@@ -159,6 +166,33 @@ fun HomeScreen(
                     dragTotal += delta
                     velocity.addPointerInputChange(change)
                     onDrawerDrag(dragTotal)
+                }
+            }
+            .pointerInput(gesturesEnabled) {
+                if (!gesturesEnabled) return@pointerInput
+                // Right-to-left drags the quick controls panel in from the
+                // right. Deliberately a drag anywhere rather than one from
+                // the edge: on a phone with gesture navigation the right
+                // edge belongs to the system's Back gesture, and competing
+                // with it is a fight this would lose.
+                var dragTotal = 0f
+                var velocity = VelocityTracker()
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        dragTotal = 0f
+                        velocity = VelocityTracker()
+                        // Read the switches now rather than when the panel
+                        // composes: by then the sheet is already sliding in,
+                        // and every tile would show "Unknown" for the first
+                        // frames of the drag.
+                        onQuickDragStart()
+                    },
+                    onDragEnd = { onQuickRelease(velocity.calculateVelocity().x) },
+                    onDragCancel = { onQuickRelease(0f) },
+                ) { change, delta ->
+                    dragTotal += delta
+                    velocity.addPointerInputChange(change)
+                    onQuickDrag(dragTotal)
                 }
             }
             .pointerInput(gesturesEnabled) {

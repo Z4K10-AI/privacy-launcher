@@ -26,25 +26,29 @@ private const val COMMIT_FRACTION = 0.3f
 private const val COMMIT_VELOCITY = 700f
 
 /**
- * The app drawer's position, as a fraction: 0 is fully closed, 1 fully open.
+ * A sheet's position, as a fraction: 0 is fully closed, 1 fully open.
  *
- * This exists so the drawer can follow the finger rather than playing a fixed
+ * Used by the app drawer, which slides up, and the quick controls panel,
+ * which slides in from the right. It knows nothing about direction: the
+ * caller decides what the fraction means and how far [extentPx] is.
+ *
+ * This exists so a sheet can follow the finger rather than playing a fixed
  * animation. The important detail is that [progress] is an [Animatable], whose
  * value is read inside `graphicsLayer` blocks only. Those re-run on the
  * animation thread without recomposing anything, so dragging the drawer costs
  * no recomposition at all -- which is what keeps it smooth on a 4 GB phone.
  *
- * Nothing here knows whether the drawer is "open" as far as the rest of the
+ * Nothing here knows whether the sheet is "open" as far as the rest of the
  * app is concerned. That stays in [LauncherViewModel.panel], and this object
- * follows it; see the LaunchedEffect in MainActivity.
+ * follows it; see the LaunchedEffects in MainActivity.
  */
 @Stable
-class DrawerSwipe(private val scope: CoroutineScope) {
+class SheetSwipe(private val scope: CoroutineScope) {
 
     val progress = Animatable(0f)
 
-    /** Window height in px, used to turn a drag distance into a fraction. */
-    var heightPx: Float = 1f
+    /** How far the sheet travels in px, to turn a drag into a fraction. */
+    var extentPx: Float = 1f
 
     /**
      * Where the finger last put the sheet, updated synchronously.
@@ -58,13 +62,13 @@ class DrawerSwipe(private val scope: CoroutineScope) {
     private var dragFraction = 0f
 
     /**
-     * Follows a drag that started with the drawer closed. [totalPx] is the
-     * accumulated vertical distance, negative upwards.
+     * Follows a drag that started closed. [totalPx] is the accumulated
+     * distance along the sheet's axis, negative in the opening direction.
      */
-    fun dragFromClosed(totalPx: Float) = snap(-totalPx / heightPx)
+    fun dragFromClosed(totalPx: Float) = snap(-totalPx / extentPx)
 
-    /** Follows a drag that started with the drawer open; positive is down. */
-    fun dragFromOpen(totalPx: Float) = snap(1f - totalPx / heightPx)
+    /** Follows a drag that started open; positive is the closing direction. */
+    fun dragFromOpen(totalPx: Float) = snap(1f - totalPx / extentPx)
 
     private fun snap(target: Float) {
         val clamped = target.coerceIn(0f, 1f)
@@ -75,9 +79,9 @@ class DrawerSwipe(private val scope: CoroutineScope) {
     /**
      * Decides where a released drag should land.
      *
-     * [velocityPx] is vertical velocity in px/s, negative upwards, and
-     * [wasOpen] says which state the drag started from. Returns true if the
-     * drawer should end up open.
+     * [velocityPx] is velocity along the axis in px/s, negative in the
+     * opening direction, and [wasOpen] says which state the drag started
+     * from. Returns true if the sheet should end up open.
      */
     fun shouldOpen(velocityPx: Float, wasOpen: Boolean): Boolean = when {
         velocityPx < -COMMIT_VELOCITY -> true
@@ -100,7 +104,7 @@ class DrawerSwipe(private val scope: CoroutineScope) {
 }
 
 @Composable
-fun rememberDrawerSwipe(): DrawerSwipe {
+fun rememberSheetSwipe(): SheetSwipe {
     val scope = rememberCoroutineScope()
-    return remember(scope) { DrawerSwipe(scope) }
+    return remember(scope) { SheetSwipe(scope) }
 }
