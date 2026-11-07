@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
@@ -53,6 +54,7 @@ class SettingsRepository(private val context: Context) {
                 endMinute = p[KEY_FOCUS_END] ?: FocusSchedule().endMinute,
             ),
             minimalMode = p[KEY_MINIMAL_MODE] ?: false,
+            onboardingDone = p[KEY_ONBOARDING_DONE] ?: false,
         )
     }
 
@@ -221,6 +223,62 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[KEY_MINIMAL_MODE] = value }
     }
 
+    suspend fun setOnboardingDone(value: Boolean) {
+        context.dataStore.edit { it[KEY_ONBOARDING_DONE] = value }
+    }
+
+    // --- backup and restore -----------------------------------------------
+
+    /** The current settings as a JSON document, ready to be written out. */
+    suspend fun exportBackup(): String = SettingsBackup.encode(settings.first())
+
+    /**
+     * Replaces every backed-up preference with the ones in [raw].
+     *
+     * All or nothing, in a single `edit`, so a half-applied restore cannot
+     * leave the launcher in a state that is neither the old settings nor the
+     * new ones. Returns false if the file is not a backup this build
+     * understands, in which case nothing is written at all.
+     *
+     * Keys the backup deliberately omits -- launch counts, a running focus
+     * session, the onboarding flag -- are left exactly as they are rather
+     * than reset. See [SettingsBackup] for why they are omitted.
+     *
+     * Apps named in the restored layout that are not installed here are not
+     * filtered out at this point. `pruneMissing` already runs when the app
+     * list loads and will drop them, and doing it there rather than here
+     * means a restore made while an app is still installing is not quietly
+     * thrown away.
+     */
+    suspend fun importBackup(raw: String): Boolean {
+        val s = SettingsBackup.decode(raw) ?: return false
+        context.dataStore.edit { p ->
+            p[KEY_THEME] = s.themeMode.name
+            p[KEY_ACCENT] = s.accent.name
+            p[KEY_DYNAMIC_COLOR] = s.dynamicColor
+            p[KEY_FONT] = s.font.name
+            p[KEY_ICON_SIZE] = s.iconSize.name
+            p[KEY_DRAWER_COLUMNS] = s.drawerColumns
+            p[KEY_HOME_COLUMNS] = s.homeColumns
+            p[KEY_HIDDEN_APPS] = s.hiddenApps
+            p[KEY_HOME_ITEMS] = HomeLayoutCodec.encode(s.homeItems)
+            // The pre-folders key would otherwise win on the next read.
+            p.remove(KEY_HOME_APPS_LEGACY)
+            p[KEY_DOCK_APPS] = s.dockApps.encodeList()
+            p[KEY_SHOW_GLANCE] = s.showGlance
+            p[KEY_AUTO_KEYBOARD] = s.autoKeyboard
+            p[KEY_SHOW_MOST_USED] = s.showMostUsed
+            p[KEY_SEARCH_CONTACTS] = s.searchContacts
+            p[KEY_LOCK_HIDDEN] = s.lockHiddenApps
+            p[KEY_FOCUS_ALLOWED] = s.focusAllowed
+            p[KEY_FOCUS_SCHEDULE_ON] = s.focusSchedule.enabled
+            p[KEY_FOCUS_START] = s.focusSchedule.startMinute
+            p[KEY_FOCUS_END] = s.focusSchedule.endMinute
+            p[KEY_MINIMAL_MODE] = s.minimalMode
+        }
+        return true
+    }
+
     // --- home layout ------------------------------------------------------
 
     private suspend fun editHome(block: (MutableList<HomeItem>) -> Unit) {
@@ -379,6 +437,7 @@ class SettingsRepository(private val context: Context) {
         val KEY_FOCUS_START = intPreferencesKey("focus_start_minute")
         val KEY_FOCUS_END = intPreferencesKey("focus_end_minute")
         val KEY_MINIMAL_MODE = booleanPreferencesKey("minimal_mode")
+        val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
 
         const val MAX_COUNTED_APPS = 60
 

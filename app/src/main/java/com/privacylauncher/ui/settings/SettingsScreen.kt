@@ -1,5 +1,8 @@
 package com.privacylauncher.ui.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +24,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.privacylauncher.R
 import com.privacylauncher.data.AccentColor
+import com.privacylauncher.data.AppEntry
+import com.privacylauncher.data.BackupResult
 import com.privacylauncher.data.FontChoice
+import com.privacylauncher.data.IconLoader
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.ThemeMode
@@ -35,6 +41,14 @@ import com.privacylauncher.ui.components.SettingsRow
 import com.privacylauncher.ui.components.SettingsSwitchRow
 import com.privacylauncher.ui.components.SwatchRow
 
+/**
+ * Every launcher preference, in six sections.
+ *
+ * The grouping is by *where you will see the change*, not by which part of
+ * the code owns it: icon size sits under Home with the grid it resizes, even
+ * though it also changes the drawer, because the home screen is where anyone
+ * notices. Appearance holds only what changes the whole app at once.
+ */
 @Composable
 fun SettingsScreen(
     settings: LauncherSettings,
@@ -66,10 +80,30 @@ fun SettingsScreen(
     onFocus: () -> Unit,
     onMinimalMode: (Boolean) -> Unit,
     onSetDefaultHome: () -> Unit,
+    /** A few real apps, for the live grid sample. */
+    previewEntries: List<AppEntry>,
+    iconLoader: IconLoader,
+    appVersion: String,
+    backupFileName: String,
+    onBackupTo: (Uri) -> Unit,
+    onRestoreFrom: (Uri) -> Unit,
+    backupResult: BackupResult?,
+    onDismissBackupResult: () -> Unit,
 ) {
     val dark = settings.themeMode.resolveIsDark()
     val dynamicOn = settings.dynamicColor && dynamicColorAvailable
     var confirmClearUsage by remember { mutableStateOf(false) }
+    var confirmRestore by remember { mutableStateOf(false) }
+
+    // Android's own file picker. No storage permission is involved: the user
+    // chooses the file and the system hands back a Uri for that one file.
+    val saveFile = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> uri?.let(onBackupTo) }
+
+    val openFile = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(onRestoreFrom) }
 
     if (confirmClearUsage) {
         // Worth a confirmation even though nothing irreplaceable is lost: the
@@ -95,9 +129,74 @@ fun SettingsScreen(
         )
     }
 
+    if (confirmRestore) {
+        // Restoring replaces the home layout, the dock and every preference
+        // at once, and there is no undo. Saying exactly what goes and what
+        // stays before the file picker opens is the only honest order.
+        AlertDialog(
+            onDismissRequest = { confirmRestore = false },
+            title = { Text(stringResource(R.string.settings_restore)) },
+            text = { Text(stringResource(R.string.settings_restore_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmRestore = false
+                        openFile.launch(arrayOf("application/json", "text/plain", "*/*"))
+                    },
+                ) { Text(stringResource(R.string.settings_restore_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRestore = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    backupResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = onDismissBackupResult,
+            title = {
+                Text(
+                    stringResource(
+                        when (result) {
+                            BackupResult.SAVED -> R.string.settings_backup_saved
+                            BackupResult.SAVE_FAILED -> R.string.settings_backup_failed
+                            BackupResult.RESTORED -> R.string.settings_restore_done
+                            BackupResult.RESTORE_NOT_A_BACKUP,
+                            BackupResult.RESTORE_UNREADABLE,
+                            -> R.string.settings_restore_failed
+                        }
+                    )
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        when (result) {
+                            BackupResult.SAVED -> R.string.settings_backup_saved_body
+                            BackupResult.SAVE_FAILED -> R.string.settings_backup_failed_body
+                            BackupResult.RESTORED -> R.string.settings_restore_done_body
+                            BackupResult.RESTORE_NOT_A_BACKUP ->
+                                R.string.settings_restore_not_backup_body
+                            BackupResult.RESTORE_UNREADABLE ->
+                                R.string.settings_restore_unreadable_body
+                        }
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = onDismissBackupResult) {
+                    Text(stringResource(R.string.ok))
+                }
+            },
+        )
+    }
+
     ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
 
+            // --- Appearance: what changes the whole app at once ------------
             SettingsGroup(stringResource(R.string.settings_group_appearance)) {
                 ChoiceRow(
                     title = stringResource(R.string.settings_theme),
@@ -157,6 +256,7 @@ fun SettingsScreen(
                     },
                     onSelect = onFont,
                 )
+                FontPreview()
 
                 SettingsRow(
                     title = stringResource(R.string.settings_design_preview),
@@ -165,13 +265,8 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup(stringResource(R.string.settings_group_layout)) {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_glance),
-                    subtitle = stringResource(R.string.settings_glance_body),
-                    checked = settings.showGlance,
-                    onCheckedChange = onShowGlance,
-                )
+            // --- Home ------------------------------------------------------
+            SettingsGroup(stringResource(R.string.settings_group_home)) {
                 ChoiceRow(
                     title = stringResource(R.string.settings_icon_size),
                     options = IconSize.entries,
@@ -188,22 +283,83 @@ fun SettingsScreen(
                     onSelect = onIconSize,
                 )
                 ChoiceRow(
-                    title = stringResource(R.string.settings_drawer_columns),
-                    options = LauncherSettings.COLUMN_CHOICES,
-                    selected = settings.drawerColumns,
-                    label = { it.toString() },
-                    onSelect = onDrawerColumns,
-                )
-                ChoiceRow(
                     title = stringResource(R.string.settings_home_columns),
                     options = LauncherSettings.COLUMN_CHOICES,
                     selected = settings.homeColumns,
                     label = { it.toString() },
                     onSelect = onHomeColumns,
                 )
+                // One sample under both controls rather than one each: they
+                // describe the same grid, and two cards showing the same
+                // thing would be noise.
+                GridPreview(
+                    entries = previewEntries,
+                    iconLoader = iconLoader,
+                    iconSize = settings.iconSize,
+                    columns = settings.homeColumns,
+                )
+
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_glance),
+                    subtitle = stringResource(R.string.settings_glance_body),
+                    checked = settings.showGlance,
+                    onCheckedChange = onShowGlance,
+                )
+                SettingsRow(
+                    title = stringResource(R.string.settings_focus),
+                    subtitle = if (focusActive) {
+                        stringResource(R.string.settings_focus_on)
+                    } else {
+                        stringResource(R.string.settings_focus_body)
+                    },
+                    onClick = onFocus,
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_minimal),
+                    subtitle = stringResource(R.string.settings_minimal_body),
+                    checked = settings.minimalMode,
+                    onCheckedChange = onMinimalMode,
+                )
+                SettingsRow(
+                    title = stringResource(R.string.settings_wallpaper),
+                    subtitle = stringResource(R.string.settings_wallpaper_body),
+                    onClick = onWallpaper,
+                )
+                if (isDefaultHome) {
+                    Text(
+                        text = stringResource(R.string.settings_default_home_already),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(
+                            horizontal = Spacing.lg,
+                            vertical = Spacing.sm,
+                        ),
+                    )
+                } else {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_default_home),
+                        subtitle = stringResource(R.string.settings_default_home_body),
+                        onClick = onSetDefaultHome,
+                    )
+                }
             }
 
-            SettingsGroup(stringResource(R.string.settings_group_search)) {
+            // --- Drawer ----------------------------------------------------
+            SettingsGroup(stringResource(R.string.settings_group_drawer)) {
+                ChoiceRow(
+                    title = stringResource(R.string.settings_drawer_columns),
+                    options = LauncherSettings.COLUMN_CHOICES,
+                    selected = settings.drawerColumns,
+                    label = { it.toString() },
+                    onSelect = onDrawerColumns,
+                )
+                GridPreview(
+                    entries = previewEntries,
+                    iconLoader = iconLoader,
+                    iconSize = settings.iconSize,
+                    columns = settings.drawerColumns,
+                )
+
                 SettingsSwitchRow(
                     title = stringResource(R.string.settings_auto_keyboard),
                     subtitle = stringResource(R.string.settings_auto_keyboard_body),
@@ -216,13 +372,11 @@ fun SettingsScreen(
                     checked = settings.showMostUsed,
                     onCheckedChange = onShowMostUsed,
                 )
-                if (settings.showMostUsed) {
-                    SettingsRow(
-                        title = stringResource(R.string.settings_clear_usage),
-                        subtitle = stringResource(R.string.settings_clear_usage_body),
-                        onClick = { confirmClearUsage = true },
-                    )
-                }
+                SettingsRow(
+                    title = stringResource(R.string.settings_clear_usage),
+                    subtitle = stringResource(R.string.settings_clear_usage_body),
+                    onClick = { confirmClearUsage = true },
+                )
                 SettingsSwitchRow(
                     title = stringResource(R.string.settings_contacts),
                     subtitle = stringResource(R.string.settings_contacts_body),
@@ -230,8 +384,6 @@ fun SettingsScreen(
                     onCheckedChange = onSearchContacts,
                 )
                 if (!settings.searchContacts) {
-                    // Switching off stops every query, but only Android can
-                    // take the grant back, so say where that lives.
                     Text(
                         text = stringResource(R.string.settings_contacts_revoke),
                         style = MaterialTheme.typography.bodySmall,
@@ -244,33 +396,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsGroup(stringResource(R.string.settings_group_focus)) {
-                SettingsRow(
-                    title = stringResource(R.string.settings_focus),
-                    subtitle = if (focusActive) {
-                        stringResource(R.string.settings_focus_on)
-                    } else {
-                        stringResource(R.string.settings_focus_body)
-                    },
-                    onClick = onFocus,
-                )
-
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_minimal),
-                    subtitle = stringResource(R.string.settings_minimal_body),
-                    checked = settings.minimalMode,
-                    onCheckedChange = onMinimalMode,
-                )
-            }
-
-            SettingsGroup(stringResource(R.string.settings_group_privacy)) {
-                SettingsRow(
-                    title = stringResource(R.string.settings_privacy_dashboard),
-                    subtitle = stringResource(R.string.settings_privacy_dashboard_body),
-                    onClick = onPrivacyDashboard,
-                )
-            }
-
+            // --- Gestures --------------------------------------------------
             SettingsGroup(stringResource(R.string.settings_group_gestures)) {
                 SettingsRow(
                     title = stringResource(R.string.settings_quick_panel),
@@ -303,11 +429,12 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup(stringResource(R.string.settings_group_system)) {
+            // --- Privacy ---------------------------------------------------
+            SettingsGroup(stringResource(R.string.settings_group_privacy)) {
                 SettingsRow(
-                    title = stringResource(R.string.settings_wallpaper),
-                    subtitle = stringResource(R.string.settings_wallpaper_body),
-                    onClick = onWallpaper,
+                    title = stringResource(R.string.settings_privacy_dashboard),
+                    subtitle = stringResource(R.string.settings_privacy_dashboard_body),
+                    onClick = onPrivacyDashboard,
                 )
                 SettingsRow(
                     title = stringResource(R.string.settings_hidden_apps),
@@ -343,27 +470,45 @@ fun SettingsScreen(
                         ),
                     )
                 }
-                if (isDefaultHome) {
-                    Text(
-                        text = stringResource(R.string.settings_default_home_already),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(
-                            horizontal = Spacing.lg,
-                            vertical = Spacing.sm,
-                        ),
-                    )
-                } else {
-                    SettingsRow(
-                        title = stringResource(R.string.settings_default_home),
-                        subtitle = stringResource(R.string.settings_default_home_body),
-                        onClick = onSetDefaultHome,
-                    )
-                }
+            }
+
+            // --- About -----------------------------------------------------
+            SettingsGroup(stringResource(R.string.settings_group_about)) {
+                SettingsRow(
+                    title = stringResource(R.string.settings_backup),
+                    subtitle = stringResource(R.string.settings_backup_body),
+                    onClick = { saveFile.launch(backupFileName) },
+                )
+                SettingsRow(
+                    title = stringResource(R.string.settings_restore),
+                    subtitle = stringResource(R.string.settings_restore_body),
+                    onClick = { confirmRestore = true },
+                )
                 SettingsRow(
                     title = stringResource(R.string.settings_app_info),
                     subtitle = stringResource(R.string.settings_app_info_body),
                     onClick = onAppInfo,
+                )
+                Text(
+                    text = stringResource(R.string.settings_version, appVersion),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        top = Spacing.sm,
+                    ),
+                )
+                Text(
+                    text = stringResource(R.string.settings_licences),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        top = Spacing.xxs,
+                        bottom = Spacing.sm,
+                    ),
                 )
             }
 

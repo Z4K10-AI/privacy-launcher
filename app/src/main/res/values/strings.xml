@@ -171,7 +171,6 @@
     <string name="settings_font_serif">Serif</string>
     <string name="settings_font_mono">Monospace</string>
 
-    <string name="settings_group_layout">Layout</string>
     <string name="settings_glance">At a glance</string>
     <string name="settings_glance_body">Next alarm and battery under the clock. Read from the phone; no network, no location.</string>
     <string name="settings_icon_size">Icon size</string>
@@ -184,10 +183,8 @@
     <string name="settings_design_preview">Design preview</string>
     <string name="settings_design_preview_body">Every colour, type size and control in one place.</string>
 
-    <string name="settings_group_system">System</string>
     <string name="settings_wallpaper">Change wallpaper</string>
     <string name="settings_wallpaper_body">Opens Android\'s wallpaper picker. This app never reads your photos.</string>
-    <string name="settings_group_search">Search</string>
     <string name="settings_auto_keyboard">Open the keyboard automatically</string>
     <string name="settings_auto_keyboard_body">Start typing the moment the drawer opens. Turn this off to see more icons at once.</string>
 
@@ -293,10 +290,69 @@
     <string name="focus_truth_body">Focus hides apps. It does not block them.\n\nA set-aside app is still installed and still running whatever it was running. It can still be opened from a notification, from a link in another app, or from a different launcher. Only this launcher\'s home screen and drawer stop offering it.\n\nThe launcher\'s own screens are never hidden, so you can always get back here and switch focus off.\n\nNothing runs in the background to make this work. There is no alarm and no background service: the launcher simply looks at the clock when you look at the launcher.</string>
 
     <!-- Minimal mode -->
-    <string name="settings_group_focus">Focus and quiet</string>
     <string name="settings_focus">Focus mode</string>
     <string name="settings_focus_body">Pick a few apps and set the rest aside, by hand or on a daily schedule.</string>
     <string name="settings_focus_on">On. Tap to end it or change what is allowed.</string>
     <string name="settings_minimal">Minimal mode</string>
     <string name="settings_minimal_body">A text-only home screen: app names in large type, no icons. Folders are flattened, dock apps join the list, and there is no reordering — switch this off to rearrange.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_done">Get started</string>
+
+    <string name="onboarding_welcome_title">A quieter home screen</string>
+    <string name="onboarding_welcome_body">Four short pages, then you are done. Nothing here asks for a permission, and you can skip the lot — every one of these choices is in Settings afterwards.</string>
+
+    <string name="onboarding_home_title">Make it your home screen</string>
+    <string name="onboarding_home_body">Android asks you to pick which app is the home screen. Until you do, pressing Home still goes to your old launcher.</string>
+    <string name="onboarding_home_action">Choose home app</string>
+    <string name="onboarding_home_already">This is already your home screen.</string>
+    <string name="onboarding_home_note">This opens Android\'s own settings screen. You can also do it later from Settings.</string>
+
+    <string name="onboarding_theme_title">Pick a look</string>
+    <string name="onboarding_theme_body">These apply as you tap, so choose by looking rather than by reading.</string>
+    <string name="onboarding_theme_more">Your wallpaper\'s own colours are an option too, in Settings under Appearance.</string>
+
+    <string name="onboarding_privacy_title">What this app does not do</string>
+    <string name="onboarding_privacy_body">A promise is only worth what can be checked, so each of these is something you can verify yourself.</string>
+    <string name="onboarding_privacy_point_network">It has no internet permission at all. Not unused — absent. It cannot reach the network even if it tried.</string>
+    <string name="onboarding_privacy_point_permissions">It declares two permissions, Contacts and Modify system settings, and neither does anything until you switch on the feature that needs it.</string>
+    <string name="onboarding_privacy_point_storage">Everything it knows lives in one file in its own private storage. Cloud backup and device transfer are switched off.</string>
+    <string name="onboarding_privacy_point_source">No analytics, no crash reporting, no ads, no Google Play Services. Every library it uses is open source.</string>
+
+    <!-- Settings: sections added in the regroup -->
+    <string name="settings_group_home">Home</string>
+    <string name="settings_group_drawer">Drawer</string>
+    <string name="settings_group_about">About</string>
+
+    <!-- Settings: live previews -->
+    <string name="settings_preview_label">Preview</string>
+    <string name="settings_preview_loading">Loading your apps…</string>
+    <string name="settings_font_sample_time">9:41</string>
+    <string name="settings_font_sample_body">Sunday, 8 November · Battery 100%</string>
+
+    <!-- Settings: backup and restore -->
+    <string name="settings_backup">Back up settings</string>
+    <string name="settings_backup_body">Write your settings and home layout to a file you choose. No cloud, no account.</string>
+    <string name="settings_backup_saved">Settings saved</string>
+    <string name="settings_backup_saved_body">The file holds your preferences and home layout. It does not include your usage record or a running focus session.</string>
+    <string name="settings_backup_failed">Could not save</string>
+    <string name="settings_backup_failed_body">The file could not be written. If you picked a location on another device or a card that has been removed, try somewhere on this phone.</string>
+
+    <string name="settings_restore">Restore settings</string>
+    <string name="settings_restore_body">Read settings back from a backup file.</string>
+    <string name="settings_restore_confirm">This replaces your current theme, layout, dock, hidden apps and every other preference with the ones in the file. There is no undo.\n\nYour usage record and any running focus session are left alone.</string>
+    <string name="settings_restore_action">Choose file</string>
+    <string name="settings_restore_done">Settings restored</string>
+    <string name="settings_restore_done_body">Apps in the backup that are not installed here have been left out of the layout.</string>
+    <string name="settings_restore_failed">Could not restore</string>
+    <string name="settings_restore_not_backup_body">That file is not a Privacy Launcher backup, or it was written by a newer version. Nothing has been changed.</string>
+    <string name="settings_restore_unreadable_body">The file could not be read. Nothing has been changed.</string>
+
+    <!-- Settings: about -->
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_licences">Open source. Jetpack Compose, AndroidX and DataStore are Apache License 2.0; the Inter typeface is SIL Open Font License 1.1. The README lists every dependency with its licence.</string>
+
+    <string name="ok">OK</string>
 </resources>

@@ -120,6 +120,16 @@ data class LauncherSettings(
      * changes how the home screen looks, focus changes what is on it.
      */
     val minimalMode: Boolean = false,
+    /**
+     * Whether first-run onboarding has been finished or skipped.
+     *
+     * Read through its own flow rather than this one, because everything
+     * else here has a sensible default that can be shown while the stored
+     * file is still being read, and this does not: defaulting to `false`
+     * for those few milliseconds would flash the welcome screen at someone
+     * who set the launcher up months ago. See `LauncherViewModel.onboarded`.
+     */
+    val onboardingDone: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_DRAWER_COLUMNS = 4

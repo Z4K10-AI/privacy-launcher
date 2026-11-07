@@ -4,6 +4,46 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Onboarding, settings sections and local backup
+
+Added:
+- **First-run onboarding**, four pages: welcome, set as default launcher,
+  choose a theme and accent, and what the app does not do. Paged with a
+  parallax and fade, with Skip on every page but the last.
+- **Settings regrouped into six sections** — Appearance, Home, Drawer,
+  Gestures, Privacy, About — replacing the older Appearance / Layout /
+  Search / Focus / Privacy / Gestures / System split.
+- **Live previews.** Changing icon size or the column count shows a card of
+  your own apps at that size and count; changing the font shows a
+  clock-sized sample. The card draws from the icon cache the drawer has
+  already filled, so it costs no extra decoding.
+- **Backup and restore** to a local JSON file through Android's file
+  picker. No cloud, no account, and no storage permission.
+- An **About** section: version, a licence summary, and the two file
+  actions.
+
+Notes:
+- **Onboarding is never a gate.** No page asks for a permission, the
+  home-app page can be walked past, and page three's controls are the real
+  settings rather than copies, so they apply as you tap and skipping keeps
+  what you chose. A launcher is the home screen; a flow you cannot leave
+  would leave you with no phone.
+- **Whether onboarding is done is read through its own flow**, which is
+  null until the stored file has been read. Every other preference has a
+  default that is safe to show for those few milliseconds; this one does
+  not, and defaulting to "not onboarded" would flash the welcome screen at
+  every cold start.
+- **The backup leaves out launch counts, any running focus session, and the
+  onboarding flag**, and the screens say so. See the README for why each.
+- Restore is all-or-nothing in a single `edit`, so a failure cannot leave
+  the launcher holding half of two different configurations. A file that is
+  not a backup is reported differently from one that could not be read: the
+  first is the wrong file, the second is the system's problem, and one
+  message for both would leave you unable to tell which.
+- The backup file is dated from the phone's clock rather than UTC, so a
+  backup made after midnight is not labelled with yesterday. The `savedAt`
+  field inside it stays UTC.
+
 ### Focus mode and minimal mode
 
 Added:

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -64,6 +65,7 @@ import com.privacylauncher.ui.MinimalHome
 import com.privacylauncher.ui.LauncherViewModel
 import com.privacylauncher.ui.Panel
 import com.privacylauncher.ui.components.rememberGlance
+import com.privacylauncher.ui.onboarding.OnboardingScreen
 import com.privacylauncher.ui.settings.DesignPreviewScreen
 import com.privacylauncher.ui.settings.GestureExplainerDialog
 import com.privacylauncher.ui.focus.FocusAppsScreen
@@ -109,9 +111,26 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by viewModel.settings.collectAsStateWithLifecycle()
             val focus by viewModel.focus.collectAsStateWithLifecycle()
+            val onboarded by viewModel.onboarded.collectAsStateWithLifecycle()
 
             LauncherTheme(settings = settings, calm = focus.active) {
-                LauncherRoot(viewModel, settings, focus)
+                when (onboarded) {
+                    // Still reading the stored settings. Drawing nothing
+                    // leaves the wallpaper showing for a frame or two, which
+                    // is exactly what a launcher should look like while it
+                    // starts -- and far better than flashing the welcome
+                    // screen at someone who finished it months ago.
+                    null -> Unit
+                    false -> OnboardingScreen(
+                        settings = settings,
+                        isDefaultHome = viewModel.isDefaultHome,
+                        onThemeMode = viewModel::setThemeMode,
+                        onAccent = viewModel::setAccent,
+                        onChooseHomeApp = { viewModel.openHomeAppPicker() },
+                        onFinish = viewModel::finishOnboarding,
+                    )
+                    else -> LauncherRoot(viewModel, settings, focus)
+                }
             }
         }
     }
@@ -481,6 +500,17 @@ private fun LauncherRoot(
                 onFocus = viewModel::openFocusScreen,
                 onMinimalMode = viewModel::setMinimalMode,
                 onSetDefaultHome = { viewModel.openHomeAppPicker() },
+                // A handful of real apps for the live grid sample. Taken
+                // from the list the drawer already loaded, and drawn with
+                // the shared icon cache, so the preview costs no extra work.
+                previewEntries = remember(allApps) { allApps.take(PREVIEW_APPS) },
+                iconLoader = viewModel.iconLoader,
+                appVersion = rememberAppVersion(),
+                backupFileName = remember { viewModel.suggestedBackupFileName() },
+                onBackupTo = viewModel::backupTo,
+                onRestoreFrom = viewModel::restoreFrom,
+                backupResult = viewModel.backupResult,
+                onDismissBackupResult = viewModel::dismissBackupResult,
             )
         }
 
@@ -614,5 +644,27 @@ private fun PanelTransition(visible: Boolean, content: @Composable () -> Unit) {
         exit = fadeOut(Motion.exit()),
     ) {
         content()
+    }
+}
+
+/** How many apps the live grid sample in Settings draws from. */
+private const val PREVIEW_APPS = 6
+
+/**
+ * The app's own version name, for the About section.
+ *
+ * Read from the package manager rather than from `BuildConfig`, because
+ * BuildConfig generation is switched off in this project to keep the build
+ * output minimal. Falls back to an empty string rather than throwing: a
+ * missing version string is a cosmetic problem, and the launcher failing to
+ * draw its settings screen is not.
+ */
+@Composable
+private fun rememberAppVersion(): String {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull().orEmpty()
     }
 }

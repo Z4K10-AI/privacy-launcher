@@ -175,6 +175,51 @@ manifest.
 - Focus and quiet: focus mode and its allowed apps, and minimal mode.
 - Set as default home app: a shortcut into Android's home-app picker.
 
+Settings are grouped into six sections — Appearance, Home, Drawer, Gestures,
+Privacy and About — by *where you will see the change* rather than by which
+part of the code owns it. Icon size sits under Home with the grid it resizes,
+even though it also changes the drawer, because the home screen is where
+anyone notices.
+
+Changing icon size, the column count or the font shows a **live preview**: a
+card with a few of your own apps at the chosen size and column count, and a
+clock-sized sample of the chosen font. It uses real icons from the cache the
+drawer has already filled, so showing it costs no extra decoding.
+
+### First run
+
+Four short pages: welcome, set as default launcher, choose theme and accent,
+and what the app does not do. Smooth paging, and a Skip button on every page
+but the last.
+
+Nothing in it is a gate. No page asks for a permission, the home-app page can
+be walked straight past, and the theme controls on page three are the real
+ones — they apply as you tap, so skipping from there keeps what you chose.
+This matters more than it would in another app: a launcher *is* the home
+screen, so an onboarding flow you cannot get out of leaves you with no phone.
+
+### Backup and restore
+
+**Settings → About → Back up settings** writes a readable JSON file wherever
+you point it, through Android's own file picker. No cloud, no account, and no
+storage permission — the picker hands back one file, which is the only thing
+the app can touch. Restore reads one back, after a dialog that says plainly
+what will be replaced and that there is no undo.
+
+Three things are deliberately left out of the file, and the screens say so:
+
+- **Launch counts.** They are a record of what you use and when you started,
+  which is the most revealing thing this app stores. Settings belong in a
+  backup; a usage history does not, and writing it into a file you might mail
+  to yourself would undo the care taken to keep it in private storage.
+- **A running focus session.** Its end time is an instant, not a preference.
+  Restoring last week's would switch focus on for no reason, or off while you
+  were using it. The *schedule* is a preference and is kept.
+- **Whether onboarding is done**, since restoring happens from inside the app.
+
+Apps named in a restored layout that are not installed on this phone are
+dropped when the app list next loads, rather than leaving dead icons behind.
+
 ## Design system
 
 Everything visual comes from `app/src/main/java/com/privacylauncher/designsystem/`.

@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,6 +15,8 @@ import androidx.lifecycle.viewModelScope
 import com.privacylauncher.PrivacyLauncherApp
 import com.privacylauncher.data.AccentColor
 import com.privacylauncher.data.AppEntry
+import com.privacylauncher.data.BackupResult
+import com.privacylauncher.data.SettingsBackup
 import com.privacylauncher.data.ContactMatch
 import com.privacylauncher.data.ContactRepository
 import com.privacylauncher.data.FocusClock
@@ -36,8 +39,10 @@ import com.privacylauncher.data.QuickControlsState
 import com.privacylauncher.data.ThemeMode
 import com.privacylauncher.data.Toggle
 import com.privacylauncher.system.LauncherAccessibilityService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -77,6 +82,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     val settings: StateFlow<LauncherSettings> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, LauncherSettings())
+
+    /**
+     * Whether onboarding is finished -- null until the stored file has been
+     * read for the first time.
+     *
+     * It needs its own flow precisely because of that null. Every other
+     * preference has a default that is fine to show for the few milliseconds
+     * before DataStore answers; this one does not, because the default is
+     * "not onboarded" and showing that briefly would flash the welcome
+     * screen at every cold start, on the one app that cannot afford to look
+     * broken while it loads. Null means "do not know yet", and the UI draws
+     * nothing rather than guessing.
+     */
+    val onboarded: StateFlow<Boolean?> = settingsRepository.settings
+        .map { it.onboardingDone }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // --- focus mode -------------------------------------------------------
 
@@ -607,6 +628,77 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             endMinute = schedule.endMinute + endSteps * step,
         )
     }
+
+    // --- onboarding -------------------------------------------------------
+
+    /** Called by Skip and by Get started alike: both mean "do not show this again". */
+    fun finishOnboarding() = edit { settingsRepository.setOnboardingDone(true) }
+
+    // --- backup and restore -----------------------------------------------
+
+    /** The outcome of the last backup or restore, for the dialog. */
+    var backupResult by mutableStateOf<BackupResult?>(null)
+        private set
+
+    fun dismissBackupResult() {
+        backupResult = null
+    }
+
+    /**
+     * Writes the settings to a file the user picked.
+     *
+     * The Uri comes from Android's file picker, so this needs no storage
+     * permission and can only touch the one file that was chosen. Every
+     * failure mode here is the system's -- a removed SD card, a provider
+     * that has gone away -- so they collapse into one message rather than
+     * being guessed at.
+     */
+    fun backupTo(uri: Uri) {
+        viewModelScope.launch {
+            val json = settingsRepository.exportBackup()
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver
+                        .openOutputStream(uri, "wt")
+                        ?.use { it.write(json.toByteArray()) }
+                        ?: error("no stream")
+                }.isSuccess
+            }
+            backupResult = if (ok) BackupResult.SAVED else BackupResult.SAVE_FAILED
+        }
+    }
+
+    /**
+     * Reads settings back from a file the user picked.
+     *
+     * Reading and parsing are reported apart on purpose: a file that cannot
+     * be opened is the system's problem, a file that is not a backup is the
+     * wrong file, and telling someone "could not restore" for both would
+     * leave them unable to tell which.
+     */
+    fun restoreFrom(uri: Uri) {
+        viewModelScope.launch {
+            val raw = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver
+                        .openInputStream(uri)
+                        ?.use { it.readBytes().decodeToString() }
+                }.getOrNull()
+            }
+            if (raw == null) {
+                backupResult = BackupResult.RESTORE_UNREADABLE
+                return@launch
+            }
+            backupResult = if (settingsRepository.importBackup(raw)) {
+                BackupResult.RESTORED
+            } else {
+                BackupResult.RESTORE_NOT_A_BACKUP
+            }
+        }
+    }
+
+    /** The filename offered in the save dialog. */
+    fun suggestedBackupFileName(): String = SettingsBackup.suggestedFileName()
 
     fun setMinimalMode(value: Boolean) = edit {
         settingsRepository.setMinimalMode(value)
