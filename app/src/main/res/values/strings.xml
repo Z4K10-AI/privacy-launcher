@@ -22,5 +22,12 @@
 
     <string name="app_info">App info</string>
     <string name="uninstall">Uninstall</string>
-    <string name="app_count">%1$d apps</string>
+    <!-- "1 app" vs "182 apps". Other languages need more forms than
+         English does, which is why this is a plural and not a string. -->
+    <plurals name="app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <!-- Deliberately no trailing noun: "3 of 182" needs no plural form. -->
+    <string name="app_count_filtered">%1$d of %2$d</string>
 </resources>

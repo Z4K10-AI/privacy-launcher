@@ -27,6 +27,16 @@ Added:
 - `tools/env.sh` to put the JDK, Android SDK and Gradle on `PATH`.
 - Gradle wrapper committed (8.11.1).
 
+Fixed:
+- Back on a bare home screen no longer fell through to the Activity's
+  default handler, which would `finish()` the home Activity and make the
+  system relaunch it — a visible flicker. The handler now stays enabled
+  and swallows the press.
+- The drawer showed the total installed count while a search was
+  narrowing the list; it now shows "3 of 182" when filtering.
+- `app_count` is a proper `<plurals>` resource, so "1 app" reads
+  correctly and other languages can supply their own forms.
+
 Verified:
 - `gradle assembleDebug` succeeds; debug APK is 9.0 MB.
 - `aapt2 dump permissions` on the built APK reports no Android permissions.
@@ -34,3 +44,18 @@ Verified:
   signature-level permission AndroidX defines for the app's own broadcast
   receiver; it grants no access to anything outside the app.
 - `INTERNET` appears nowhere in the APK's merged manifest.
+- `gradle lintDebug`: zero errors. Remaining warnings are dependency
+  version-staleness notices, recorded below.
+- `gradle assembleRelease` succeeds: R8 and resource shrinking bring the
+  APK down to 1.2 MB, so no missing keep rules.
+
+Known:
+- Dependency versions are roughly two years behind current. AGP 9.5.1,
+  Compose BOM 2026.09.00, Lifecycle 2.11.0, Activity 1.13.0, core-ktx
+  1.19.1 and DataStore 1.3.0 are all available. Upgrading AGP across a
+  major version would likely also move compileSdk/targetSdk to 36, which
+  changes how Android treats the app at runtime, so it is held as a
+  separate decision rather than folded into feature 1.
+- An app icon can stay stale in an already-scrolled drawer until the cell
+  is recycled, because the icon cache is cleared but composed cells keep
+  their bitmap.

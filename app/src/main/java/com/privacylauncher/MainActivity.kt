@@ -116,11 +116,17 @@ private fun LauncherRoot(viewModel: LauncherViewModel) {
         }
     }
 
-    // Back closes whatever is open; on a bare home screen it does nothing.
-    BackHandler(enabled = viewModel.drawerOpen || viewModel.settingsOpen) {
+    // Back closes whatever is open. On a bare home screen it must do NOTHING,
+    // and crucially the handler stays enabled so the press is swallowed here.
+    // If it were disabled, back would fall through to the Activity's default
+    // handler, which calls finish() -- and finishing the home Activity makes
+    // the system immediately relaunch it, so the user sees the home screen
+    // flicker for no reason.
+    BackHandler(enabled = true) {
         when {
             viewModel.settingsOpen -> viewModel.closeSettings()
             viewModel.drawerOpen -> viewModel.closeDrawer()
+            else -> Unit // already home; there is nowhere to go back to
         }
     }
 }

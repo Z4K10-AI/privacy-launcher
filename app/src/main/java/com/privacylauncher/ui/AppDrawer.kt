@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -126,7 +127,13 @@ fun AppDrawer(
         )
 
         Text(
-            text = stringResource(R.string.app_count, totalAppCount),
+            // Showing the full install count while a search is narrowing the
+            // list would be misleading, so swap to the match count.
+            text = if (query.isBlank()) {
+                pluralStringResource(R.plurals.app_count, totalAppCount, totalAppCount)
+            } else {
+                stringResource(R.string.app_count_filtered, apps.size, totalAppCount)
+            },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 20.dp, bottom = 4.dp),
