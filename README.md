@@ -343,9 +343,28 @@ Every dependency is open source. Versions live in
 | `androidx.compose.ui:ui`, `ui-graphics` | Compose UI toolkit | Apache 2.0 |
 | `androidx.compose.material3:material3` | Material 3 components | Apache 2.0 |
 | `androidx.datastore:datastore-preferences` | Local settings file | Apache 2.0 |
+| `androidx.profileinstaller:profileinstaller` | Installs the baseline profile on first run | Apache 2.0 |
+
+`profileinstaller` was already arriving transitively — the AndroidX libraries
+ship baseline profiles of their own and depend on it to install them — so
+declaring it adds no bytes. It is listed because an undeclared dependency is
+an unexamined one. It writes only inside the app's own files and has no
+network access.
+
+Test-only, in the `:baselineprofile` module. These build a separate test APK
+and are never part of the launcher, so none of them reaches the shipped
+dependency list or adds a byte to its APK:
+
+| Dependency | Purpose | Licence |
+|---|---|---|
+| `androidx.benchmark:benchmark-macro-junit4` | Records the baseline profile; measures startup | Apache 2.0 |
+| `androidx.test.uiautomator:uiautomator` | Drives the app while the profile is recorded | Apache 2.0 |
+| `androidx.test.ext:junit` | AndroidJUnit4 runner | Apache 2.0 |
+| `junit:junit` | Test framework | Eclipse Public License 1.0 |
 
 Build-time only, not shipped in the APK: Gradle 9.9.0, Android Gradle Plugin
-9.5.1 and the Compose compiler plugin — all Apache 2.0. Since AGP 9.0 the
+9.5.1, the Compose compiler plugin and the `androidx.baselineprofile` plugin
+— all Apache 2.0. Since AGP 9.0 the
 Android plugin compiles Kotlin itself, so there is no separate
 `org.jetbrains.kotlin.android` plugin; applying one is an error.
 
@@ -405,6 +424,76 @@ privacy-launcher/
 - The clock wakes once a minute, on the minute, not once a second.
 - Release builds run R8 with resource shrinking.
 - `buildConfig` is off and no test or tooling libraries are in the build.
+- Every state class that crosses into composition is `@Immutable`. They all
+  hold a `List` or a `Set`, which Compose treats as unstable by default, and
+  an unstable parameter means the composable taking it can never skip — so
+  changing the battery percentage in the glance line would recompose the
+  whole home grid. The annotation is a promise the code keeps: all of them
+  are `val`s holding primitives, enums, strings, or lists built once and
+  never mutated.
+
+### APK size
+
+The signed release APK is **2.1 MB**, against a 10 MB target. Its largest
+single item is the bundled Inter typeface at 880 KB — 42% of the APK. That
+is the obvious thing to cut if size ever matters more than it does now:
+dropping to the system font would roughly halve it.
+
+### Measured startup, and why the numbers are weak
+
+`:baselineprofile` is a Macrobenchmark module. It records the baseline
+profile and measures cold start in two conditions that differ only in how
+the app was compiled.
+
+Measured on an AOSP arm64 emulator on an M4 MacBook Air, 10 cold starts each:
+
+| Compilation | Time to initial display (median) | Range |
+|---|---|---|
+| None (interpreted) | 2097 ms | 1744–3101 ms |
+| Baseline profile | 2306 ms | 1767–2927 ms |
+
+**Read that as "no measurable difference", not as "the profile made it
+slower".** The two ranges overlap almost completely, and the spread within
+each condition is larger than the gap between them. A baseline profile is
+usually worth something in the region of 10–30% of startup; a measurement
+this noisy cannot see an effect that size.
+
+The noise is the emulator. It renders in software through SwiftShader on a
+machine that is also running the build, and Macrobenchmark normally refuses
+to run on an emulator at all — these runs pass `suppressErrors=EMULATOR`,
+which silences the warning without making the numbers trustworthy. An
+earlier attempt with plain `adb shell am start -W` was worse still: twelve
+runs ranged from 233 ms to 2912 ms on the same build.
+
+So the honest position is: **the profile is recorded, verified to be in the
+APK, and unmeasured.** Confirming it is worth having needs a run on the
+4 GB Samsung, which has not happened yet. What *can* be confirmed from here
+is that the profile is real and reaches the shipped APK — see below.
+
+### Checking the profile actually ships
+
+Worth doing, because a baseline profile that silently fails to apply looks
+exactly like one that applies and does nothing:
+
+```bash
+unzip -p app/build/outputs/apk/release/app-release.apk assets/dexopt/baseline.prof | wc -c
+```
+
+Following it through the build shows the rules surviving R8:
+
+| Stage | Rules | Naming `com/privacylauncher` |
+|---|---|---|
+| Recorded | 15,268 | 564 |
+| Merged with library profiles | 22,023 | 564 |
+| After wildcard expansion | 46,533 | 564 |
+| After R8 | 11,635 | 17 |
+
+That last row looks alarming and is not. R8 renames our classes, so a rule
+for `LauncherViewModel` comes out as `Lsk0;`; the 17 are the few that keep
+their original names because the manifest refers to them. You can see our
+code in the profile under its new names — `SPLjm;-><init>(Lcom/privacylauncher/MainActivity;)V`
+is one of ours. The overall drop from 46,533 is R8 removing library code
+that the app never calls, and dropping the now-pointless rules with it.
 
 ---
 
@@ -450,6 +539,50 @@ A Gradle wrapper (`./gradlew`) is committed so anyone cloning the repo gets the
 same Gradle version without installing it. Note that the first `./gradlew` run
 downloads its own copy of Gradle (~135 MB) into `~/.gradle/wrapper/dists`. Since
 Gradle 9.9.0 is already installed here, plain `gradle` avoids that duplicate.
+
+### Signed release build
+
+```bash
+gradle assembleRelease
+```
+
+The signed APK lands at `app/build/outputs/apk/release/app-release.apk`
+(2.1 MB). Install it with:
+
+```bash
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+Then make it the home screen: **Settings → Apps → Default apps → Home app**,
+or from inside the launcher, **Settings → Home → Set as default home app**.
+
+The release build installs alongside a debug build rather than replacing it:
+debug carries an `applicationIdSuffix` of `.debug`, so the two are different
+packages to Android and both can be the home app candidate at once.
+
+#### About the signing key
+
+Signing is read from `keystore.properties` next to `app/`. Both that file and
+the key are in `.gitignore`, and **if either is missing the release build
+still succeeds and comes out unsigned** — a fresh clone builds without having
+to be handed a key first.
+
+The key committed to nobody and generated for this project is a
+**development key**. It exists so release builds can be installed and
+measured. Do not publish anything signed with it: its password is written in
+plain text in the same file, so anyone with the repository can sign an APK
+that claims to be this app.
+
+For a real release, make your own and keep it somewhere safe:
+
+```bash
+keytool -genkeypair -v -keystore my-release.p12 -storetype PKCS12 -alias privacy-launcher -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then point `keystore.properties` at it. Guard that file: Android refuses an
+update signed with a different key than the installed app, so losing the key
+means never being able to update an installed copy again — the only way
+forward is uninstalling, which takes the user's settings with it.
 
 ### compileSdk 37, targetSdk 35
 

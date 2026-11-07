@@ -1,5 +1,7 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
+
 /**
  * One launchable app, as shown in the drawer.
  *
@@ -7,6 +9,7 @@ package com.privacylauncher.data
  * costs memory to decode, so it is fetched separately and on demand by
  * [IconLoader] when a row actually scrolls into view.
  */
+@Immutable
 data class AppEntry(
     val packageName: String,
     /** Fully-qualified name of the activity with the LAUNCHER intent filter. */

@@ -1,5 +1,7 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
+
 /** Which colour scheme to use. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -39,6 +41,7 @@ enum class IconSize(val dp: Int) {
  * Read as a single Flow so the UI recomposes once per change rather than
  * subscribing to eight separate preference flows.
  */
+@Immutable
 data class LauncherSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accent: AccentColor = AccentColor.TEAL,

@@ -164,8 +164,9 @@ fun MinimalHome(
                 if (entries.isEmpty()) {
                     Text(
                         text = stringResource(R.string.home_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.75f),
+                        style = MaterialTheme.typography.bodyMedium
+                            .copy(shadow = WallpaperShadow),
+                        color = Color.White.copy(alpha = 0.9f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -207,6 +208,20 @@ fun MinimalHome(
     }
 }
 
+/**
+ * The shadow every piece of text on this screen carries.
+ *
+ * The launcher window is transparent over the wallpaper, so nothing here can
+ * rely on a background. Heavier than the clock's: a name at headline weight
+ * has far less ink than a 64sp time, and over the pale part of a wallpaper
+ * the thinner strokes are the first thing to disappear.
+ *
+ * Shared rather than written at each call site. It was written out twice
+ * before and the empty-state line was simply missed -- the faintest text on
+ * the screen was the one with no shadow at all.
+ */
+private val WallpaperShadow = Shadow(color = Color.Black.copy(alpha = 0.78f), blurRadius = 16f)
+
 /** One name in the list. Large, left-aligned, generous to the thumb. */
 @Composable
 private fun MinimalLine(
@@ -223,9 +238,7 @@ private fun MinimalLine(
         // name in headline weight has far less ink than a 64sp time, and
         // over the pale part of a wallpaper the thinner strokes were the
         // first thing to disappear.
-        style = style.copy(
-            shadow = Shadow(color = Color.Black.copy(alpha = 0.78f), blurRadius = 16f),
-        ),
+        style = style.copy(shadow = WallpaperShadow),
         color = Color.White.copy(alpha = alpha),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -242,9 +255,7 @@ private fun MinimalLine(
 private fun MinimalAction(text: String, onClick: () -> Unit) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyLarge.copy(
-            shadow = Shadow(color = Color.Black.copy(alpha = 0.78f), blurRadius = 16f),
-        ),
+        style = MaterialTheme.typography.bodyLarge.copy(shadow = WallpaperShadow),
         color = Color.White.copy(alpha = 0.9f),
         modifier = Modifier
             .clip(RoundedCornerShape(Radii.pill))

@@ -1,5 +1,6 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
@@ -25,6 +26,7 @@ enum class PrivateDnsMode { OFF, AUTOMATIC, HOSTNAME, UNKNOWN }
  * the Settings provider, LocationManager's enabled flag, and the camera
  * manager's torch callback.
  */
+@Immutable
 data class QuickControlsState(
     val wifi: Toggle = Toggle.UNKNOWN,
     val bluetooth: Toggle = Toggle.UNKNOWN,

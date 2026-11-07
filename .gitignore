@@ -1,12 +1,13 @@
-# Build output
-/build
-/app/build
+# Build output (every module, including :baselineprofile)
+build/
 *.apk
 *.aab
 
 # Gradle
 .gradle/
 local.properties
+# Kotlin build-tool scratch directory (AGP 9 / Kotlin 2.x)
+.kotlin/
 
 # IDE
 .idea/
@@ -16,3 +17,7 @@ local.properties
 # Keystores: never commit signing keys
 *.jks
 *.keystore
+
+# Signing key passwords: never commit these
+keystore.properties
+*.p12

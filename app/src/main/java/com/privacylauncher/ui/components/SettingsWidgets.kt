@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -79,27 +81,28 @@ fun SettingsRow(
             .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (trailing != null) {
-            Box(Modifier.padding(start = Spacing.md)) { trailing() }
-        }
+        RowBody(title = title, subtitle = subtitle, trailing = trailing)
     }
 }
 
-/** A settings row whose control is a switch. */
+/**
+ * A settings row whose control is a switch.
+ *
+ * The whole row is one `toggleable` with `Role.Switch`, and the switch
+ * inside it is not interactive. That arrangement matters for anyone using
+ * TalkBack, and it is easy to get wrong -- this row previously did.
+ *
+ * It used to be a [SettingsRow] with `onClick` plus a `Switch` that had its
+ * own `onCheckedChange`. Sighted use was fine, but the screen reader saw two
+ * separate controls for one setting: the row announced as "Button" with no
+ * on/off state at all, and then the switch announced again right after it.
+ * One setting, two stops, and the state only on the second.
+ *
+ * With `toggleable` on the row and `onCheckedChange = null` on the switch,
+ * the switch's semantics merge into the row's: one stop, announced as a
+ * switch, with its state and the subtitle read as part of it. It also makes
+ * the entire row the target rather than just the switch at the far edge.
+ */
 @Composable
 fun SettingsSwitchRow(
     title: String,
@@ -109,22 +112,61 @@ fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val haptics = rememberHaptics()
-    SettingsRow(
-        title = title,
-        subtitle = subtitle,
-        enabled = enabled,
-        onClick = { onCheckedChange(!checked) },
-        trailing = {
-            Switch(
-                checked = checked,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
                 enabled = enabled,
-                onCheckedChange = {
+                role = Role.Switch,
+                onValueChange = {
                     haptics.tick()
                     onCheckedChange(it)
                 },
             )
-        },
-    )
+            .defaultMinSize(minHeight = Spacing.touchTarget)
+            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RowBody(title = title, subtitle = subtitle) {
+            // Not interactive: the row above owns the gesture and the
+            // semantics. A switch with its own onCheckedChange here would
+            // put the setting back on the screen twice.
+            Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        }
+    }
+}
+
+/**
+ * The shared insides of both rows.
+ *
+ * Extracted rather than duplicated: the two rows differ only in which
+ * modifier they carry, and a second copy of this layout would drift from
+ * the first the moment either was adjusted.
+ */
+@Composable
+private fun RowScope.RowBody(
+    title: String,
+    subtitle: String?,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Column(Modifier.weight(1f)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (trailing != null) {
+        Box(Modifier.padding(start = Spacing.md)) { trailing() }
+    }
 }
 
 /**

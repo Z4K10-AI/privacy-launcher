@@ -1,9 +1,27 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // Consumes the profile recorded by :baselineprofile. The plugin itself
+    // is build-time only; nothing it adds ships in the APK.
+    alias(libs.plugins.androidx.baselineprofile)
 }
+
+/**
+ * Release signing, read from `keystore.properties` beside this file.
+ *
+ * That file and the key itself are both in .gitignore. If either is missing
+ * the release build still succeeds and simply comes out unsigned, so a fresh
+ * clone of this repository builds without having to be given a key first.
+ */
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val hasSigningKey = keystoreProperties.getProperty("storeFile")
+    ?.let { rootProject.file(it).exists() } == true
 
 android {
     namespace = "com.privacylauncher"
@@ -28,6 +46,23 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    signingConfigs {
+        if (hasSigningKey) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                // v1 off: minSdk is 26, so every phone this runs on verifies
+                // with v2 or better, and a v1 signature only adds a weaker
+                // one for an attacker to aim at.
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Separate suffix so a debug build can sit next to a release one.
@@ -36,6 +71,7 @@ android {
             isMinifyEnabled = false
         }
         release {
+            if (hasSigningKey) signingConfig = signingConfigs.getByName("release")
             // Shrink and strip unused code so the APK stays small enough for
             // a 4 GB phone.
             isMinifyEnabled = true
@@ -103,4 +139,15 @@ dependencies {
     // Local settings storage. Writes a file in the app's private directory;
     // nothing leaves the device.
     implementation(libs.androidx.datastore.preferences)
+
+    // Installs the baseline profile on first run. Already arrived
+    // transitively through the AndroidX libraries, which ship profiles of
+    // their own; declaring it makes that visible rather than accidental,
+    // and costs no extra bytes. It does no I/O beyond the app's own files
+    // and has no network access.
+    implementation(libs.androidx.profileinstaller)
+
+    // Test-only: the module that records the profile. Not an app
+    // dependency -- this tells AGP where the recorded profile comes from.
+    baselineProfile(project(":baselineprofile"))
 }

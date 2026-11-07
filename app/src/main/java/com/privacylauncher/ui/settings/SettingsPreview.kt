@@ -4,9 +4,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -109,9 +109,11 @@ fun GridPreview(
                 }
             }
             // Empty cells so a grid set wider than the number of apps
-            // available still shows its true column width.
+            // available still shows its true column width. Spacers, not
+            // blank Text: an empty string is still a text node for the
+            // layout to measure and for a screen reader to walk past.
             repeat(columns - shown.size) {
-                Column(Modifier.weight(1f)) { Text("", Modifier.width(0.dp)) }
+                Spacer(Modifier.weight(1f))
             }
         }
     }

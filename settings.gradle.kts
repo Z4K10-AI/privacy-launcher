@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "PrivacyLauncher"
 include(":app")
+// Test-only module: records the baseline profile. Never shipped.
+include(":baselineprofile")

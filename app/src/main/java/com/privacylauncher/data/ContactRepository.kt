@@ -1,5 +1,6 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -11,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** One contact matching a search. Nothing but a name and a way back to it. */
+@Immutable
 data class ContactMatch(val lookupKey: String, val contactId: Long, val name: String) {
     val id: String get() = "c:$lookupKey"
 }

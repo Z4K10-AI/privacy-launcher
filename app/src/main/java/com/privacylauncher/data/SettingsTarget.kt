@@ -1,5 +1,6 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -17,6 +18,7 @@ import kotlinx.coroutines.withContext
  * activities report a generic "Settings" -- which would give a search result
  * list of sixteen identical rows.
  */
+@Immutable
 data class SettingsTarget(
     @param:StringRes val labelRes: Int,
     val action: String,

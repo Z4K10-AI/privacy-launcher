@@ -1,5 +1,6 @@
 package com.privacylauncher.ui
 
+import androidx.compose.runtime.Immutable
 import com.privacylauncher.data.AppEntry
 
 /**
@@ -9,6 +10,7 @@ import com.privacylauncher.data.AppEntry
  * Resolving once in the ViewModel keeps the lookup out of composition, where
  * it would run on every recomposition and every drag frame.
  */
+@Immutable
 sealed interface HomeTile {
     val id: String
 

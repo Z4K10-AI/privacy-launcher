@@ -1,5 +1,6 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** One app that holds something in a permission group. */
+@Immutable
 data class PermissionHolder(
     val packageName: String,
     val label: String,
@@ -23,6 +25,7 @@ data class PermissionHolder(
 )
 
 /** One group's findings. */
+@Immutable
 data class GroupReport(
     val group: PermissionGroup,
     val holders: List<PermissionHolder>,
@@ -35,6 +38,7 @@ data class GroupReport(
 }
 
 /** The whole dashboard, computed in one pass. */
+@Immutable
 data class PrivacyReport(
     val groups: List<GroupReport> = emptyList(),
     val score: Int = 100,

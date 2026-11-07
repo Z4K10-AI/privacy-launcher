@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -84,6 +85,15 @@ fun AppCell(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
+                        // 20dp is the drawn size, not the touch target.
+                        // minimumInteractiveComponentSize keeps the circle small
+                        // while padding what the finger has to hit out to the
+                        // 48dp minimum. Safe here because the badge only appears
+                        // in edit mode, where tapping an icon does nothing --
+                        // there is no other gesture for the bigger target to
+                        // steal, and dragging still works because a drag is not
+                        // consumed by clickable.
+                        .minimumInteractiveComponentSize()
                         .size(20.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.error)

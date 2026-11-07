@@ -1,5 +1,7 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Focus mode: the user picks a handful of apps, and everything else stops
  * being shown until focus ends.
@@ -25,6 +27,7 @@ package com.privacylauncher.data
 enum class FocusSource { OFF, MANUAL, SCHEDULE }
 
 /** A daily focus window, in minutes from midnight. */
+@Immutable
 data class FocusSchedule(
     val enabled: Boolean = false,
     /** 22:00 by default. */
@@ -88,6 +91,7 @@ fun FocusSchedule.minutesUntilChange(minute: Int): Int? {
 }
 
 /** What focus is doing right now. */
+@Immutable
 data class FocusState(
     val source: FocusSource = FocusSource.OFF,
     /** Component keys ("package/activity") that stay visible. */

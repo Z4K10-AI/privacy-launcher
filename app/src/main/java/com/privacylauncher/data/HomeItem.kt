@@ -1,11 +1,13 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
  * One thing on the home screen: either an app, or a folder of apps.
  */
+@Immutable
 sealed interface HomeItem {
 
     /** Stable identity, used as the Compose list key and for reordering. */

@@ -1,5 +1,6 @@
 package com.privacylauncher.ui
 
+import androidx.compose.runtime.Immutable
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.ContactMatch
 import com.privacylauncher.data.SettingsTarget
@@ -15,6 +16,7 @@ import com.privacylauncher.data.SettingsTarget
  * also appear further down under their letter, and a LazyVerticalGrid's keys
  * have to be unique.
  */
+@Immutable
 sealed interface DrawerRow {
     val id: String
 
@@ -75,6 +77,7 @@ sealed interface DrawerRow {
 }
 
 /** A letter in the fast-scroll bar, and the row it scrolls to. */
+@Immutable
 data class LetterJump(val letter: String, val rowIndex: Int)
 
 /**
@@ -83,6 +86,7 @@ data class LetterJump(val letter: String, val rowIndex: Int)
  * Kept as one object rather than several flows so the rows and the letter
  * bar can never disagree about which index a letter sits at.
  */
+@Immutable
 data class DrawerList(
     val rows: List<DrawerRow> = emptyList(),
     val letters: List<LetterJump> = emptyList(),

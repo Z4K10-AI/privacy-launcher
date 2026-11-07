@@ -1,5 +1,7 @@
 package com.privacylauncher.data
 
+import androidx.compose.runtime.Immutable
+
 /**
  * The offline "at a glance" line under the clock.
  *
@@ -10,6 +12,7 @@ package com.privacylauncher.data
  *  - the battery level comes from the sticky ACTION_BATTERY_CHANGED
  *    broadcast, which also needs none.
  */
+@Immutable
 data class GlanceInfo(
     /** Formatted next alarm, e.g. "Mon 07:30". Null when none is set. */
     val nextAlarm: String? = null,

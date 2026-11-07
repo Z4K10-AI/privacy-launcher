@@ -4,6 +4,66 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Performance pass, release signing and accessibility fixes
+
+Added:
+- **Baseline profile.** A test-only `:baselineprofile` Macrobenchmark module
+  records a profile from a scripted journey through startup, the drawer and
+  Settings. None of its dependencies reach the app — it builds a separate
+  test APK — and the recorded profile is verified to survive R8 and arrive in
+  the shipped APK as `assets/dexopt/baseline.prof`.
+- **R8 with resource shrinking** on release builds.
+- **Release signing** read from a gitignored `keystore.properties`. The build
+  still succeeds unsigned when the file is absent, so a fresh clone needs no
+  key.
+- **Startup and frame-timing benchmarks** (`StartupBenchmark`,
+  `ScrollBenchmark`) alongside the profile generator.
+
+Changed:
+- **Every state class that crosses into composition is now `@Immutable`.**
+  They all hold a `List` or a `Set`, which Compose treats as unstable, so the
+  composables taking them could never skip — changing the battery percentage
+  in the glance line recomposed the whole home grid. All of them are `val`s
+  over content that is never mutated, so the annotation is a promise the code
+  keeps.
+
+Fixed:
+- **Every switch in Settings was announced twice by TalkBack.** The row was
+  clickable with `Role.Button` while containing an interactive `Switch`, so a
+  screen reader met each setting first as a stateless button and then again as
+  the switch. It is now one toggleable row with `Role.Switch` holding a
+  non-interactive switch, which also makes the whole row the target.
+- The **remove badge on home icons** was a 20 dp touch target, well under the
+  48 dp minimum. It only appears in edit mode, where tapping an icon does
+  nothing, so enlarging it steals no other gesture.
+- The **minimal home's empty-state text carried no shadow** while every other
+  line on that screen did, leaving the faintest text on the screen unreadable
+  over a pale wallpaper. The shadow is now shared rather than written out per
+  call site, which is how the omission happened.
+- The **onboarding page dots** were four unlabelled nodes to a screen reader;
+  they now announce "Page 3 of 4".
+- **`baselineprofile/build` was being committed** — 977 files and 255 MB of
+  build intermediates, including four copies of the 12–14 MB trace processor
+  binaries. `.gitignore` listed `/build` and `/app/build`, neither of which
+  covers a new module, so it is now `build/` for every module.
+
+Notes:
+- **The signed release APK is 2.1 MB** against a 10 MB target. The bundled
+  Inter typeface is 880 KB of that, 42% — the obvious thing to cut if size
+  ever matters more than it does now.
+- **The signing key is a development key.** The README says plainly not to
+  publish anything signed with it.
+- **Cold start was measured and the numbers mean nothing yet**: 2097 ms
+  median uncompiled against 2306 ms with the profile, 10 cold starts each,
+  ranges 1744–3101 ms and 1767–2927 ms. Read that as "no measurable
+  difference", not as "the profile made it slower" — the ranges overlap
+  almost entirely and the spread inside each condition is larger than the gap
+  between them. The noise is the emulator: it renders in software through
+  SwiftShader on the machine that is also running the build, and
+  Macrobenchmark normally refuses to run on an emulator at all. So the
+  profile is recorded, verified to reach the APK, and unmeasured. Confirming
+  it is worth having needs the 4 GB Samsung.
+
 ### Onboarding, settings sections and local backup
 
 Added:

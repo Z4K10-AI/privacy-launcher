@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
@@ -165,9 +167,23 @@ fun OnboardingScreen(
     }
 }
 
+/**
+ * The page indicator.
+ *
+ * The dots are decorative shapes with no text, so a screen reader would
+ * otherwise walk past four unlabelled nodes and announce nothing about
+ * where you are. One contentDescription on the row, and the individual
+ * dots cleared, turns them into a single spoken "Page 3 of 4".
+ */
 @Composable
 private fun Dots(current: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+    val label = stringResource(R.string.onboarding_page_of, current + 1, PAGE_COUNT)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = label
+        },
+    ) {
         repeat(PAGE_COUNT) { index ->
             val active = index == current
             val alpha by animateFloatAsState(
