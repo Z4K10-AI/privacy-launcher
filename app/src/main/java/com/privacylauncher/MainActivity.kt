@@ -42,6 +42,7 @@ import com.privacylauncher.ui.LauncherViewModel
 import com.privacylauncher.ui.Panel
 import com.privacylauncher.ui.components.rememberGlance
 import com.privacylauncher.ui.settings.DesignPreviewScreen
+import com.privacylauncher.ui.settings.GestureExplainerDialog
 import com.privacylauncher.ui.settings.HiddenAppsScreen
 import com.privacylauncher.ui.settings.SettingsScreen
 
@@ -94,7 +95,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshDefaultHome()
+        viewModel.refreshSystemState()
     }
 }
 
@@ -177,6 +178,9 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onOpenDrawer = viewModel::openDrawer,
                 onOpenSettings = viewModel::openSettings,
                 onOpenClock = { viewModel.openClock() },
+                onSwipeDown = viewModel::onSwipeDown,
+                onDoubleTap = viewModel::onDoubleTap,
+                onPinchIn = viewModel::onPinchIn,
             )
         }
 
@@ -237,6 +241,8 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onHomeColumns = viewModel::setHomeColumns,
                 onWallpaper = { viewModel.openWallpaperPicker() },
                 onHiddenApps = viewModel::openHiddenApps,
+                gestureServiceEnabled = viewModel.gestureServiceEnabled,
+                onGestureService = { viewModel.showGestureExplainerDialog() },
                 onDesignPreview = viewModel::openDesignPreview,
                 onSetDefaultHome = { viewModel.openHomeAppPicker() },
             )
@@ -254,6 +260,13 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
 
         PanelTransition(panel == Panel.DESIGN_PREVIEW) {
             DesignPreviewScreen(onBack = viewModel::closePanel)
+        }
+
+        if (viewModel.showGestureExplainer) {
+            GestureExplainerDialog(
+                onDismiss = viewModel::dismissGestureExplainer,
+                onOpenSettings = { viewModel.openAccessibilitySettings() },
+            )
         }
     }
 

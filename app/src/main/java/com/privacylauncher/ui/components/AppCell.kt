@@ -48,6 +48,12 @@ fun AppCell(
     labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
     showRemoveBadge: Boolean = false,
     onRemove: (() -> Unit)? = null,
+    /**
+     * What the remove badge does, for screen readers. Differs by context:
+     * on the home grid it removes from the home screen, inside a folder it
+     * takes the app out of the folder.
+     */
+    removeLabel: String? = null,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
     /**
@@ -86,7 +92,8 @@ fun AppCell(
                 ) {
                     Icon(
                         imageVector = LauncherIcons.Close,
-                        contentDescription = stringResource(R.string.home_remove),
+                        contentDescription = removeLabel
+                            ?: stringResource(R.string.home_remove),
                         tint = Color.White,
                         modifier = Modifier.size(14.dp),
                     )

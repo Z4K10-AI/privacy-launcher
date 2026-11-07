@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Deliberately the narrowest configuration the platform allows.
+
+  There is no accessibilityEventTypes attribute at all, and that is the
+  point: the attribute is a flags value with no "none" constant, so leaving
+  it out is how a service subscribes to zero event types. The system then
+  never reports anything happening on screen to this service.
+
+  canRetrieveWindowContent="false" means it cannot read window content. The
+  system withholds the capability, rather than us promising not to use it.
+
+  The service exists only to call performGlobalAction for the notification
+  shade and the screen lock, which Android offers no other route to.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="0"
+    android:summary="@string/accessibility_service_summary" />

@@ -44,6 +44,8 @@ fun SettingsScreen(
     onHomeColumns: (Int) -> Unit,
     onWallpaper: () -> Unit,
     onHiddenApps: () -> Unit,
+    gestureServiceEnabled: Boolean,
+    onGestureService: () -> Unit,
     onDesignPreview: () -> Unit,
     onSetDefaultHome: () -> Unit,
 ) {
@@ -155,6 +157,33 @@ fun SettingsScreen(
                     selected = settings.homeColumns,
                     label = { it.toString() },
                     onSelect = onHomeColumns,
+                )
+            }
+
+            SettingsGroup(stringResource(R.string.settings_group_gestures)) {
+                SettingsRow(
+                    title = stringResource(R.string.settings_gestures_enable),
+                    subtitle = stringResource(R.string.settings_gestures_body),
+                    onClick = onGestureService,
+                )
+                Text(
+                    text = stringResource(
+                        if (gestureServiceEnabled) {
+                            R.string.settings_gestures_on
+                        } else {
+                            R.string.settings_gestures_off
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (gestureServiceEnabled) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.padding(
+                        horizontal = Spacing.lg,
+                        vertical = Spacing.xxs,
+                    ),
                 )
             }
 

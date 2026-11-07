@@ -73,5 +73,25 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!--
+          Optional. The launcher works fully without it; only the
+          swipe-down-for-notifications and double-tap-to-lock gestures
+          depend on it, and they do nothing until the user enables it.
+          See LauncherAccessibilityService for why a launcher needs one and
+          how narrowly this is configured.
+        -->
+        <service
+            android:name=".system.LauncherAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
     </application>
 </manifest>

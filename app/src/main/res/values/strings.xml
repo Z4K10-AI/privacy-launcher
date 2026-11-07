@@ -41,7 +41,10 @@
     <string name="hide_app">Hide from drawer</string>
     <string name="add_to_dock">Add to dock</string>
     <string name="remove_from_dock">Remove from dock</string>
-    <string name="dock_full">Dock is full (%1$d apps)</string>
+    <plurals name="dock_full">
+        <item quantity="one">Dock is full (%1$d app)</item>
+        <item quantity="other">Dock is full (%1$d apps)</item>
+    </plurals>
 
     <!-- Settings -->
     <string name="settings_open">Settings</string>
@@ -107,4 +110,18 @@
     <string name="preview_blur_off">Content blur needs Android 12 or newer. Panels are opaque either way.</string>
     <string name="preview_sample_card">Card surface</string>
     <string name="preview_sample_chip">Chip</string>
+
+    <!-- Accessibility service -->
+    <string name="accessibility_service_label">Privacy Launcher gestures</string>
+    <string name="accessibility_service_summary">Lets the launcher open the notification shade and lock the screen.</string>
+    <string name="accessibility_service_description">Privacy Launcher uses this only to open the notification shade and to lock the screen, because Android gives no other way to do either. It is registered for no accessibility events at all and cannot read the contents of any screen — the system refuses it that capability. Nothing is logged, stored or sent anywhere. The launcher works fully without this; only the swipe-down and double-tap gestures need it.</string>
+
+    <string name="settings_group_gestures">Gestures</string>
+    <string name="settings_gestures_enable">Enable gesture service</string>
+    <string name="settings_gestures_body">Swipe down for notifications and double-tap to lock need an accessibility service, because Android offers apps no other way. It reads nothing and stores nothing — tap to read exactly what it can do.</string>
+    <string name="settings_gestures_on">On. Swipe down for notifications, double-tap to lock.</string>
+    <string name="settings_gestures_off">Off. Those two gestures do nothing until you turn it on.</string>
+    <string name="gesture_explainer_title">What this service can do</string>
+    <string name="gesture_explainer_body">Android does not let an ordinary app open the notification shade or lock the screen. An accessibility service can, so that is what this one is for.\n\nIt is set up as narrowly as Android allows:\n\n•  It is registered for no accessibility events, so the system never tells it what is on screen.\n•  It cannot read window content. The system refuses it that capability; it is not a promise we are making.\n•  It performs exactly two actions: open notifications, and lock the screen.\n\nNothing is logged, stored or sent anywhere. You can turn it off at any time in Android\'s accessibility settings, and the launcher keeps working — those two gestures simply stop.</string>
+    <string name="gesture_explainer_continue">Open settings</string>
 </resources>

@@ -103,6 +103,13 @@ class AppRepository(private val context: Context) {
         )
     }
 
+    /** Opens Android's accessibility settings, where the user enables ours. */
+    fun openAccessibilitySettings(): Boolean {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
     /**
      * Opens Android's own wallpaper picker.
      *

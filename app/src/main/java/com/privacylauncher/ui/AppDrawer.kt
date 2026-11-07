@@ -264,8 +264,9 @@ private fun AppActionsDialog(
                     // on the row. Hiding it would look like the feature was
                     // missing rather than occupied.
                     dockFull -> DialogAction(
-                        label = stringResource(
-                            R.string.dock_full,
+                        label = pluralStringResource(
+                            R.plurals.dock_full,
+                            LauncherSettings.MAX_DOCK_APPS,
                             LauncherSettings.MAX_DOCK_APPS,
                         ),
                         onClick = {},

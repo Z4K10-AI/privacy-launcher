@@ -4,6 +4,45 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Home screen gestures
+
+Added:
+- Swipe down for the notification shade, and double-tap to lock the
+  screen. Both need an optional accessibility service, because Android
+  gives an ordinary app no other route to either.
+- Pinch in on the home screen opens settings.
+- The accessibility service is configured as narrowly as the platform
+  allows: no `accessibilityEventTypes` at all (the attribute is a flags
+  value with no "none" constant, so omitting it is how you subscribe to
+  zero events), and `canRetrieveWindowContent="false"`, so the system
+  withholds the ability to read screens rather than us promising not to.
+  It handles no events and performs exactly two global actions.
+- Using a gesture while the service is off opens an explainer stating
+  what it can and cannot do, rather than failing silently. A gesture that
+  does nothing with no feedback reads as a bug.
+- Settings gains a Gestures group showing whether the service is on.
+
+Notes:
+- The pinch detector is hand-rolled on `awaitEachGesture` rather than
+  `detectTransformGestures`, which also reports single-finger pans and
+  would fight the swipe-up-to-open-drawer detector. It observes only: it
+  consumes nothing and ignores anything that is not two fingers.
+
+Fixed:
+- A folder's remove badge announced "Remove from home screen" when it
+  actually takes the app out of the folder.
+- `dock_full` is now a plural.
+
+Verified on the emulator:
+- Swipe down opens the notification shade with the service enabled, and
+  opens the explainer with it disabled.
+- Double-tap locks the screen (`mWakefulness` goes to Asleep).
+- No crashes; lint 0 errors, 1 warning.
+
+Not verified: pinch-to-open-settings. Producing a genuine two-finger
+pinch over adb is not practical, so the code path is unexercised and
+needs a real finger on a real screen.
+
 ### Bug hunt and usability pass
 
 Fixed — layout:

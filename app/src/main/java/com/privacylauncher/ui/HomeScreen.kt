@@ -12,6 +12,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,6 +84,9 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.sin
 
+/** Pinching to about four-fifths counts as a deliberate pinch in. */
+private const val PINCH_IN_THRESHOLD = 0.82f
+
 /**
  * The home screen: clock, an optional glance line, a grid of apps and
  * folders, a dock, and the bottom bar.
@@ -108,6 +114,9 @@ fun HomeScreen(
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenClock: () -> Unit,
+    onSwipeDown: () -> Unit,
+    onDoubleTap: () -> Unit,
+    onPinchIn: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val swipeThresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
@@ -122,9 +131,39 @@ fun HomeScreen(
                 var dragTotal = 0f
                 detectVerticalDragGestures(
                     onDragStart = { dragTotal = 0f },
-                    onDragEnd = { if (dragTotal < -swipeThresholdPx) onOpenDrawer() },
+                    onDragEnd = {
+                        when {
+                            dragTotal < -swipeThresholdPx -> onOpenDrawer()
+                            dragTotal > swipeThresholdPx -> onSwipeDown()
+                        }
+                    },
                     onDragCancel = { dragTotal = 0f },
                 ) { _, delta -> dragTotal += delta }
+            }
+            .pointerInput(gesturesEnabled) {
+                if (!gesturesEnabled) return@pointerInput
+                detectTapGestures(onDoubleTap = { onDoubleTap() })
+            }
+            .pointerInput(gesturesEnabled) {
+                if (!gesturesEnabled) return@pointerInput
+                // Hand-rolled rather than detectTransformGestures, which also
+                // reports single-finger pans and would fight the swipe-up
+                // detector above. This only ever observes: it consumes
+                // nothing, and ignores anything that is not two fingers.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    var zoom = 1f
+                    var sawTwoFingers = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.changes.size >= 2) {
+                            sawTwoFingers = true
+                            zoom *= event.calculateZoom()
+                        }
+                        if (event.changes.none { it.pressed }) break
+                    }
+                    if (sawTwoFingers && zoom < PINCH_IN_THRESHOLD) onPinchIn()
+                }
             }
             .safeDrawingPadding(),
     ) {

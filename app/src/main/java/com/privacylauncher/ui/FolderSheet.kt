@@ -110,6 +110,7 @@ fun FolderSheet(
                                 labelColor = MaterialTheme.colorScheme.onBackground,
                                 showRemoveBadge = editMode,
                                 onRemove = { onRemoveFromFolder(entry) },
+                                removeLabel = stringResource(R.string.folder_remove_app),
                                 onClick = { onLaunch(entry) },
                                 onLongClick = { onRemoveFromFolder(entry) },
                             )

@@ -20,11 +20,26 @@ permissions and no reference to `INTERNET` anywhere in the merged manifest.
 
 ## What it does today
 
+**Gestures**
+- Swipe up for the app drawer, pinch in for settings.
+- Swipe down for notifications and double-tap to lock, both via an
+  optional accessibility service. Android gives an ordinary app no other
+  way to do either. The service subscribes to no events and is refused the
+  ability to read window content by the system; it performs two global
+  actions and nothing else. The launcher works fully without it.
+
 **Home screen**
 - Clock (12 or 24 hour, following the phone's own setting) and date, over
   your wallpaper.
-- A grid of apps you choose. Long-press any of them to enter edit mode, then
-  drag to rearrange or tap ✕ to remove.
+- A grid of apps and folders you choose. Long-press carries straight into a
+  drag: rearrange by dropping near an edge, or make a folder by dropping onto
+  the centre of another icon. Folders open as a rounded sheet over a blurred
+  home screen.
+- A dock of up to five apps.
+- An optional "at a glance" line under the clock: next alarm and battery,
+  both read from the phone with no network and no permission. No weather,
+  deliberately — it would need both.
+- Tapping the clock opens your clock app.
 - Swipe up, or tap **Apps**, for the drawer.
 
 **App drawer**

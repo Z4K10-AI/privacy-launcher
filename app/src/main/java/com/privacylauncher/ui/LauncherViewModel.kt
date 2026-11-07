@@ -19,6 +19,7 @@ import com.privacylauncher.data.HomeItem
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.ThemeMode
+import com.privacylauncher.system.LauncherAccessibilityService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -114,6 +115,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var isDefaultHome by mutableStateOf(false)
         private set
 
+    /** Whether the optional gesture accessibility service is switched on. */
+    var gestureServiceEnabled by mutableStateOf(false)
+        private set
+
+    /** Shown when a gesture is used that needs the service, but it is off. */
+    var showGestureExplainer by mutableStateOf(false)
+        private set
+
     val drawerOpen: Boolean get() = panel == Panel.DRAWER
 
     // --- package install/uninstall tracking -------------------------------
@@ -140,7 +149,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         refreshApps()
-        refreshDefaultHome()
+        refreshSystemState()
     }
 
     override fun onCleared() {
@@ -159,8 +168,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun refreshDefaultHome() {
+    /**
+     * Re-reads system state that can change while we are in the background:
+     * the default home app, and whether the gesture service is enabled.
+     */
+    fun refreshSystemState() {
         isDefaultHome = appRepository.isDefaultHome()
+        gestureServiceEnabled = LauncherAccessibilityService.isEnabled
     }
 
     fun onQueryChange(value: String) {
@@ -242,6 +256,45 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun openWallpaperPicker() = appRepository.openWallpaperPicker()
 
     fun openClock() = appRepository.openClock()
+
+    fun openAccessibilitySettings(): Boolean {
+        showGestureExplainer = false
+        return appRepository.openAccessibilitySettings()
+    }
+
+    // --- gestures that need the accessibility service ---------------------
+    //
+    // When the service is off these open the explainer instead of failing
+    // silently. A gesture that does nothing with no feedback reads as a bug.
+
+    fun onSwipeDown() {
+        if (LauncherAccessibilityService.isEnabled) {
+            LauncherAccessibilityService.openNotifications()
+        } else {
+            showGestureExplainer = true
+        }
+    }
+
+    fun onDoubleTap() {
+        if (!LauncherAccessibilityService.lockScreenSupported) return
+        if (LauncherAccessibilityService.isEnabled) {
+            LauncherAccessibilityService.lockScreen()
+        } else {
+            showGestureExplainer = true
+        }
+    }
+
+    /** Pinching in on the home screen opens settings. */
+    fun onPinchIn() = openSettings()
+
+    fun dismissGestureExplainer() {
+        showGestureExplainer = false
+    }
+
+    /** Opened from settings, rather than by a gesture that needs it. */
+    fun showGestureExplainerDialog() {
+        showGestureExplainer = true
+    }
 
     // --- settings writes --------------------------------------------------
 
