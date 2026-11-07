@@ -39,7 +39,22 @@ class SettingsRepository(private val context: Context) {
             homeItems = readHomeItems(p),
             dockApps = p[KEY_DOCK_APPS]?.decodeList().orEmpty(),
             showGlance = p[KEY_SHOW_GLANCE] ?: true,
+            autoKeyboard = p[KEY_AUTO_KEYBOARD] ?: true,
+            showMostUsed = p[KEY_SHOW_MOST_USED] ?: true,
+            searchContacts = p[KEY_SEARCH_CONTACTS] ?: false,
+            lockHiddenApps = p[KEY_LOCK_HIDDEN] ?: true,
         )
+    }
+
+    /**
+     * How many times each app has been launched from this launcher.
+     *
+     * Kept out of [settings] on purpose. It changes on every launch, and
+     * folding it into that flow would make every derived list -- the drawer,
+     * the home grid, the dock -- recompute each time someone opens an app.
+     */
+    val launchCounts: Flow<Map<String, Int>> = context.dataStore.data.map { p ->
+        decodeCounts(p[KEY_LAUNCH_COUNTS])
     }
 
     /**
@@ -70,6 +85,57 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setShowGlance(value: Boolean) {
         context.dataStore.edit { it[KEY_SHOW_GLANCE] = value }
+    }
+
+    suspend fun setAutoKeyboard(value: Boolean) {
+        context.dataStore.edit { it[KEY_AUTO_KEYBOARD] = value }
+    }
+
+    suspend fun setLockHiddenApps(value: Boolean) {
+        context.dataStore.edit { it[KEY_LOCK_HIDDEN] = value }
+    }
+
+    suspend fun setSearchContacts(value: Boolean) {
+        context.dataStore.edit { it[KEY_SEARCH_CONTACTS] = value }
+    }
+
+    /** Turning the most-used row off also throws away what it was built from. */
+    suspend fun setShowMostUsed(value: Boolean) {
+        context.dataStore.edit {
+            it[KEY_SHOW_MOST_USED] = value
+            if (!value) it.remove(KEY_LAUNCH_COUNTS)
+        }
+    }
+
+    // --- on-device usage counts -------------------------------------------
+
+    /**
+     * Adds one to [key]'s launch count, if counting is switched on.
+     *
+     * The table is capped: past [MAX_COUNTED_APPS] the least-used half is
+     * dropped. Someone with 300 apps should not accumulate a 300-row usage
+     * record for the sake of a four-icon row.
+     */
+    suspend fun recordLaunch(key: String) {
+        context.dataStore.edit { prefs ->
+            if (prefs[KEY_SHOW_MOST_USED] == false) return@edit
+            val counts = decodeCounts(prefs[KEY_LAUNCH_COUNTS]).toMutableMap()
+            counts[key] = (counts[key] ?: 0) + 1
+            val trimmed = if (counts.size > MAX_COUNTED_APPS) {
+                counts.entries
+                    .sortedByDescending { it.value }
+                    .take(MAX_COUNTED_APPS / 2)
+                    .associate { it.key to it.value }
+            } else {
+                counts
+            }
+            prefs[KEY_LAUNCH_COUNTS] = encodeCounts(trimmed)
+        }
+    }
+
+    /** Erases the usage counts without changing any other preference. */
+    suspend fun clearLaunchCounts() {
+        context.dataStore.edit { it.remove(KEY_LAUNCH_COUNTS) }
     }
 
     suspend fun setDrawerColumns(value: Int) {
@@ -229,6 +295,13 @@ class SettingsRepository(private val context: Context) {
         val KEY_HIDDEN_APPS = stringSetPreferencesKey("hidden_apps")
         val KEY_HOME_ITEMS = stringPreferencesKey("home_items")
         val KEY_SHOW_GLANCE = booleanPreferencesKey("show_glance")
+        val KEY_AUTO_KEYBOARD = booleanPreferencesKey("auto_keyboard")
+        val KEY_SHOW_MOST_USED = booleanPreferencesKey("show_most_used")
+        val KEY_SEARCH_CONTACTS = booleanPreferencesKey("search_contacts")
+        val KEY_LOCK_HIDDEN = booleanPreferencesKey("lock_hidden_apps")
+        val KEY_LAUNCH_COUNTS = stringPreferencesKey("launch_counts")
+
+        const val MAX_COUNTED_APPS = 60
 
         /** Pre-folders home layout. Read once, then replaced. */
         val KEY_HOME_APPS_LEGACY = stringPreferencesKey("home_apps")
@@ -245,6 +318,28 @@ class SettingsRepository(private val context: Context) {
             split(SEPARATOR).filter { it.isNotBlank() }
 
         fun List<String>.encodeList(): String = joinToString(SEPARATOR)
+
+        /**
+         * Launch counts as "count<tab>key" lines.
+         *
+         * A component key is "package/activity"; neither part can contain a
+         * tab or a newline, so no escaping is needed. Unparseable lines are
+         * skipped rather than throwing: a corrupt count costs you one row in
+         * the drawer, and should not stop the launcher starting.
+         */
+        fun encodeCounts(counts: Map<String, Int>): String =
+            counts.entries.joinToString(SEPARATOR) { "${it.value}\t${it.key}" }
+
+        fun decodeCounts(raw: String?): Map<String, Int> {
+            if (raw.isNullOrEmpty()) return emptyMap()
+            return raw.split(SEPARATOR).mapNotNull { line ->
+                val tab = line.indexOf('\t')
+                if (tab <= 0) return@mapNotNull null
+                val count = line.substring(0, tab).toIntOrNull() ?: return@mapNotNull null
+                val key = line.substring(tab + 1)
+                if (key.isEmpty()) null else key to count
+            }.toMap()
+        }
 
         inline fun <reified T : Enum<T>> String.toEnum(): T? =
             enumValues<T>().firstOrNull { it.name == this }

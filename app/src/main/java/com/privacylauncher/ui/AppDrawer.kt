@@ -2,6 +2,7 @@ package com.privacylauncher.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,7 +37,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.pluralStringResource
@@ -73,6 +81,13 @@ fun AppDrawer(
     isOnHome: (AppEntry) -> Boolean,
     isInDock: (AppEntry) -> Boolean,
     dockFull: Boolean,
+    /** True once the drawer has settled fully open. Drives the keyboard. */
+    isOpen: Boolean,
+    autoKeyboard: Boolean,
+    /** Accumulated downward drag on the handle, in px. */
+    onHandleDrag: (Float) -> Unit,
+    /** Handle drag released: vertical velocity in px/s. */
+    onHandleRelease: (Float) -> Unit,
     onQueryChange: (String) -> Unit,
     onLaunch: (AppEntry) -> Unit,
     onClose: () -> Unit,
@@ -87,6 +102,19 @@ fun AppDrawer(
 ) {
     val haptics = rememberHaptics()
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
+    val searchFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // Tied to isOpen rather than to this composable entering the tree: the
+    // drawer is composed as soon as a drag starts lifting it, and popping the
+    // keyboard up while the sheet is still halfway would be awful.
+    LaunchedEffect(isOpen, autoKeyboard) {
+        if (isOpen && autoKeyboard) {
+            searchFocus.requestFocus()
+        } else if (!isOpen) {
+            keyboard?.hide()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -107,7 +135,35 @@ fun AppDrawer(
                 .fillMaxWidth()
                 .clickable(onClick = onClose)
                 .semantics { contentDescription = closeLabel }
-                .padding(vertical = Spacing.sm),
+                // Drag-to-close lives on the handle, not the whole sheet: a
+                // downward drag anywhere else belongs to the app grid's
+                // scroll, and whichever won would be a coin toss.
+                .pointerInput(Unit) {
+                    var total = 0f
+                    var velocity = VelocityTracker()
+                    detectVerticalDragGestures(
+                        onDragStart = {
+                            total = 0f
+                            velocity = VelocityTracker()
+                            // Pulling the sheet away with the keyboard still
+                            // sitting on top of it looks broken, and the IME
+                            // takes long enough to animate out that waiting
+                            // for the drag to finish is too late.
+                            keyboard?.hide()
+                        },
+                        onDragEnd = {
+                            onHandleRelease(velocity.calculateVelocity().y)
+                        },
+                        onDragCancel = { onHandleRelease(0f) },
+                    ) { change, delta ->
+                        total += delta
+                        velocity.addPointerInputChange(change)
+                        onHandleDrag(total)
+                    }
+                }
+                // A 4dp pill is not a 48dp touch target. The padding is what
+                // makes the handle grabbable, so it is generous.
+                .padding(vertical = Spacing.md),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -124,7 +180,8 @@ fun AppDrawer(
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                .focusRequester(searchFocus),
             placeholder = { Text(stringResource(R.string.drawer_search_hint)) },
             leadingIcon = { Icon(LauncherIcons.Search, contentDescription = null) },
             trailingIcon = {

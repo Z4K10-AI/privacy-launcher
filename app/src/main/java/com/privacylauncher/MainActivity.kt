@@ -16,14 +16,17 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -36,6 +39,7 @@ import com.privacylauncher.designsystem.blurBehind
 import com.privacylauncher.designsystem.resolveIsDark
 import com.privacylauncher.ui.AppDrawer
 import com.privacylauncher.ui.FolderSheet
+import com.privacylauncher.ui.rememberDrawerSwipe
 import com.privacylauncher.ui.HomeScreen
 import com.privacylauncher.ui.HomeTile
 import com.privacylauncher.ui.LauncherViewModel
@@ -111,6 +115,19 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     val iconSize = settings.iconSize.dp.dp
     val panel = viewModel.panel
     val panelOpen = panel != Panel.NONE
+    val drawerOpen = panel == Panel.DRAWER
+
+    // The drawer follows the finger, so its position is a fraction rather than
+    // an on/off animation. The view model still owns "is the drawer open"; this
+    // object just chases that, and the drag updates it directly in between.
+    val drawerSwipe = rememberDrawerSwipe()
+    LaunchedEffect(drawerOpen) { drawerSwipe.settle(if (drawerOpen) 1f else 0f) }
+
+    // derivedStateOf, not a plain read: this only invalidates when the boolean
+    // flips, so a drag does not recompose the whole tree 60 times a second.
+    val drawerVisible by remember(drawerSwipe) {
+        derivedStateOf { drawerSwipe.progress.value > 0.001f }
+    }
     val glance = rememberGlance(enabled = settings.showGlance)
     val openFolder = viewModel.openFolderId?.let { id ->
         homeTiles.filterIsInstance<HomeTile.Folder>().firstOrNull { it.id == id }
@@ -122,8 +139,12 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     // for why Window.setBackgroundBlurRadius cannot blur a launcher's own
     // wallpaper, and why reading the wallpaper bitmap instead would cost a
     // storage permission this app does not ask for.
-    val homeAlpha by animateFloatAsState(
-        targetValue = if (panelOpen) 0f else 1f,
+    //
+    // Not `by`: the value is read inside graphicsLayer blocks below, where a
+    // change re-runs the layer without recomposing. The drawer is excluded
+    // because its own drag fraction drives the fade instead of a fixed tween.
+    val homeAlpha = animateFloatAsState(
+        targetValue = if (panelOpen && !drawerOpen) 0f else 1f,
         animationSpec = Motion.medium(),
         label = "homeAlpha",
     )
@@ -145,10 +166,18 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            // The drag works in pixels and the sheet's position is a fraction,
+            // so the swipe state needs to know how tall the window is.
+            .onSizeChanged { drawerSwipe.heightPx = it.height.toFloat().coerceAtLeast(1f) },
+    ) {
         Box(
             Modifier
-                .graphicsLayer { alpha = homeAlpha }
+                .graphicsLayer {
+                    alpha = homeAlpha.value * (1f - drawerSwipe.progress.value)
+                }
                 // Real frosted glass: these are our own composables, so
                 // RenderEffect can blur them. Window blur cannot do this for
                 // the wallpaper -- see Surfaces.panelSurface for why.
@@ -178,6 +207,17 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onOpenDrawer = viewModel::openDrawer,
                 onOpenSettings = viewModel::openSettings,
                 onOpenClock = { viewModel.openClock() },
+                onDrawerDrag = drawerSwipe::dragFromClosed,
+                onDrawerRelease = { velocity ->
+                    if (drawerSwipe.shouldOpen(velocity, wasOpen = false)) {
+                        // Setting the panel is what makes it open as far as
+                        // back, search and the rest of the app are concerned;
+                        // the LaunchedEffect above springs the sheet up.
+                        viewModel.openDrawer()
+                    } else {
+                        drawerSwipe.settle(0f)
+                    }
+                },
                 onSwipeDown = viewModel::onSwipeDown,
                 onDoubleTap = viewModel::onDoubleTap,
                 onPinchIn = viewModel::onPinchIn,
@@ -198,32 +238,51 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
             )
         }
 
-        AnimatedVisibility(
-            visible = panel == Panel.DRAWER,
-            enter = slideInVertically(Motion.panelSlide()) { it } + fadeIn(Motion.medium()),
-            exit = slideOutVertically(Motion.panelSlide()) { it } + fadeOut(Motion.exit()),
-        ) {
-            AppDrawer(
-                apps = drawerApps,
-                totalAppCount = drawerTotal,
-                query = query,
-                columns = adaptiveColumns(settings.drawerColumns),
-                iconSize = iconSize,
-                iconLoader = viewModel.iconLoader,
-                isOnHome = viewModel::isOnHome,
-                isInDock = viewModel::isInDock,
-                dockFull = viewModel.dockIsFull(),
-                onQueryChange = viewModel::onQueryChange,
-                onLaunch = viewModel::launch,
-                onClose = viewModel::closePanel,
-                onAppInfo = { viewModel.openAppInfo(it) },
-                onUninstall = { viewModel.requestUninstall(it) },
-                onAddToHome = viewModel::addToHome,
-                onRemoveFromHome = viewModel::removeFromHome,
-                onAddToDock = viewModel::addToDock,
-                onRemoveFromDock = viewModel::removeFromDock,
-                onHide = { viewModel.setAppHidden(it, true) },
-            )
+        // Composed whenever any part of it is on screen, and positioned by a
+        // graphicsLayer rather than an animation, so it tracks the finger.
+        // No alpha here on purpose: a translucent full-screen layer forces an
+        // offscreen buffer every frame, which is exactly the cost a 4 GB phone
+        // cannot absorb mid-drag. The sheet is opaque and simply slides.
+        if (drawerOpen || drawerVisible) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationY = (1f - drawerSwipe.progress.value) * size.height
+                    },
+            ) {
+                AppDrawer(
+                    apps = drawerApps,
+                    totalAppCount = drawerTotal,
+                    query = query,
+                    columns = adaptiveColumns(settings.drawerColumns),
+                    iconSize = iconSize,
+                    iconLoader = viewModel.iconLoader,
+                    isOnHome = viewModel::isOnHome,
+                    isInDock = viewModel::isInDock,
+                    dockFull = viewModel.dockIsFull(),
+                    isOpen = drawerOpen,
+                    autoKeyboard = settings.autoKeyboard,
+                    onHandleDrag = drawerSwipe::dragFromOpen,
+                    onHandleRelease = { velocity ->
+                        if (drawerSwipe.shouldOpen(velocity, wasOpen = true)) {
+                            drawerSwipe.settle(1f)
+                        } else {
+                            viewModel.closePanel()
+                        }
+                    },
+                    onQueryChange = viewModel::onQueryChange,
+                    onLaunch = viewModel::launch,
+                    onClose = viewModel::closePanel,
+                    onAppInfo = { viewModel.openAppInfo(it) },
+                    onUninstall = { viewModel.requestUninstall(it) },
+                    onAddToHome = viewModel::addToHome,
+                    onRemoveFromHome = viewModel::removeFromHome,
+                    onAddToDock = viewModel::addToDock,
+                    onRemoveFromDock = viewModel::removeFromDock,
+                    onHide = { viewModel.setAppHidden(it, true) },
+                )
+            }
         }
 
         PanelTransition(panel == Panel.SETTINGS) {
@@ -235,6 +294,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onAccent = viewModel::setAccent,
                 onDynamicColor = viewModel::setDynamicColor,
                 onShowGlance = viewModel::setShowGlance,
+                onAutoKeyboard = viewModel::setAutoKeyboard,
                 onFont = viewModel::setFont,
                 onIconSize = viewModel::setIconSize,
                 onDrawerColumns = viewModel::setDrawerColumns,

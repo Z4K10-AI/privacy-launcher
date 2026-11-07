@@ -38,6 +38,7 @@ fun SettingsScreen(
     onAccent: (AccentColor) -> Unit,
     onDynamicColor: (Boolean) -> Unit,
     onShowGlance: (Boolean) -> Unit,
+    onAutoKeyboard: (Boolean) -> Unit,
     onFont: (FontChoice) -> Unit,
     onIconSize: (IconSize) -> Unit,
     onDrawerColumns: (Int) -> Unit,
@@ -157,6 +158,15 @@ fun SettingsScreen(
                     selected = settings.homeColumns,
                     label = { it.toString() },
                     onSelect = onHomeColumns,
+                )
+            }
+
+            SettingsGroup(stringResource(R.string.settings_group_search)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_auto_keyboard),
+                    subtitle = stringResource(R.string.settings_auto_keyboard_body),
+                    checked = settings.autoKeyboard,
+                    onCheckedChange = onAutoKeyboard,
                 )
             }
 

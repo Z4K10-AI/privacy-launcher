@@ -364,6 +364,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun setShowGlance(v: Boolean) = edit { settingsRepository.setShowGlance(v) }
 
+    fun setAutoKeyboard(v: Boolean) = edit { settingsRepository.setAutoKeyboard(v) }
+
+    fun setShowMostUsed(v: Boolean) = edit { settingsRepository.setShowMostUsed(v) }
+
+    fun setLockHiddenApps(v: Boolean) = edit { settingsRepository.setLockHiddenApps(v) }
+
+    fun clearUsageHistory() = edit { settingsRepository.clearLaunchCounts() }
+
     fun isOnHome(entry: AppEntry): Boolean =
         settings.value.homeItems.any {
             when (it) {

@@ -54,6 +54,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -114,6 +116,10 @@ fun HomeScreen(
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenClock: () -> Unit,
+    /** Accumulated vertical drag, negative upwards, as the drawer follows. */
+    onDrawerDrag: (Float) -> Unit,
+    /** Drag released: vertical velocity in px/s, negative upwards. */
+    onDrawerRelease: (Float) -> Unit,
     onSwipeDown: () -> Unit,
     onDoubleTap: () -> Unit,
     onPinchIn: () -> Unit,
@@ -127,18 +133,33 @@ fun HomeScreen(
             .pointerInput(swipeThresholdPx, gesturesEnabled) {
                 if (!gesturesEnabled) return@pointerInput
                 // dragTotal is a plain local, NOT Compose state: state here
-                // would recompose the whole screen on every drag frame.
+                // would recompose the whole screen on every drag frame. The
+                // drawer's own position is an Animatable read inside a
+                // graphicsLayer block, for the same reason.
                 var dragTotal = 0f
+                var velocity = VelocityTracker()
                 detectVerticalDragGestures(
-                    onDragStart = { dragTotal = 0f },
+                    onDragStart = {
+                        dragTotal = 0f
+                        velocity = VelocityTracker()
+                    },
                     onDragEnd = {
-                        when {
-                            dragTotal < -swipeThresholdPx -> onOpenDrawer()
-                            dragTotal > swipeThresholdPx -> onSwipeDown()
+                        if (dragTotal > swipeThresholdPx) {
+                            // Downward past the threshold is the notification
+                            // shade, not the drawer. Release it back to rest
+                            // first in case the drag started upwards.
+                            onDrawerRelease(0f)
+                            onSwipeDown()
+                        } else {
+                            onDrawerRelease(velocity.calculateVelocity().y)
                         }
                     },
-                    onDragCancel = { dragTotal = 0f },
-                ) { _, delta -> dragTotal += delta }
+                    onDragCancel = { onDrawerRelease(0f) },
+                ) { change, delta ->
+                    dragTotal += delta
+                    velocity.addPointerInputChange(change)
+                    onDrawerDrag(dragTotal)
+                }
             }
             .pointerInput(gesturesEnabled) {
                 if (!gesturesEnabled) return@pointerInput

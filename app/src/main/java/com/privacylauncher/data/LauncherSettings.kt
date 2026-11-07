@@ -62,6 +62,32 @@ data class LauncherSettings(
     val dockApps: List<String> = emptyList(),
     /** The offline "at a glance" line under the clock. */
     val showGlance: Boolean = true,
+    /**
+     * Open the keyboard as soon as the drawer settles open.
+     *
+     * On by default, because typing two letters is the fastest way into an
+     * app. Off is a real preference though: the keyboard covers half the grid,
+     * so anyone who browses rather than types will want it off.
+     */
+    val autoKeyboard: Boolean = true,
+    /**
+     * Show a "most used" row at the top of the drawer.
+     *
+     * The counts behind it are a usage record, so they are kept in this app's
+     * private storage, never leave the device, and can be erased from
+     * Settings. Turning this off stops the counting as well as the row.
+     */
+    val showMostUsed: Boolean = true,
+    /**
+     * Include contacts in drawer search.
+     *
+     * Off until the user turns it on, which is also the only thing that ever
+     * triggers the READ_CONTACTS request. See ContactSearch for what is read
+     * and what is deliberately not.
+     */
+    val searchContacts: Boolean = false,
+    /** Require the device PIN, pattern or biometric to open hidden apps. */
+    val lockHiddenApps: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_DRAWER_COLUMNS = 4
@@ -70,5 +96,8 @@ data class LauncherSettings(
 
         /** A dock wider than this stops being a dock and starts being a row. */
         const val MAX_DOCK_APPS = 5
+
+        /** How many apps the "most used" row shows. */
+        const val MOST_USED_COUNT = 4
     }
 }

@@ -4,6 +4,44 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Drawer that follows the finger
+
+Added:
+- The app drawer tracks the finger as you swipe up, and springs to open
+  or closed when you let go. Dragging the handle at the top pulls it
+  back down the same way. Either gesture commits once the sheet has
+  moved about a third of the way from where the drag started, or
+  immediately on a fast flick.
+- The keyboard opens as soon as the drawer settles, with a switch in
+  Settings under Search to turn that off.
+
+Notes:
+- The sheet's position is an `Animatable` read only inside
+  `graphicsLayer` blocks, which re-run without recomposing. Dragging the
+  drawer therefore costs no recomposition at all.
+- The drawer layer sets no alpha. A translucent full-screen layer forces
+  an offscreen buffer every frame, which is the sort of cost a 4 GB
+  phone cannot absorb mid-drag. It is opaque and simply slides; the home
+  screen underneath is the thing that fades.
+- Drag-to-close is on the handle only. A downward drag anywhere else
+  belongs to the app grid's scroll, and whichever won would be a coin
+  toss.
+- With the keyboard open, the first Back press dismisses the keyboard
+  and the second closes the drawer. That is Android's own behaviour and
+  it cannot be intercepted; Home, or a pull down on the handle, still
+  closes the drawer in one go.
+
+Fixed:
+- A released drag was judged against a stale sheet position. Writing to
+  an `Animatable` suspends on its mutex, so the last frame of a drag
+  could still be queued when the finger lifted. The drag fraction is now
+  also kept in a plain field written on the spot.
+- The commit threshold was measured from the bottom of the screen rather
+  than from where the drag started, so closing needed a drag seven
+  tenths of the way down while opening needed three.
+- The keyboard stayed on top of the sheet while it was being pulled
+  away. It now hides as the close drag starts.
+
 ### Home screen gestures
 
 Added:

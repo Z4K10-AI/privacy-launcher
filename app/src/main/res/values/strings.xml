@@ -83,6 +83,10 @@
     <string name="settings_group_system">System</string>
     <string name="settings_wallpaper">Change wallpaper</string>
     <string name="settings_wallpaper_body">Opens Android\'s wallpaper picker. This app never reads your photos.</string>
+    <string name="settings_group_search">Search</string>
+    <string name="settings_auto_keyboard">Open the keyboard automatically</string>
+    <string name="settings_auto_keyboard_body">Start typing the moment the drawer opens. Turn this off to see more icons at once.</string>
+
     <string name="settings_hidden_apps">Hidden apps</string>
     <string name="settings_hidden_apps_none">None hidden</string>
     <plurals name="settings_hidden_apps_count">
