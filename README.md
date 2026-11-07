@@ -91,7 +91,10 @@ privacy-launcher/
 ├── build.gradle.kts              root build, declares plugin versions
 ├── settings.gradle.kts           module list and repositories
 ├── gradle/libs.versions.toml     every dependency version in one place
-├── tools/env.sh               puts the JDK, SDK and Gradle on PATH
+├── tools/
+│   ├── env.sh                 puts the JDK, SDK and Gradle on PATH
+│   ├── emulator.sh            creates and boots the test emulator
+│   └── install.sh             builds and installs on phone or emulator
 └── app/
     ├── build.gradle.kts          the app module's build config
     ├── lint.xml                  one documented lint suppression
@@ -222,27 +225,40 @@ To build and install in one step:
 ./gradlew installDebug
 ```
 
-## Testing on an emulator
+## Helper scripts
 
-An AOSP emulator is a useful first check, and its lack of Google Play
-Services is closer to the eventual ROM than a stock Samsung is:
-
-```bash
-sdkmanager --install "emulator" "system-images;android-35;default;arm64-v8a"
-```
+Boot the test emulator (creates it on first run, ~2.5 GB download that once):
 
 ```bash
-avdmanager create avd -n privacy_test -k "system-images;android-35;default;arm64-v8a" -d pixel_6
+tools/emulator.sh
 ```
+
+Add `--window` to watch it. It runs headless otherwise, which is faster and
+still screenshots fine. Stop it with `adb emu kill`.
+
+Build and install on whatever adb can see, phone or emulator:
 
 ```bash
-emulator -avd privacy_test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+tools/install.sh
 ```
 
-With it booted, `adb install -r` works exactly as it does for a phone, and
-`adb shell cmd package set-home-activity com.privacylauncher.debug/com.privacylauncher.MainActivity`
-sets the launcher as home without going through the UI. `adb exec-out screencap -p > shot.png`
-captures the screen.
+On the emulator only, `tools/install.sh --home` also sets the launcher as the
+home app, skipping the picker. On a real phone use the in-app button.
+
+Take a screenshot of whatever is on screen:
+
+```bash
+adb exec-out screencap -p > shot.png
+```
+
+### Why an AOSP emulator image
+
+The scripts use `system-images;android-35;default;arm64-v8a`, not the
+`google_apis` variant. It is smaller, it runs ARM natively on Apple Silicon,
+and it ships without Google Play Services — which makes it a closer match to
+the de-Googled ROM this launcher is eventually for. It is not a substitute for
+testing on the Samsung: One UI differs in icon shapes, where the home-app
+picker lives, and gesture handling.
 
 ## Make it the home screen
 
