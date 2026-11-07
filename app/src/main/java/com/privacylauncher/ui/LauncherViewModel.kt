@@ -113,8 +113,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     override fun onCleared() {
+        // No super call: ViewModel.onCleared is defined to be empty.
         getApplication<Application>().unregisterReceiver(packageReceiver)
-        super.onCleared()
     }
 
     // --- actions ----------------------------------------------------------

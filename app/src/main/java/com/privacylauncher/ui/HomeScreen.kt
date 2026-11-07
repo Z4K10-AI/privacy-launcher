@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
+import com.privacylauncher.ui.components.LauncherIcons
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -103,7 +102,7 @@ fun HomeScreen(
             Spacer(Modifier.width(8.dp))
             IconButton(onClick = onOpenSettings) {
                 Icon(
-                    imageVector = Icons.Default.Settings,
+                    imageVector = LauncherIcons.Settings,
                     contentDescription = stringResource(R.string.settings_open),
                     tint = Color.White,
                 )

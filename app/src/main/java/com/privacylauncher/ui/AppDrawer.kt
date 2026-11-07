@@ -19,9 +19,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +44,7 @@ import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
 import com.privacylauncher.ui.components.AppIconImage
+import com.privacylauncher.ui.components.LauncherIcons
 import com.privacylauncher.ui.components.DefaultIconSize
 
 /**
@@ -105,13 +103,13 @@ fun AppDrawer(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             placeholder = { Text(stringResource(R.string.drawer_search_hint)) },
             leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = null)
+                Icon(LauncherIcons.Search, contentDescription = null)
             },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
                         Icon(
-                            Icons.Default.Close,
+                            LauncherIcons.Close,
                             contentDescription = stringResource(R.string.drawer_search_clear),
                         )
                     }

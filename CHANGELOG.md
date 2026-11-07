@@ -4,6 +4,43 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Toolchain modernisation
+
+Changed:
+- AGP 8.7.3 -> 9.5.1, Gradle 8.11.1 -> 9.9.0, Kotlin 2.0.21 -> 2.4.21,
+  Compose BOM 2024.12.01 -> 2026.09.00, core-ktx 1.15.0 -> 1.19.1,
+  Lifecycle 2.8.7 -> 2.11.0, Activity Compose 1.9.3 -> 1.13.0,
+  DataStore 1.1.1 -> 1.3.0.
+- compileSdk 35 -> 37, required by core-ktx 1.19.1. targetSdk stays at 35:
+  it controls runtime behaviour and is a separate decision, to be taken
+  after the launcher has been tested on a phone.
+- Removed the `org.jetbrains.kotlin.android` plugin. Since AGP 9.0 the
+  Android plugin compiles Kotlin itself and applying both is an error.
+- `android { kotlinOptions { } }` no longer exists; JVM target now set via
+  the top-level `kotlin { compilerOptions { } }` extension.
+- Replaced `androidx.compose.material:material-icons-core` with three
+  in-repo `ImageVector`s (`ui/components/LauncherIcons.kt`). That artifact
+  is frozen at 1.7.8 and is no longer a dependency of material3 1.4.0+.
+  Path data is from Material Design Icons (Apache 2.0); each glyph was
+  rendered and visually checked before being committed.
+- Enabled Gradle's configuration cache.
+- Declared `android:roundIcon`, which was defined but never referenced.
+
+Fixed:
+- `ViewModel.onCleared` no longer calls its empty super.
+- Removed the unused `drawer_close` string.
+
+Known:
+- Lint's `ObsoleteSdkInt` advice to rename `res/mipmap-anydpi-v26` to
+  `res/mipmap-anydpi` is wrong: AAPT2 then cannot resolve
+  `@mipmap/ic_launcher` at all. Verified on a fully clean build and
+  suppressed with an explanatory note in `app/lint.xml`.
+
+Verified:
+- `assembleDebug`, `assembleRelease` and `lintDebug` all succeed.
+- Lint: 0 errors, 1 warning (the deliberate targetSdk hold).
+- Release APK 1.4 MB; still no Android permissions, still no `INTERNET`.
+
 ### Feature 1 — Basic launcher (builds clean, awaiting on-phone test)
 
 Added:
@@ -50,12 +87,8 @@ Verified:
   APK down to 1.2 MB, so no missing keep rules.
 
 Known:
-- Dependency versions are roughly two years behind current. AGP 9.5.1,
-  Compose BOM 2026.09.00, Lifecycle 2.11.0, Activity 1.13.0, core-ktx
-  1.19.1 and DataStore 1.3.0 are all available. Upgrading AGP across a
-  major version would likely also move compileSdk/targetSdk to 36, which
-  changes how Android treats the app at runtime, so it is held as a
-  separate decision rather than folded into feature 1.
+- Dependency versions were roughly two years behind; resolved by the
+  toolchain modernisation above.
 - An app icon can stay stale in an already-scrolled drawer until the cell
   is recycled, because the icon cache is cleared but composed cells keep
   their bitmap.

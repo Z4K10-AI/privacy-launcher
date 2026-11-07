@@ -9,7 +9,7 @@
 
 JAVA_HOME="$HOME/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home"
 ANDROID_HOME="$HOME/Library/Android/sdk"
-GRADLE_HOME="$HOME/Library/Gradle/gradle-8.11.1"
+GRADLE_HOME="$HOME/Library/Gradle/gradle-9.9.0"
 export JAVA_HOME ANDROID_HOME GRADLE_HOME
 
 # ANDROID_SDK_ROOT is the older name; some tools still read it.

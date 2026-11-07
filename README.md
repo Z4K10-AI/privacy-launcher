@@ -9,6 +9,9 @@ LineageOS-based ROM as the default launcher.
 
 Status: **feature 1 (basic launcher) — builds clean, awaiting on-phone testing.**
 
+Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
+Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
+
 Debug APK: 9.0 MB. Verified with `aapt2 dump permissions` to hold no Android
 permissions and no reference to `INTERNET` anywhere in the merged manifest.
 
@@ -54,7 +57,7 @@ Every dependency is open source. Versions live in
 
 | Dependency | Purpose | Licence |
 |---|---|---|
-| `org.jetbrains.kotlin:kotlin-stdlib` | Kotlin standard library | Apache 2.0 |
+| `org.jetbrains.kotlin:kotlin-stdlib` | Kotlin standard library (supplied by AGP's built-in Kotlin support) | Apache 2.0 |
 | `org.jetbrains.kotlinx:kotlinx-coroutines-android` | Background threads (pulled in by Lifecycle) | Apache 2.0 |
 | `androidx.core:core-ktx` | Drawable→Bitmap, broadcast registration helpers | Apache 2.0 |
 | `androidx.activity:activity-compose` | Activity ↔ Compose bridge, edge-to-edge, back handling | Apache 2.0 |
@@ -63,16 +66,22 @@ Every dependency is open source. Versions live in
 | `androidx.lifecycle:lifecycle-viewmodel-compose` | `viewModel()` in Compose | Apache 2.0 |
 | `androidx.compose.ui:ui`, `ui-graphics` | Compose UI toolkit | Apache 2.0 |
 | `androidx.compose.material3:material3` | Material 3 components | Apache 2.0 |
-| `androidx.compose.material:material-icons-core` | The ~40 basic icons (pulled in by material3) | Apache 2.0 |
 | `androidx.datastore:datastore-preferences` | Local settings file | Apache 2.0 |
 
-Build-time only, not shipped in the APK: Gradle, Android Gradle Plugin and the
-Kotlin Gradle plugins — all Apache 2.0.
+Build-time only, not shipped in the APK: Gradle 9.9.0, Android Gradle Plugin
+9.5.1 and the Compose compiler plugin — all Apache 2.0. Since AGP 9.0 the
+Android plugin compiles Kotlin itself, so there is no separate
+`org.jetbrains.kotlin.android` plugin; applying one is an error.
+
+The three icons in `ui/components/LauncherIcons.kt` use path data from the
+Material Design Icons set (Apache 2.0). They are defined in this repository
+rather than pulled from `androidx.compose.material:material-icons-core`, which
+is frozen at 1.7.8 and is no longer a dependency of material3 from 1.4.0.
 
 Deliberately **not** used: Coil or Glide (icons come straight from
 `PackageManager`), Hilt or Dagger (three objects are wired by hand in
-`PrivacyLauncherApp`), Room (no database), `material-icons-extended` (adds
-several MB for icons we do not need).
+`PrivacyLauncherApp`), Room (no database), and any Compose icons artifact
+(the three glyphs we need are in-repo).
 
 ## Project layout
 
@@ -81,8 +90,10 @@ privacy-launcher/
 ├── build.gradle.kts              root build, declares plugin versions
 ├── settings.gradle.kts           module list and repositories
 ├── gradle/libs.versions.toml     every dependency version in one place
+├── tools/env.sh               puts the JDK, SDK and Gradle on PATH
 └── app/
     ├── build.gradle.kts          the app module's build config
+    ├── lint.xml                  one documented lint suppression
     └── src/main/
         ├── AndroidManifest.xml   HOME intent filter, permission removals
         ├── res/                  strings, window theme, launcher icon
@@ -100,6 +111,7 @@ privacy-launcher/
                 ├── AppDrawer.kt         search + lazy grid
                 ├── SettingsDialog.kt    theme and default-home
                 ├── components/AppIconImage.kt
+                ├── components/LauncherIcons.kt
                 └── theme/               colours, typography, scheme
 ```
 
@@ -122,8 +134,8 @@ your home folder:
 | Tool | Version | Location |
 |---|---|---|
 | Temurin JDK | 17.0.21+9 | `~/Library/Java/JavaVirtualMachines/temurin-17.jdk` |
-| Android SDK | platform-tools 37.0.1, platform 35, build-tools 35.0.0 | `~/Library/Android/sdk` |
-| Gradle | 8.11.1 | `~/Library/Gradle/gradle-8.11.1` |
+| Android SDK | platform-tools 37.0.1, platform 37.0, build-tools 37.0.0 | `~/Library/Android/sdk` |
+| Gradle | 9.9.0 | `~/Library/Gradle/gradle-9.9.0` |
 
 Nothing was installed system-wide and no admin password was used. Deleting
 those three directories removes the toolchain completely.
@@ -154,8 +166,19 @@ The APK lands at `app/build/outputs/apk/debug/app-debug.apk`.
 
 A Gradle wrapper (`./gradlew`) is committed so anyone cloning the repo gets the
 same Gradle version without installing it. Note that the first `./gradlew` run
-downloads its own copy of Gradle (~130 MB) into `~/.gradle/wrapper/dists`. Since
-Gradle 8.11.1 is already installed here, plain `gradle` avoids that duplicate.
+downloads its own copy of Gradle (~135 MB) into `~/.gradle/wrapper/dists`. Since
+Gradle 9.9.0 is already installed here, plain `gradle` avoids that duplicate.
+
+### compileSdk 37, targetSdk 35
+
+These move independently and the difference matters:
+
+- **compileSdk 37** decides which APIs the compiler can see. core-ktx 1.19.1
+  requires it, so it is not optional.
+- **targetSdk 35** is what opts the app in to new *runtime* behaviour. It is
+  held back deliberately until the launcher has been tested on a real phone,
+  because raising it changes how Android treats the app. Lint's one remaining
+  warning (`OldTargetApi`) is that choice, left visible on purpose.
 
 ### The three manifest warnings
 

@@ -1,16 +1,24 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.privacylauncher"
-    compileSdk = 35
+    // Compiling against 37 is forced by core-ktx 1.19.1 and friends. Note
+    // that compileSdk only decides which APIs are visible to the compiler;
+    // targetSdk below is what opts the app in to new runtime behaviour, and
+    // the two are deliberately moved separately.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.privacylauncher"
         minSdk = 26
+        // Held at 35 on purpose. Raising it changes how Android treats the
+        // app at runtime, which is a behavioural change worth making on its
+        // own after the launcher has been tested on a real phone.
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
@@ -44,10 +52,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         // Everything else off: no BuildConfig fields, no data binding, no
@@ -66,6 +70,21 @@ android {
     // A launcher must not be installed as a split/instant app.
     androidResources {
         generateLocaleConfig = false
+    }
+
+    lint {
+        // Keep the build honest: any new lint error should stop it.
+        abortOnError = true
+        warningsAsErrors = false
+    }
+}
+
+// Since AGP 9 the Android plugin compiles Kotlin itself, so the old
+// android { kotlinOptions { } } block is gone. Compiler settings now live in
+// this top-level kotlin extension.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 

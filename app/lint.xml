@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!--
+      ObsoleteSdkInt suggests renaming res/mipmap-anydpi-v26 to res/mipmap-anydpi
+      because minSdk is already 26. Do not do it: AAPT2 then fails to resolve
+      @mipmap/ic_launcher at all ("resource mipmap/ic_launcher not found").
+      Verified on AGP 9.5.1 with a fully clean build. The -v26 qualifier stays.
+    -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+</lint>
