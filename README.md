@@ -7,7 +7,8 @@ file inside its own private directory.
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **feature 1 (basic launcher) — builds clean, awaiting on-phone testing.**
+Status: **feature 1 (basic launcher) — working. Verified on an Android 15
+(API 35) AOSP emulator; not yet tested on physical hardware.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
@@ -220,6 +221,28 @@ To build and install in one step:
 ```bash
 ./gradlew installDebug
 ```
+
+## Testing on an emulator
+
+An AOSP emulator is a useful first check, and its lack of Google Play
+Services is closer to the eventual ROM than a stock Samsung is:
+
+```bash
+sdkmanager --install "emulator" "system-images;android-35;default;arm64-v8a"
+```
+
+```bash
+avdmanager create avd -n privacy_test -k "system-images;android-35;default;arm64-v8a" -d pixel_6
+```
+
+```bash
+emulator -avd privacy_test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+```
+
+With it booted, `adb install -r` works exactly as it does for a phone, and
+`adb shell cmd package set-home-activity com.privacylauncher.debug/com.privacylauncher.MainActivity`
+sets the launcher as home without going through the UI. `adb exec-out screencap -p > shot.png`
+captures the screen.
 
 ## Make it the home screen
 

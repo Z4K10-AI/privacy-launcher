@@ -1,10 +1,12 @@
 package com.privacylauncher.data
 
+import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -74,8 +76,27 @@ class AppRepository(private val context: Context) {
         return runCatching { context.startActivity(intent) }.isSuccess
     }
 
-    /** True when this app is currently the system's home screen. */
+    /**
+     * True when this app is currently the system's home screen.
+     *
+     * On API 29+ this asks RoleManager, which reports whether *we* hold the
+     * home role and is therefore immune to package-visibility filtering.
+     *
+     * The resolveActivity path below is the API 26-28 fallback, and it is only
+     * correct because the manifest declares a <queries> entry for the HOME
+     * intent. Without it, Android hides every other launcher from this app, so
+     * the only visible candidate is our own activity and the check wrongly
+     * returns true -- which hid the "Set as default home app" button exactly
+     * when the user needed it. Verified on an emulator before the fix.
+     */
     fun isDefaultHome(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                return roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+            }
+        }
+
         val resolved = packageManager.resolveActivity(
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
             PackageManager.MATCH_DEFAULT_ONLY,

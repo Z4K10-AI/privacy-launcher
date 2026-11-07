@@ -29,6 +29,16 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!--
+          Also needed to see other HOME apps. Without this, package visibility
+          hides every other launcher from us, so asking the system "which app
+          is the home screen?" can only ever answer "you are" - a false
+          positive that hid the Set as default home app button.
+        -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
     </queries>
 
     <application

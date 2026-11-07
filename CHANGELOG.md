@@ -4,6 +4,42 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### First run on a device (Android 15 / API 35 emulator, AOSP arm64)
+
+Fixed:
+- `isDefaultHome()` always returned true, so the "Set as default home app"
+  button was hidden on first run -- the one button a new launcher needs.
+  Cause: package visibility. The manifest declared a `<queries>` entry for
+  LAUNCHER but not HOME, so Android hid every other launcher from this app
+  and the only visible answer to "which app is home?" was ourselves. Now
+  asks `RoleManager.isRoleHeld(ROLE_HOME)` on API 29+, with the
+  resolveActivity path kept as the 26-28 fallback and a `<queries>` entry
+  for HOME added so that fallback is correct too.
+- The drawer was 97% opaque, so the home screen's clock and Apps button
+  ghosted through it and read as a rendering fault. Now fully opaque.
+- Status and navigation bar icons did not follow the launcher's own theme.
+  Choosing Dark while the system was Light left dark icons on a dark bar,
+  effectively invisible. Both bars are now transparent, with icon colour
+  driven by what is actually on screen: the themed surface when the drawer
+  or settings is open, and the wallpaper (always light icons, matching the
+  white clock) on the bare home screen. `isNavigationBarContrastEnforced`
+  is off on API 29+, which removes the grey band under the drawer.
+
+Verified on the emulator:
+- Launches without crashing; no FATAL or ANR in logcat across the session.
+- Swipe-up opens the drawer; all 12 installed apps listed with correct
+  icons and labels.
+- Search "se" narrows to 3 apps and the counter reads "3 of 12".
+- With the keyboard open the grid sits correctly below the search field,
+  confirming the double-IME-padding fix.
+- Long-press shows the app's package, App info, Uninstall in red, and
+  Cancel as the only button.
+- Theme switches light/dark and survives being reselected.
+- Set as home app via RoleManager; pressing Home returns to the launcher.
+- Back on the bare home screen leaves the same ActivityRecord resumed,
+  confirming the Activity is not being finished and relaunched.
+- Tapping an app launches it; Home returns with the drawer closed.
+
 ### Layout and safety review (no device yet)
 
 Fixed:

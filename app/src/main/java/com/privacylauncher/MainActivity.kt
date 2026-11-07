@@ -1,6 +1,14 @@
 package com.privacylauncher
 
 import android.content.Intent
+import com.privacylauncher.ui.theme.resolveIsDark
+import androidx.core.view.WindowCompat
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.SideEffect
+import androidx.activity.SystemBarStyle
+import android.os.Build
+import android.graphics.Color
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -41,8 +49,21 @@ class MainActivity : ComponentActivity() {
     private val viewModel: LauncherViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // Both bars fully transparent. The default `enableEdgeToEdge()` picks a
+        // scrim from the *system's* dark-mode setting, which is wrong here: the
+        // launcher has its own theme setting, and the home screen draws over
+        // the wallpaper regardless of either. Icon colour is set in
+        // LauncherRoot instead, from what is actually on screen.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Stops Android painting its own translucent scrim behind the
+            // gesture/nav bar, which showed as a grey band under the drawer.
+            window.isNavigationBarContrastEnforced = false
+        }
 
         setContent {
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -72,6 +93,24 @@ private fun LauncherRoot(viewModel: LauncherViewModel) {
     val apps by viewModel.visibleApps.collectAsStateWithLifecycle()
     val totalAppCount by viewModel.totalAppCount.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
+
+    // Status/nav bar icons must contrast with whatever is drawn beneath them.
+    //
+    //  - Drawer or settings open: that surface follows the launcher theme, so
+    //    light theme needs dark icons and dark theme needs light ones.
+    //  - Bare home screen: we are over the wallpaper, where the clock is drawn
+    //    white with a shadow, so light icons always match.
+    val view = LocalView.current
+    val isDark = viewModel.themeMode.collectAsStateWithLifecycle().value.resolveIsDark()
+    val overThemedSurface = viewModel.drawerOpen || viewModel.settingsOpen
+    val lightBackgroundBehindBars = overThemedSurface && !isDark
+    SideEffect {
+        val window = (view.context as Activity).window
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = lightBackgroundBehindBars
+            isAppearanceLightNavigationBars = lightBackgroundBehindBars
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         HomeScreen(

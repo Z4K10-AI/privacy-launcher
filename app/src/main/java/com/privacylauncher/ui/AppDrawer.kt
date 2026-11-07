@@ -73,7 +73,10 @@ fun AppDrawer(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.97f))
+            // Fully opaque. At 0.97 the home screen's clock and Apps button
+            // ghosted through the drawer, which read as a rendering fault
+            // rather than as deliberate translucency.
+            .background(MaterialTheme.colorScheme.background)
             // safeDrawing is the union of system bars, display cutout AND the
             // IME, so adding imePadding() here would shift the content up by
             // the keyboard height twice.

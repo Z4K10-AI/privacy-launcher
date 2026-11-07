@@ -53,15 +53,24 @@ fun PrivacyLauncherTheme(
     themeMode: ThemeMode,
     content: @Composable () -> Unit,
 ) {
-    val dark = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
+    val dark = themeMode.resolveIsDark()
 
     MaterialTheme(
         colorScheme = if (dark) DarkScheme else LightScheme,
         typography = LauncherTypography,
         content = content,
     )
+}
+
+/**
+ * Turns a [ThemeMode] into a plain "is it dark right now" answer.
+ *
+ * The Activity needs this as well as the theme does, to decide whether the
+ * status and navigation bar icons should be drawn light or dark.
+ */
+@Composable
+fun ThemeMode.resolveIsDark(): Boolean = when (this) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
 }
