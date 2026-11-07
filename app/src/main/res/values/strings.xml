@@ -21,6 +21,7 @@
 
     <string name="app_info">App info</string>
     <string name="uninstall">Uninstall</string>
+    <string name="cancel">Cancel</string>
     <!-- "1 app" vs "182 apps". Other languages need more forms than
          English does, which is why this is a plural and not a string. -->
     <plurals name="app_count">

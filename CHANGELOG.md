@@ -4,6 +4,24 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Layout and safety review (no device yet)
+
+Fixed:
+- The drawer applied both `safeDrawingPadding()` and `imePadding()`.
+  `safeDrawing` is the union of system bars, display cutout *and* the IME,
+  so opening the keyboard shifted the content up by the keyboard height
+  twice, hiding the top of the app grid.
+- The app grid and the empty-state box used `fillMaxSize()` as children of
+  a Column. A Column child asks for the full parent height that way rather
+  than the space left after the search field, pushing the bottom of the
+  list off screen. Both now use `weight(1f)`.
+- "Uninstall" sat in `AlertDialog`'s `dismissButton` slot -- bottom-left,
+  where Cancel normally is. Someone dismissing the long-press dialog out of
+  habit would have started an uninstall. Android shows its own confirmation
+  so nothing could be lost silently, but a destructive action does not
+  belong where muscle memory expects an escape. Both actions are now rows
+  in the dialog body and the only button is Cancel.
+
 ### Toolchain modernisation
 
 Changed:

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -34,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -74,8 +74,10 @@ fun AppDrawer(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background.copy(alpha = 0.97f))
-            .safeDrawingPadding()
-            .imePadding(),
+            // safeDrawing is the union of system bars, display cutout AND the
+            // IME, so adding imePadding() here would shift the content up by
+            // the keyboard height twice.
+            .safeDrawingPadding(),
     ) {
         // Tap-to-close handle. Back also closes the drawer, but on a phone with
         // gesture navigation a visible affordance is easier to find.
@@ -138,7 +140,10 @@ fun AppDrawer(
         )
 
         if (apps.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // weight(1f), not fillMaxSize(): inside a Column the latter asks for
+            // the full parent height rather than what is left after the search
+            // field, which pushes the bottom of the list off screen.
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
                     text = stringResource(R.string.drawer_empty),
                     style = MaterialTheme.typography.bodyMedium,
@@ -154,7 +159,7 @@ fun AppDrawer(
                     vertical = 8.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
                 items(items = apps, key = { it.key }) { entry ->
                     AppCell(
@@ -219,25 +224,57 @@ private fun AppActionsDialog(
     onAppInfo: () -> Unit,
     onUninstall: () -> Unit,
 ) {
+    // Both actions are rows in the body, and the only button is Cancel.
+    //
+    // The earlier version put Uninstall in AlertDialog's dismissButton slot --
+    // bottom-left, exactly where Cancel normally lives. That invites someone
+    // dismissing the dialog by habit to start uninstalling an app instead.
+    // Android would still show its own confirmation, but a destructive action
+    // does not belong in the slot muscle memory treats as "get me out".
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(entry.label) },
         text = {
-            Text(
-                text = entry.packageName,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column {
+                Text(
+                    text = entry.packageName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(16.dp))
+                DialogAction(
+                    label = stringResource(R.string.app_info),
+                    onClick = onAppInfo,
+                )
+                DialogAction(
+                    label = stringResource(R.string.uninstall),
+                    onClick = onUninstall,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
         },
         confirmButton = {
-            TextButton(onClick = onAppInfo) {
-                Text(stringResource(R.string.app_info))
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
             }
         },
-        dismissButton = {
-            TextButton(onClick = onUninstall) {
-                Text(stringResource(R.string.uninstall))
-            }
-        },
+    )
+}
+
+@Composable
+private fun DialogAction(
+    label: String,
+    onClick: () -> Unit,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.bodyLarge,
+        color = tint,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 8.dp),
     )
 }
