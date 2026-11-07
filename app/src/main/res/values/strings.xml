@@ -9,6 +9,13 @@
     <string name="home_edit_hint">Drag to rearrange. Tap ✕ to remove.</string>
     <string name="home_edit_done">Done</string>
     <string name="home_remove">Remove from home screen</string>
+    <string name="home_open_clock">Open clock</string>
+    <string name="glance_alarm">Alarm %1$s</string>
+    <string name="glance_battery">Battery %1$d%%</string>
+    <string name="glance_battery_charging">Charging %1$d%%</string>
+    <string name="folder_name_hint">Folder name</string>
+    <string name="folder_remove_app">Take out of folder</string>
+    <string name="folder_close">Close folder</string>
 
     <!-- Drawer -->
     <string name="drawer_search_hint">Search apps</string>
@@ -32,6 +39,9 @@
     <string name="add_to_home">Add to home screen</string>
     <string name="remove_from_home">Remove from home screen</string>
     <string name="hide_app">Hide from drawer</string>
+    <string name="add_to_dock">Add to dock</string>
+    <string name="remove_from_dock">Remove from dock</string>
+    <string name="dock_full">Dock is full (%1$d apps)</string>
 
     <!-- Settings -->
     <string name="settings_open">Settings</string>
@@ -55,6 +65,8 @@
     <string name="settings_font_mono">Monospace</string>
 
     <string name="settings_group_layout">Layout</string>
+    <string name="settings_glance">At a glance</string>
+    <string name="settings_glance_body">Next alarm and battery under the clock. Read from the phone; no network, no location.</string>
     <string name="settings_icon_size">Icon size</string>
     <string name="settings_icon_small">Small</string>
     <string name="settings_icon_medium">Medium</string>

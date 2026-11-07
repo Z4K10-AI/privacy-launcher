@@ -56,12 +56,19 @@ data class LauncherSettings(
     val homeColumns: Int = DEFAULT_HOME_COLUMNS,
     /** Component keys ("package/activity") kept out of the drawer. */
     val hiddenApps: Set<String> = emptySet(),
-    /** Component keys shown on the home screen, in display order. */
-    val homeApps: List<String> = emptyList(),
+    /** The home screen layout: apps and folders, in display order. */
+    val homeItems: List<HomeItem> = emptyList(),
+    /** Component keys pinned to the dock, in display order. */
+    val dockApps: List<String> = emptyList(),
+    /** The offline "at a glance" line under the clock. */
+    val showGlance: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_DRAWER_COLUMNS = 4
         const val DEFAULT_HOME_COLUMNS = 4
         val COLUMN_CHOICES = listOf(3, 4, 5, 6)
+
+        /** A dock wider than this stops being a dock and starts being a row. */
+        const val MAX_DOCK_APPS = 5
     }
 }

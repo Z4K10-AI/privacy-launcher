@@ -32,11 +32,15 @@ import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.designsystem.LauncherTheme
 import com.privacylauncher.designsystem.Motion
 import com.privacylauncher.designsystem.adaptiveColumns
+import com.privacylauncher.designsystem.blurBehind
 import com.privacylauncher.designsystem.resolveIsDark
 import com.privacylauncher.ui.AppDrawer
+import com.privacylauncher.ui.FolderSheet
 import com.privacylauncher.ui.HomeScreen
+import com.privacylauncher.ui.HomeTile
 import com.privacylauncher.ui.LauncherViewModel
 import com.privacylauncher.ui.Panel
+import com.privacylauncher.ui.components.rememberGlance
 import com.privacylauncher.ui.settings.DesignPreviewScreen
 import com.privacylauncher.ui.settings.HiddenAppsScreen
 import com.privacylauncher.ui.settings.SettingsScreen
@@ -98,13 +102,18 @@ class MainActivity : ComponentActivity() {
 private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSettings) {
     val drawerApps by viewModel.drawerApps.collectAsStateWithLifecycle()
     val drawerTotal by viewModel.drawerTotal.collectAsStateWithLifecycle()
-    val homeApps by viewModel.homeApps.collectAsStateWithLifecycle()
+    val homeTiles by viewModel.homeTiles.collectAsStateWithLifecycle()
+    val dock by viewModel.dockApps.collectAsStateWithLifecycle()
     val allApps by viewModel.allInstalledApps.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
 
     val iconSize = settings.iconSize.dp.dp
     val panel = viewModel.panel
     val panelOpen = panel != Panel.NONE
+    val glance = rememberGlance(enabled = settings.showGlance)
+    val openFolder = viewModel.openFolderId?.let { id ->
+        homeTiles.filterIsInstance<HomeTile.Folder>().firstOrNull { it.id == id }
+    }
 
     // Fade the home screen out underneath an open panel.
     //
@@ -136,9 +145,18 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
     }
 
     Box(Modifier.fillMaxSize()) {
-        Box(Modifier.graphicsLayer { alpha = homeAlpha }) {
+        Box(
+            Modifier
+                .graphicsLayer { alpha = homeAlpha }
+                // Real frosted glass: these are our own composables, so
+                // RenderEffect can blur them. Window blur cannot do this for
+                // the wallpaper -- see Surfaces.panelSurface for why.
+                .blurBehind(active = openFolder != null),
+        ) {
             HomeScreen(
-                homeApps = homeApps,
+                tiles = homeTiles,
+                dock = dock,
+                glance = glance,
                 columns = adaptiveColumns(settings.homeColumns),
                 iconSize = iconSize,
                 iconLoader = viewModel.iconLoader,
@@ -146,14 +164,33 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 // With a panel up the home screen is covered, and while
                 // reordering a vertical drag belongs to the grid. Either way
                 // its swipe detector must be off or stray drags reach it.
-                gesturesEnabled = !panelOpen && !viewModel.homeEditMode,
+                gesturesEnabled = !panelOpen &&
+                    !viewModel.homeEditMode &&
+                    openFolder == null,
                 onLaunch = viewModel::launch,
+                onOpenFolder = viewModel::openFolder,
                 onEnterEditMode = { viewModel.setHomeEditing(true) },
                 onExitEditMode = { viewModel.setHomeEditing(false) },
-                onRemove = viewModel::removeFromHome,
-                onMove = viewModel::moveHomeApp,
+                onRemoveTile = viewModel::removeHomeTile,
+                onMove = viewModel::moveHomeItem,
+                onCombine = viewModel::combineHomeItems,
                 onOpenDrawer = viewModel::openDrawer,
                 onOpenSettings = viewModel::openSettings,
+                onOpenClock = { viewModel.openClock() },
+            )
+        }
+
+        if (openFolder != null) {
+            FolderSheet(
+                name = openFolder.name,
+                entries = openFolder.entries,
+                iconSize = iconSize,
+                iconLoader = viewModel.iconLoader,
+                editMode = viewModel.homeEditMode,
+                onLaunch = viewModel::launch,
+                onRename = { viewModel.renameFolder(openFolder.id, it) },
+                onRemoveFromFolder = { viewModel.removeFromFolder(openFolder.id, it) },
+                onDismiss = viewModel::closeFolder,
             )
         }
 
@@ -170,6 +207,8 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 iconSize = iconSize,
                 iconLoader = viewModel.iconLoader,
                 isOnHome = viewModel::isOnHome,
+                isInDock = viewModel::isInDock,
+                dockFull = viewModel.dockIsFull(),
                 onQueryChange = viewModel::onQueryChange,
                 onLaunch = viewModel::launch,
                 onClose = viewModel::closePanel,
@@ -177,6 +216,8 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onUninstall = { viewModel.requestUninstall(it) },
                 onAddToHome = viewModel::addToHome,
                 onRemoveFromHome = viewModel::removeFromHome,
+                onAddToDock = viewModel::addToDock,
+                onRemoveFromDock = viewModel::removeFromDock,
                 onHide = { viewModel.setAppHidden(it, true) },
             )
         }
@@ -189,6 +230,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onThemeMode = viewModel::setThemeMode,
                 onAccent = viewModel::setAccent,
                 onDynamicColor = viewModel::setDynamicColor,
+                onShowGlance = viewModel::setShowGlance,
                 onFont = viewModel::setFont,
                 onIconSize = viewModel::setIconSize,
                 onDrawerColumns = viewModel::setDrawerColumns,

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
+import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.designsystem.Radii
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.designsystem.panelSurface
@@ -70,6 +71,8 @@ fun AppDrawer(
     iconSize: Dp,
     iconLoader: IconLoader,
     isOnHome: (AppEntry) -> Boolean,
+    isInDock: (AppEntry) -> Boolean,
+    dockFull: Boolean,
     onQueryChange: (String) -> Unit,
     onLaunch: (AppEntry) -> Unit,
     onClose: () -> Unit,
@@ -77,6 +80,8 @@ fun AppDrawer(
     onUninstall: (AppEntry) -> Unit,
     onAddToHome: (AppEntry) -> Unit,
     onRemoveFromHome: (AppEntry) -> Unit,
+    onAddToDock: (AppEntry) -> Unit,
+    onRemoveFromDock: (AppEntry) -> Unit,
     onHide: (AppEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -200,11 +205,15 @@ fun AppDrawer(
         AppActionsDialog(
             entry = entry,
             onHome = isOnHome(entry),
+            inDock = isInDock(entry),
+            dockFull = dockFull,
             onDismiss = { menuFor = null },
             onAppInfo = { menuFor = null; onAppInfo(entry) },
             onUninstall = { menuFor = null; onUninstall(entry) },
             onAddToHome = { menuFor = null; onAddToHome(entry) },
             onRemoveFromHome = { menuFor = null; onRemoveFromHome(entry) },
+            onAddToDock = { menuFor = null; onAddToDock(entry) },
+            onRemoveFromDock = { menuFor = null; onRemoveFromDock(entry) },
             onHide = { menuFor = null; onHide(entry) },
         )
     }
@@ -214,11 +223,15 @@ fun AppDrawer(
 private fun AppActionsDialog(
     entry: AppEntry,
     onHome: Boolean,
+    inDock: Boolean,
+    dockFull: Boolean,
     onDismiss: () -> Unit,
     onAppInfo: () -> Unit,
     onUninstall: () -> Unit,
     onAddToHome: () -> Unit,
     onRemoveFromHome: () -> Unit,
+    onAddToDock: () -> Unit,
+    onRemoveFromDock: () -> Unit,
     onHide: () -> Unit,
 ) {
     // Every action is a row in the body and the only button is Cancel.
@@ -241,6 +254,24 @@ private fun AppActionsDialog(
                     DialogAction(stringResource(R.string.remove_from_home), onRemoveFromHome)
                 } else {
                     DialogAction(stringResource(R.string.add_to_home), onAddToHome)
+                }
+                when {
+                    inDock -> DialogAction(
+                        stringResource(R.string.remove_from_dock),
+                        onRemoveFromDock,
+                    )
+                    // Shown but inert when the dock is full, with the reason
+                    // on the row. Hiding it would look like the feature was
+                    // missing rather than occupied.
+                    dockFull -> DialogAction(
+                        label = stringResource(
+                            R.string.dock_full,
+                            LauncherSettings.MAX_DOCK_APPS,
+                        ),
+                        onClick = {},
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    else -> DialogAction(stringResource(R.string.add_to_dock), onAddToDock)
                 }
                 DialogAction(stringResource(R.string.hide_app), onHide)
                 DialogAction(stringResource(R.string.app_info), onAppInfo)

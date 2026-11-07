@@ -37,6 +37,7 @@ fun SettingsScreen(
     onThemeMode: (ThemeMode) -> Unit,
     onAccent: (AccentColor) -> Unit,
     onDynamicColor: (Boolean) -> Unit,
+    onShowGlance: (Boolean) -> Unit,
     onFont: (FontChoice) -> Unit,
     onIconSize: (IconSize) -> Unit,
     onDrawerColumns: (Int) -> Unit,
@@ -120,6 +121,12 @@ fun SettingsScreen(
             }
 
             SettingsGroup(stringResource(R.string.settings_group_layout)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_glance),
+                    subtitle = stringResource(R.string.settings_glance_body),
+                    checked = settings.showGlance,
+                    onCheckedChange = onShowGlance,
+                )
                 ChoiceRow(
                     title = stringResource(R.string.settings_icon_size),
                     options = IconSize.entries,

@@ -15,6 +15,7 @@ import com.privacylauncher.PrivacyLauncherApp
 import com.privacylauncher.data.AccentColor
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.FontChoice
+import com.privacylauncher.data.HomeItem
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
 import com.privacylauncher.data.ThemeMode
@@ -69,16 +70,37 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     /**
-     * The home screen's apps, in the user's order.
+     * The home screen layout, resolved to drawable tiles.
      *
      * Keys that no longer resolve are skipped here and pruned from storage by
      * [refreshApps], so an uninstalled app leaves no gap and no dead entry.
      */
-    val homeApps: StateFlow<List<AppEntry>> =
+    val homeTiles: StateFlow<List<HomeTile>> =
         combine(allApps, settings) { apps, s ->
             val byKey = apps.associateBy { it.key }
-            s.homeApps.mapNotNull { byKey[it] }
+            s.homeItems.mapNotNull { item ->
+                when (item) {
+                    is HomeItem.App -> byKey[item.key]?.let { HomeTile.App(it) }
+                    is HomeItem.Folder -> {
+                        val entries = item.appKeys.mapNotNull { byKey[it] }
+                        if (entries.isEmpty()) null
+                        else HomeTile.Folder(item.id, item.name, entries)
+                    }
+                }
+            }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** The dock, resolved and capped. */
+    val dockApps: StateFlow<List<AppEntry>> =
+        combine(allApps, settings) { apps, s ->
+            val byKey = apps.associateBy { it.key }
+            s.dockApps.mapNotNull { byKey[it] }
+                .take(LauncherSettings.MAX_DOCK_APPS)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** The folder currently open as a sheet, if any. */
+    var openFolderId by mutableStateOf<String?>(null)
+        private set
 
     // --- UI state ---------------------------------------------------------
 
@@ -183,6 +205,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      */
     fun onBack() {
         when {
+            openFolderId != null -> openFolderId = null
             panel == Panel.DRAWER && _query.value.isNotBlank() -> _query.value = ""
             panel != Panel.NONE -> closePanel()
             homeEditMode -> homeEditMode = false
@@ -192,6 +215,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun closeAllPanels() {
         panel = Panel.NONE
         homeEditMode = false
+        openFolderId = null
         _query.value = ""
     }
 
@@ -217,6 +241,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun openWallpaperPicker() = appRepository.openWallpaperPicker()
 
+    fun openClock() = appRepository.openClock()
+
     // --- settings writes --------------------------------------------------
 
     fun setThemeMode(v: ThemeMode) = edit { settingsRepository.setThemeMode(v) }
@@ -235,21 +261,68 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun setAppHidden(entry: AppEntry, hidden: Boolean) = edit {
         settingsRepository.setAppHidden(entry.key, hidden)
-        // A hidden app should not linger on the home screen.
-        if (hidden) settingsRepository.removeFromHome(entry.key)
+        // A hidden app should not linger on the home screen or in the dock.
+        if (hidden) {
+            settingsRepository.removeAppFromHome(entry.key)
+            settingsRepository.removeFromDock(entry.key)
+        }
     }
 
     fun addToHome(entry: AppEntry) = edit { settingsRepository.addToHome(entry.key) }
 
     fun removeFromHome(entry: AppEntry) = edit {
-        settingsRepository.removeFromHome(entry.key)
+        settingsRepository.removeAppFromHome(entry.key)
     }
 
-    fun moveHomeApp(from: Int, to: Int) = edit {
-        settingsRepository.moveHomeApp(from, to)
+    fun removeHomeTile(tile: HomeTile) = edit {
+        settingsRepository.removeHomeItem(tile.id)
     }
 
-    fun isOnHome(entry: AppEntry): Boolean = entry.key in settings.value.homeApps
+    fun moveHomeItem(from: Int, to: Int) = edit {
+        settingsRepository.moveHomeItem(from, to)
+    }
+
+    /** Dropping one icon onto another: makes a folder, or adds to one. */
+    fun combineHomeItems(from: Int, onto: Int) = edit {
+        settingsRepository.combineHomeItems(from, onto)
+    }
+
+    fun renameFolder(folderId: String, name: String) = edit {
+        settingsRepository.renameFolder(folderId, name)
+    }
+
+    fun removeFromFolder(folderId: String, entry: AppEntry) = edit {
+        settingsRepository.removeFromFolder(folderId, entry.key)
+    }
+
+    fun openFolder(id: String) {
+        openFolderId = id
+    }
+
+    fun closeFolder() {
+        openFolderId = null
+    }
+
+    fun addToDock(entry: AppEntry) = edit { settingsRepository.addToDock(entry.key) }
+
+    fun removeFromDock(entry: AppEntry) = edit {
+        settingsRepository.removeFromDock(entry.key)
+    }
+
+    fun setShowGlance(v: Boolean) = edit { settingsRepository.setShowGlance(v) }
+
+    fun isOnHome(entry: AppEntry): Boolean =
+        settings.value.homeItems.any {
+            when (it) {
+                is HomeItem.App -> it.key == entry.key
+                is HomeItem.Folder -> entry.key in it.appKeys
+            }
+        }
+
+    fun isInDock(entry: AppEntry): Boolean = entry.key in settings.value.dockApps
+
+    fun dockIsFull(): Boolean =
+        settings.value.dockApps.size >= LauncherSettings.MAX_DOCK_APPS
 
     private fun edit(block: suspend () -> Unit) {
         viewModelScope.launch { block() }

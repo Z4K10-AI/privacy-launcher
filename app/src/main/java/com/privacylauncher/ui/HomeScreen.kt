@@ -1,7 +1,12 @@
 package com.privacylauncher.ui
 
 import android.text.format.DateFormat
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,14 +22,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,53 +52,62 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.privacylauncher.R
 import com.privacylauncher.data.AppEntry
+import com.privacylauncher.data.GlanceInfo
 import com.privacylauncher.data.IconLoader
 import com.privacylauncher.designsystem.Radii
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.designsystem.isShortWindow
 import com.privacylauncher.designsystem.rememberHaptics
 import com.privacylauncher.ui.components.AppCell
+import com.privacylauncher.ui.components.FolderIcon
 import com.privacylauncher.ui.components.LauncherIcons
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
+import kotlin.math.sin
 
 /**
- * The home screen: clock, a grid of chosen apps, and the bottom bar.
+ * The home screen: clock, an optional glance line, a grid of apps and
+ * folders, a dock, and the bottom bar.
  *
- * The window is transparent and shows the system wallpaper through it, so
- * everything here sits on top of whatever wallpaper is set. Text is therefore
- * white with a soft shadow, which stays readable on light and dark wallpapers
- * alike.
+ * The window is transparent and shows the wallpaper through it, so text is
+ * white with a soft shadow to stay readable on light and dark wallpapers.
  */
 @Composable
 fun HomeScreen(
-    homeApps: List<AppEntry>,
+    tiles: List<HomeTile>,
+    dock: List<AppEntry>,
+    glance: GlanceInfo,
     columns: Int,
     iconSize: Dp,
     iconLoader: IconLoader,
     editMode: Boolean,
     gesturesEnabled: Boolean,
     onLaunch: (AppEntry) -> Unit,
+    onOpenFolder: (String) -> Unit,
     onEnterEditMode: () -> Unit,
     onExitEditMode: () -> Unit,
-    onRemove: (AppEntry) -> Unit,
+    onRemoveTile: (HomeTile) -> Unit,
     onMove: (Int, Int) -> Unit,
+    onCombine: (Int, Int) -> Unit,
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenClock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val swipeThresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
@@ -102,11 +117,8 @@ fun HomeScreen(
             .fillMaxSize()
             .pointerInput(swipeThresholdPx, gesturesEnabled) {
                 if (!gesturesEnabled) return@pointerInput
-                // Swiping up anywhere opens the drawer, the gesture people
-                // expect from a launcher.
-                //
-                // dragTotal is a plain local, NOT Compose state: using state
-                // here would recompose the whole screen on every drag frame.
+                // dragTotal is a plain local, NOT Compose state: state here
+                // would recompose the whole screen on every drag frame.
                 var dragTotal = 0f
                 detectVerticalDragGestures(
                     onDragStart = { dragTotal = 0f },
@@ -117,30 +129,25 @@ fun HomeScreen(
             .safeDrawingPadding(),
     ) {
         Column(Modifier.fillMaxSize()) {
-            // The clock and grid scroll; the bottom bar never does.
+            // The clock and grid scroll; the dock and bottom bar never do.
             //
-            // This was a real failure, not a precaution. With eleven apps on
-            // the home screen at a large Display size, the grid grew past the
-            // available height, the Apps button and settings gear were pushed
-            // off the bottom of the screen, and the only remaining way into
-            // the drawer was the swipe-up gesture -- which a new user has no
-            // reason to know exists.
+            // With enough apps at a large Display size the grid used to grow
+            // past the available height and push the bottom bar off screen,
+            // leaving the swipe-up gesture as the only way into the drawer.
             //
-            // heightIn(min = viewport) is what lets Arrangement.SpaceBetween
-            // still work inside a scrollable Column: without it the content is
-            // measured against infinite height and the arrangement does
-            // nothing.
+            // heightIn(min = viewport) is what lets SpaceBetween still work
+            // inside a scrollable Column: without it the content is measured
+            // against infinite height and the arrangement does nothing.
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val viewportHeight = maxHeight
                 val scrollState = rememberScrollState()
-                // Scrolling is enabled only when the content genuinely
-                // overflows. An always-on verticalScroll swallows the
-                // swipe-up-to-open-drawer gesture even with nothing to
-                // scroll, which silently broke the launcher's main gesture.
-                // maxValue is Int.MAX_VALUE until the first measurement, so
-                // that case has to be excluded too.
+                // Scrolling is enabled only when the content really overflows.
+                // An always-on verticalScroll swallows swipe-up-to-open-drawer
+                // even with nothing to scroll. maxValue is Int.MAX_VALUE until
+                // the first measurement, so that case is excluded too.
                 val canScroll = scrollState.maxValue > 0 &&
                     scrollState.maxValue != Int.MAX_VALUE
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -148,46 +155,67 @@ fun HomeScreen(
                         .heightIn(min = viewportHeight),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
-            // On a short screen -- landscape, or a small phone -- a 64sp
-            // clock plus 48dp of padding ate enough height to slice the
-            // second row of apps in half. Step both down.
-            val shortScreen = isShortWindow()
-            Clock(
-                compact = shortScreen,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = if (shortScreen) Spacing.md else Spacing.xxl,
-                        start = Spacing.lg,
-                        end = Spacing.lg,
-                    ),
-            )
+                    val shortScreen = isShortWindow()
+                    Column(Modifier.fillMaxWidth()) {
+                        Clock(
+                            compact = shortScreen,
+                            onClick = onOpenClock,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    top = if (shortScreen) Spacing.md else Spacing.xxl,
+                                    start = Spacing.lg,
+                                    end = Spacing.lg,
+                                ),
+                        )
+                        if (!glance.isEmpty) {
+                            GlanceLine(
+                                glance = glance,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = Spacing.xs, start = Spacing.lg, end = Spacing.lg),
+                            )
+                        }
+                    }
 
-            if (homeApps.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.home_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.75f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Spacing.xl, vertical = Spacing.md),
-                )
-            } else {
-                HomeGrid(
-                    apps = homeApps,
-                    columns = columns,
+                    if (tiles.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.home_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.75f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = Spacing.xl, vertical = Spacing.md),
+                        )
+                    } else {
+                        HomeGrid(
+                            tiles = tiles,
+                            columns = columns,
+                            iconSize = iconSize,
+                            iconLoader = iconLoader,
+                            editMode = editMode,
+                            onLaunch = onLaunch,
+                            onOpenFolder = onOpenFolder,
+                            onEnterEditMode = onEnterEditMode,
+                            onRemoveTile = onRemoveTile,
+                            onMove = onMove,
+                            onCombine = onCombine,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xs),
+                        )
+                    }
+                }
+            }
+
+            if (dock.isNotEmpty()) {
+                Dock(
+                    entries = dock,
                     iconSize = iconSize,
                     iconLoader = iconLoader,
-                    editMode = editMode,
+                    enabled = !editMode,
                     onLaunch = onLaunch,
-                    onEnterEditMode = onEnterEditMode,
-                    onRemove = onRemove,
-                    onMove = onMove,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xs),
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
                 )
-            }
-                }
             }
 
             BottomBar(
@@ -201,71 +229,92 @@ fun HomeScreen(
 }
 
 /**
- * The home app grid, with long-press-to-reorder.
+ * The home grid, with long-press-to-reorder and drop-onto-another-icon to
+ * make a folder.
  *
- * Not a LazyVerticalGrid: the home screen holds a handful of apps, all of
- * them on screen at once, and a plain Column of Rows gives every cell a known
- * position. Drag-to-reorder needs exactly that, and computing it against a
- * lazy layout's scroll state would be far more code for no benefit here.
+ * Not a LazyVerticalGrid: the home screen holds a handful of items, all on
+ * screen at once, and a plain Column of Rows gives every cell a known
+ * position. Drag-and-drop needs exactly that.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeGrid(
-    apps: List<AppEntry>,
+    tiles: List<HomeTile>,
     columns: Int,
     iconSize: Dp,
     iconLoader: IconLoader,
     editMode: Boolean,
     onLaunch: (AppEntry) -> Unit,
+    onOpenFolder: (String) -> Unit,
     onEnterEditMode: () -> Unit,
-    onRemove: (AppEntry) -> Unit,
+    onRemoveTile: (HomeTile) -> Unit,
     onMove: (Int, Int) -> Unit,
+    onCombine: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
     var dragIndex by remember { mutableIntStateOf(-1) }
     var targetIndex by remember { mutableIntStateOf(-1) }
+    /** Set when the drop would merge into a folder rather than reorder. */
+    var combineIndex by remember { mutableIntStateOf(-1) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
 
-    // Leaving edit mode mid-drag would otherwise strand the offsets.
     LaunchedEffect(editMode) {
         if (!editMode) {
             dragIndex = -1
             targetIndex = -1
+            combineIndex = -1
             dragOffset = Offset.Zero
         }
     }
 
+    // One animation drives every icon's wiggle. A separate infinite
+    // transition per cell would mean one running animation per app.
+    val wiggle = rememberInfiniteTransition(label = "wiggle")
+    val wigglePhase by wiggle.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "wigglePhase",
+    )
+
     BoxWithConstraints(modifier) {
         val cellWidth = maxWidth / columns
-        // Label space scales with the user's font size setting. At a fixed
-        // height, a two-line app name at 1.3x font scale is clipped.
+        // Label space follows the user's font size setting. At a fixed
+        // height, a two-line name at 1.3x font scale is clipped.
         val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 1.6f)
-        val labelSpace = (Spacing.xl + Spacing.sm) * fontScale
-        val cellHeight = iconSize + labelSpace
+        val cellHeight = iconSize + (Spacing.xl + Spacing.sm) * fontScale
         val density = LocalDensity.current
         val cellWpx = with(density) { cellWidth.toPx() }
         val cellHpx = with(density) { cellHeight.toPx() }
 
         Column {
-            apps.chunked(columns).forEachIndexed { rowIndex, rowApps ->
+            tiles.chunked(columns).forEachIndexed { rowIndex, rowTiles ->
                 Row {
-                    rowApps.forEachIndexed { colIndex, entry ->
+                    rowTiles.forEachIndexed { colIndex, tile ->
                         val index = rowIndex * columns + colIndex
                         val isDragging = index == dragIndex
-                        val isTarget = editMode &&
-                            targetIndex == index &&
-                            dragIndex >= 0 &&
-                            dragIndex != index
+                        val isMoveTarget = editMode && dragIndex >= 0 &&
+                            targetIndex == index && combineIndex < 0 && !isDragging
+                        val isCombineTarget = editMode && combineIndex == index && !isDragging
+
+                        // Each icon leans a slightly different way, so the row
+                        // does not look like one rigid object rocking.
+                        val angle = if (editMode && !isDragging) {
+                            sin(wigglePhase + index * 0.7f) * 1.1f
+                        } else {
+                            0f
+                        }
 
                         Box(
                             modifier = Modifier
                                 .width(cellWidth)
                                 .height(cellHeight)
-                                // The dragged cell must paint above its
-                                // neighbours or it slides underneath them.
                                 .zIndex(if (isDragging) 1f else 0f)
                                 .graphicsLayer {
+                                    rotationZ = angle
                                     if (isDragging) {
                                         translationX = dragOffset.x
                                         translationY = dragOffset.y
@@ -274,72 +323,82 @@ private fun HomeGrid(
                                         alpha = 0.9f
                                     }
                                 }
-                                // Tap launches, but only when not editing.
-                                .pointerInput(editMode, entry.key) {
+                                .pointerInput(editMode, tile.id) {
                                     detectTapGestures(
-                                        onTap = { if (!editMode) onLaunch(entry) },
+                                        onTap = {
+                                            if (editMode) return@detectTapGestures
+                                            when (tile) {
+                                                is HomeTile.App -> onLaunch(tile.entry)
+                                                is HomeTile.Folder -> onOpenFolder(tile.id)
+                                            }
+                                        },
                                     )
                                 }
                                 // Long-press starts a drag in the same motion.
-                                // Previously edit mode and dragging were two
-                                // separate gestures: long-press, let go, then
-                                // long-press again to actually move anything.
-                                // Entering edit mode from here means the first
-                                // long-press can carry straight into a drag,
-                                // which is what every other launcher does.
-                                .pointerInput(index, columns, apps.size) {
-                                            detectDragGesturesAfterLongPress(
-                                                onDragStart = {
-                                                    haptics.dragStart()
-                                                    onEnterEditMode()
-                                                    dragIndex = index
-                                                    targetIndex = index
-                                                    dragOffset = Offset.Zero
-                                                },
-                                                onDrag = { change, delta ->
-                                                    change.consume()
-                                                    dragOffset += delta
-                                                    // Where the cell's centre
-                                                    // now sits, in grid terms.
-                                                    val cx = colIndex * cellWpx +
-                                                        cellWpx / 2 + dragOffset.x
-                                                    val cy = rowIndex * cellHpx +
-                                                        cellHpx / 2 + dragOffset.y
-                                                    val tc = (cx / cellWpx).toInt()
-                                                        .coerceIn(0, columns - 1)
-                                                    val tr = (cy / cellHpx).toInt()
-                                                        .coerceAtLeast(0)
-                                                    val next = (tr * columns + tc)
-                                                        .coerceIn(0, apps.lastIndex)
-                                                    // Tick only when the drop
-                                                    // target actually changes,
-                                                    // not on every frame.
-                                                    if (next != targetIndex) {
-                                                        haptics.tick()
-                                                    }
-                                                    targetIndex = next
-                                                },
-                                                onDragEnd = {
-                                                    haptics.dragEnd()
-                                                    if (targetIndex >= 0 &&
-                                                        targetIndex != dragIndex
-                                                    ) {
-                                                        onMove(dragIndex, targetIndex)
-                                                    }
-                                                    dragIndex = -1
-                                                    targetIndex = -1
-                                                    dragOffset = Offset.Zero
-                                                },
-                                                onDragCancel = {
-                                                    dragIndex = -1
-                                                    targetIndex = -1
-                                                    dragOffset = Offset.Zero
-                                                },
-                                            )
+                                // Entering edit mode here means the first
+                                // long-press can carry straight into a drag.
+                                .pointerInput(index, columns, tiles.size) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            haptics.dragStart()
+                                            onEnterEditMode()
+                                            dragIndex = index
+                                            targetIndex = index
+                                            combineIndex = -1
+                                            dragOffset = Offset.Zero
+                                        },
+                                        onDrag = { change, delta ->
+                                            change.consume()
+                                            dragOffset += delta
+                                            val cx = colIndex * cellWpx + cellWpx / 2 + dragOffset.x
+                                            val cy = rowIndex * cellHpx + cellHpx / 2 + dragOffset.y
+                                            val tc = (cx / cellWpx).toInt().coerceIn(0, columns - 1)
+                                            val tr = (cy / cellHpx).toInt().coerceAtLeast(0)
+                                            val next = (tr * columns + tc)
+                                                .coerceIn(0, tiles.lastIndex)
+
+                                            // Near the middle of another icon
+                                            // means "make a folder"; nearer an
+                                            // edge means "reorder to here".
+                                            val dx = abs(cx - (tc * cellWpx + cellWpx / 2))
+                                            val dy = abs(cy - (tr * cellHpx + cellHpx / 2))
+                                            val overCentre = dx < cellWpx * 0.28f &&
+                                                dy < cellHpx * 0.28f
+                                            val canCombine = overCentre &&
+                                                next != index &&
+                                                tiles.getOrNull(index) is HomeTile.App
+
+                                            val nextCombine = if (canCombine) next else -1
+                                            if (next != targetIndex || nextCombine != combineIndex) {
+                                                haptics.tick()
+                                            }
+                                            targetIndex = next
+                                            combineIndex = nextCombine
+                                        },
+                                        onDragEnd = {
+                                            haptics.dragEnd()
+                                            when {
+                                                combineIndex >= 0 && combineIndex != dragIndex ->
+                                                    onCombine(dragIndex, combineIndex)
+                                                targetIndex >= 0 && targetIndex != dragIndex ->
+                                                    onMove(dragIndex, targetIndex)
+                                            }
+                                            dragIndex = -1
+                                            targetIndex = -1
+                                            combineIndex = -1
+                                            dragOffset = Offset.Zero
+                                        },
+                                        onDragCancel = {
+                                            dragIndex = -1
+                                            targetIndex = -1
+                                            combineIndex = -1
+                                            dragOffset = Offset.Zero
+                                        },
+                                    )
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (isTarget) {
+                            if (isMoveTarget) {
                                 Box(
                                     Modifier
                                         .fillMaxSize()
@@ -351,32 +410,169 @@ private fun HomeGrid(
                                         ),
                                 )
                             }
-                            AppCell(
-                                entry = entry,
+                            if (isCombineTarget) {
+                                // A filled ring, clearly different from the
+                                // reorder outline, so the two drops are not
+                                // guessed at.
+                                Box(
+                                    Modifier
+                                        .size(iconSize * 1.35f)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.3f)),
+                                )
+                            }
+                            HomeTileContent(
+                                tile = tile,
                                 iconLoader = iconLoader,
                                 iconSize = iconSize,
-                                labelColor = Color.White,
-                                labelStyle = MaterialTheme.typography.labelSmall.copy(
-                                    shadow = Shadow(
-                                        color = Color.Black.copy(alpha = 0.7f),
-                                        blurRadius = 6f,
-                                    ),
-                                ),
-                                showRemoveBadge = editMode,
-                                onRemove = { onRemove(entry) },
-                                // Gestures are owned by the parent Box above.
-                                interactive = false,
+                                editMode = editMode,
+                                onRemove = { onRemoveTile(tile) },
                             )
                         }
                     }
-                    // Pad the final row so its cells keep their column widths.
-                    repeat(columns - rowApps.size) {
+                    repeat(columns - rowTiles.size) {
                         Spacer(Modifier.width(cellWidth).height(cellHeight))
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun HomeTileContent(
+    tile: HomeTile,
+    iconLoader: IconLoader,
+    iconSize: Dp,
+    editMode: Boolean,
+    onRemove: () -> Unit,
+) {
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(
+        shadow = Shadow(color = Color.Black.copy(alpha = 0.7f), blurRadius = 6f),
+    )
+    when (tile) {
+        is HomeTile.App -> AppCell(
+            entry = tile.entry,
+            iconLoader = iconLoader,
+            iconSize = iconSize,
+            labelColor = Color.White,
+            labelStyle = labelStyle,
+            showRemoveBadge = editMode,
+            onRemove = onRemove,
+            // Gestures are owned by the parent Box.
+            interactive = false,
+        )
+        is HomeTile.Folder -> Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box {
+                FolderIcon(
+                    entries = tile.entries,
+                    iconLoader = iconLoader,
+                    size = iconSize,
+                )
+                if (editMode) {
+                    RemoveBadge(onRemove, Modifier.align(Alignment.TopStart))
+                }
+            }
+            Spacer(Modifier.height(Spacing.xxs))
+            Text(
+                text = tile.name,
+                style = labelStyle,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RemoveBadge(onRemove: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.error)
+            .clickable(onClick = onRemove),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = LauncherIcons.Close,
+            contentDescription = stringResource(R.string.home_remove),
+            tint = Color.White,
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+/** Up to five pinned apps, on a soft rounded bar above the bottom controls. */
+@Composable
+private fun Dock(
+    entries: List<AppEntry>,
+    iconSize: Dp,
+    iconLoader: IconLoader,
+    enabled: Boolean,
+    onLaunch: (AppEntry) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radii.sheet))
+            .background(Color.Black.copy(alpha = 0.28f))
+            .padding(vertical = Spacing.xs, horizontal = Spacing.xs),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        entries.forEach { entry ->
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(Radii.card))
+                    .clickable(enabled = enabled) { onLaunch(entry) }
+                    .padding(Spacing.xs),
+            ) {
+                // No label in the dock: five labels across a phone width
+                // truncate to nothing useful, and these are the apps the
+                // user chose, so the icon is enough.
+                com.privacylauncher.ui.components.AppIconImage(
+                    entry = entry,
+                    loader = iconLoader,
+                    size = iconSize,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlanceLine(glance: GlanceInfo, modifier: Modifier = Modifier) {
+    val parts = buildList {
+        glance.nextAlarm?.let { add(stringResource(R.string.glance_alarm, it)) }
+        glance.batteryPercent?.let {
+            add(
+                if (glance.charging) {
+                    stringResource(R.string.glance_battery_charging, it)
+                } else {
+                    stringResource(R.string.glance_battery, it)
+                }
+            )
+        }
+    }
+    if (parts.isEmpty()) return
+
+    Text(
+        text = parts.joinToString("  ·  "),
+        style = MaterialTheme.typography.bodyMedium.copy(
+            shadow = Shadow(color = Color.Black.copy(alpha = 0.55f), blurRadius = 10f),
+        ),
+        color = Color.White.copy(alpha = 0.85f),
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -387,7 +583,7 @@ private fun BottomBar(
     onExitEditMode: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.lg),
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs, bottom = Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (editMode) {
@@ -396,7 +592,11 @@ private fun BottomBar(
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = Spacing.sm, start = Spacing.lg, end = Spacing.lg),
+                modifier = Modifier.padding(
+                    bottom = Spacing.xs,
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                ),
             )
             HomePill(
                 label = stringResource(R.string.home_edit_done),
@@ -442,7 +642,7 @@ private fun HomePill(label: String, contentDescription: String, onClick: () -> U
 }
 
 @Composable
-private fun Clock(compact: Boolean, modifier: Modifier = Modifier) {
+private fun Clock(compact: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -468,8 +668,7 @@ private fun Clock(compact: Boolean, modifier: Modifier = Modifier) {
     // The minute ticker alone is not enough. While the phone is dozing or the
     // app is in standby the coroutine does not run on schedule, so unlocking
     // after a long sleep could show a stale time for up to a minute -- on the
-    // one screen whose main job is telling you the time. Resuming forces a
-    // re-read.
+    // one screen whose main job is telling you the time.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
@@ -483,11 +682,12 @@ private fun Clock(compact: Boolean, modifier: Modifier = Modifier) {
     }
 
     val shadow = Shadow(color = Color.Black.copy(alpha = 0.55f), blurRadius = 12f)
+    val openClockLabel = stringResource(R.string.home_open_clock)
 
     BoxWithConstraints(modifier) {
         // 64sp wrapped "3:38 PM" onto two lines at a large Display size, and
-        // pushed the date onto three. Step the scale down when the screen is
-        // narrow in dp rather than let it break.
+        // pushed the date onto three. Step the scale down when the window is
+        // narrow or short rather than let it break.
         val typography = MaterialTheme.typography
         val timeStyle = when {
             compact || maxWidth < 280.dp -> typography.displaySmall
@@ -501,7 +701,12 @@ private fun Clock(compact: Boolean, modifier: Modifier = Modifier) {
         }
 
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radii.card))
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = openClockLabel }
+                .padding(vertical = Spacing.xs),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

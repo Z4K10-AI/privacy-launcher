@@ -77,6 +77,33 @@ class AppRepository(private val context: Context) {
     }
 
     /**
+     * Opens the phone's clock app on its alarms screen.
+     *
+     * ACTION_SHOW_ALARMS is the documented way in and is handled by whatever
+     * clock app the user actually has, including Samsung's. Falls back to
+     * launching the clock package directly if nothing claims the action.
+     */
+    fun openClock(): Boolean {
+        val alarms = Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { context.startActivity(alarms) }.isSuccess) return true
+
+        val fallback = packageManager.queryIntentActivities(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
+            0,
+        ).firstOrNull { it.activityInfo?.packageName?.contains("clock", true) == true }
+            ?: return false
+
+        return launch(
+            AppEntry(
+                packageName = fallback.activityInfo.packageName,
+                activityName = fallback.activityInfo.name,
+                label = "",
+            )
+        )
+    }
+
+    /**
      * Opens Android's own wallpaper picker.
      *
      * The launcher deliberately does not browse or set wallpapers itself:
