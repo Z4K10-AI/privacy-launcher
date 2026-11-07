@@ -7,9 +7,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -39,6 +45,8 @@ fun SettingsScreen(
     onDynamicColor: (Boolean) -> Unit,
     onShowGlance: (Boolean) -> Unit,
     onAutoKeyboard: (Boolean) -> Unit,
+    onShowMostUsed: (Boolean) -> Unit,
+    onClearUsage: () -> Unit,
     onFont: (FontChoice) -> Unit,
     onIconSize: (IconSize) -> Unit,
     onDrawerColumns: (Int) -> Unit,
@@ -52,6 +60,31 @@ fun SettingsScreen(
 ) {
     val dark = settings.themeMode.resolveIsDark()
     val dynamicOn = settings.dynamicColor && dynamicColorAvailable
+    var confirmClearUsage by remember { mutableStateOf(false) }
+
+    if (confirmClearUsage) {
+        // Worth a confirmation even though nothing irreplaceable is lost: the
+        // row sits next to ordinary switches, and a mis-tap that silently
+        // wipes a record you cannot see is a bad surprise.
+        AlertDialog(
+            onDismissRequest = { confirmClearUsage = false },
+            title = { Text(stringResource(R.string.settings_clear_usage)) },
+            text = { Text(stringResource(R.string.settings_clear_usage_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClearUsage = false
+                        onClearUsage()
+                    },
+                ) { Text(stringResource(R.string.settings_clear_usage_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearUsage = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
 
     ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
@@ -168,6 +201,19 @@ fun SettingsScreen(
                     checked = settings.autoKeyboard,
                     onCheckedChange = onAutoKeyboard,
                 )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_most_used),
+                    subtitle = stringResource(R.string.settings_most_used_body),
+                    checked = settings.showMostUsed,
+                    onCheckedChange = onShowMostUsed,
+                )
+                if (settings.showMostUsed) {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_clear_usage),
+                        subtitle = stringResource(R.string.settings_clear_usage_body),
+                        onClick = { confirmClearUsage = true },
+                    )
+                }
             }
 
             SettingsGroup(stringResource(R.string.settings_group_gestures)) {

@@ -23,6 +23,8 @@
     <string name="drawer_empty">No apps match that search</string>
     <string name="drawer_empty_all">Nothing to show here. Every app is hidden — turn some back on in Settings, under Hidden apps.</string>
     <string name="drawer_close_handle">Close app drawer</string>
+    <string name="drawer_most_used">Most used</string>
+    <string name="drawer_letter_bar">Jump to a letter</string>
     <!-- "1 app" vs "182 apps". Other languages need more forms than
          English does, which is why this is a plural and not a string. -->
     <plurals name="app_count">
@@ -86,6 +88,13 @@
     <string name="settings_group_search">Search</string>
     <string name="settings_auto_keyboard">Open the keyboard automatically</string>
     <string name="settings_auto_keyboard_body">Start typing the moment the drawer opens. Turn this off to see more icons at once.</string>
+
+    <string name="settings_most_used">Most used row</string>
+    <string name="settings_most_used_body">A few frequently opened apps at the top of the drawer. Counted on this phone and stored only here. Turning this off also erases the counts.</string>
+    <string name="settings_clear_usage">Clear usage history</string>
+    <string name="settings_clear_usage_body">Forget which apps you open most</string>
+    <string name="settings_clear_usage_confirm">The most used row will start again from nothing. No other setting changes.</string>
+    <string name="settings_clear_usage_action">Clear</string>
 
     <string name="settings_hidden_apps">Hidden apps</string>
     <string name="settings_hidden_apps_none">None hidden</string>

@@ -4,6 +4,39 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Drawer search and browsing
+
+Added:
+- Fuzzy search. Results reorder on every keystroke, ranked in tiers: the
+  whole name, then a prefix, then a word start ("maps" finds Google
+  Maps), then initials ("wv" finds WebView Browser Tester), then
+  anywhere in the name, then the letters in order with gaps. Within a
+  tier the shorter name wins, which is almost always the one meant.
+- Names are split on separators and on a lower-to-upper transition, so
+  "WebView Browser" has the initials w, v, b.
+- An alphabetical grid with a heading per letter and a fast-scroll
+  letter bar down the right edge. Dragging the bar jumps between
+  sections, with a bubble beside the finger showing where it is.
+- An optional "most used" row at the top of the drawer, counted on the
+  phone and stored only there. Settings gains a switch for it and a
+  Clear usage history action; turning the row off erases the counts too.
+
+Notes:
+- Headings and the letter bar only appear once there are at least 24
+  apps. A heading takes a whole line, so sectioning a short list spreads
+  a screenful of icons over several screens of empty space.
+- The counts live outside the main settings flow. They change on every
+  launch, and folding them in would make the home grid and the dock
+  recompute each time as well. The stored table is capped, so a phone
+  with 300 apps does not accumulate a 300-row usage record.
+- Search terms (lowercased name, words, initials) are computed once when
+  the app list loads, not per keystroke.
+
+Fixed:
+- The letter bar's letters were laid out as a clump in the middle while
+  its hit test spanned the full height, so the letter under the finger
+  was not the one it jumped to.
+
 ### Drawer that follows the finger
 
 Added:

@@ -17,20 +17,20 @@ data class AppEntry(
     val key: String = "$packageName/$activityName"
 
     /**
-     * True if [query] looks like a match for this app's name.
+     * Pre-chewed pieces of the label for searching.
      *
-     * Matches a plain substring ("tele" -> Telegram) and also initials
-     * ("gm" -> Google Maps), which is how most launcher searches behave.
+     * Built once when the app list is loaded, not per keystroke. Search runs
+     * over every installed app each time a letter is typed, so anything
+     * derivable from the label alone belongs here.
      */
-    fun matches(query: String): Boolean {
-        if (query.isBlank()) return true
-        val q = query.trim()
-        if (label.contains(q, ignoreCase = true)) return true
-        val initials = label
-            .split(' ', '-', '_', '.')
-            .filter { it.isNotEmpty() }
-            .map { it.first() }
-            .joinToString("")
-        return initials.startsWith(q, ignoreCase = true)
-    }
+    val terms: Fuzzy.Terms = Fuzzy.Terms(label)
+
+    /** The A-Z section this app belongs in. Non-letters all share "#". */
+    val sectionLetter: String =
+        label.firstOrNull()?.uppercaseChar()
+            ?.takeIf { it.isLetter() }?.toString()
+            ?: "#"
+
+    /** Higher is a better match; [Fuzzy.NO_MATCH] means no match at all. */
+    fun score(query: String): Int = Fuzzy.score(terms, query)
 }

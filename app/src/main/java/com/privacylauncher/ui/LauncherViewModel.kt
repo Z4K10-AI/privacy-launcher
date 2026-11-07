@@ -15,6 +15,7 @@ import com.privacylauncher.PrivacyLauncherApp
 import com.privacylauncher.data.AccentColor
 import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.FontChoice
+import com.privacylauncher.data.Fuzzy
 import com.privacylauncher.data.HomeItem
 import com.privacylauncher.data.IconSize
 import com.privacylauncher.data.LauncherSettings
@@ -55,20 +56,96 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     val allInstalledApps: StateFlow<List<AppEntry>> = allApps
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** The drawer list: hidden apps removed, then the search applied. */
-    val drawerApps: StateFlow<List<AppEntry>> =
-        combine(allApps, settings, _query) { apps, s, q ->
-            apps.asSequence()
-                .filterNot { it.key in s.hiddenApps }
-                .filter { it.matches(q) }
-                .toList()
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /**
+     * On-device launch counts, behind the "most used" row.
+     *
+     * Read as its own flow rather than as part of [settings]: it changes on
+     * every app launch, and folding it in would make the home grid and the
+     * dock recompute each time too.
+     */
+    private val launchCounts = settingsRepository.launchCounts
 
-    /** How many apps the drawer would show with no search active. */
-    val drawerTotal: StateFlow<Int> =
-        combine(allApps, settings) { apps, s ->
-            apps.count { it.key !in s.hiddenApps }
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    /** Everything the drawer draws: rows, section letters and the counts. */
+    val drawerList: StateFlow<DrawerList> =
+        combine(allApps, settings, _query, launchCounts) { apps, s, q, counts ->
+            buildDrawerList(apps, s, q, counts)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, DrawerList())
+
+    /**
+     * Turns the installed apps into the flat row list the grid draws.
+     *
+     * Searching and browsing produce genuinely different lists, so they are
+     * built separately rather than one filtering the other. A search is
+     * ordered by how well each app matches and has no headings; browsing is
+     * alphabetical with a heading per letter, optionally preceded by the
+     * most-used row.
+     */
+    private fun buildDrawerList(
+        apps: List<AppEntry>,
+        s: LauncherSettings,
+        rawQuery: String,
+        counts: Map<String, Int>,
+    ): DrawerList {
+        val visible = apps.filterNot { it.key in s.hiddenApps }
+        val total = visible.size
+        val query = rawQuery.trim()
+
+        if (query.isNotEmpty()) {
+            val scored = visible
+                .map { it to it.score(query) }
+                .filter { it.second != Fuzzy.NO_MATCH }
+                .sortedWith(
+                    compareByDescending<Pair<AppEntry, Int>> { it.second }
+                        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first.label },
+                )
+            return DrawerList(
+                rows = scored.map { DrawerRow.App(it.first, SECTION_SEARCH) },
+                letters = emptyList(),
+                matchCount = scored.size,
+                total = total,
+                topMatch = scored.firstOrNull()?.first,
+                searching = true,
+            )
+        }
+
+        val rows = mutableListOf<DrawerRow>()
+        val letters = mutableListOf<LetterJump>()
+
+        if (s.showMostUsed) {
+            val top = visible
+                .filter { counts.containsKey(it.key) }
+                .sortedByDescending { counts[it.key] ?: 0 }
+                .take(LauncherSettings.MOST_USED_COUNT)
+            // One icon under a heading is not a row, it is a mistake.
+            if (top.size >= 2) {
+                rows += DrawerRow.MostUsedHeader
+                top.forEach { rows += DrawerRow.App(it, SECTION_MOST_USED) }
+            }
+        }
+
+        if (visible.size < MIN_APPS_FOR_SECTIONS) {
+            visible.forEach { rows += DrawerRow.App(it, SECTION_PLAIN) }
+        } else {
+            var section: String? = null
+            for (entry in visible) {
+                if (entry.sectionLetter != section) {
+                    section = entry.sectionLetter
+                    letters += LetterJump(section, rows.size)
+                    rows += DrawerRow.Header(section)
+                }
+                rows += DrawerRow.App(entry, section)
+            }
+        }
+
+        return DrawerList(
+            rows = rows,
+            letters = letters,
+            matchCount = total,
+            total = total,
+            topMatch = visible.firstOrNull(),
+            searching = false,
+        )
+    }
 
     /**
      * The home screen layout, resolved to drawable tiles.
@@ -244,7 +321,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun launch(entry: AppEntry) {
         if (homeEditMode) return
-        if (appRepository.launch(entry)) closeAllPanels() else refreshApps()
+        if (appRepository.launch(entry)) {
+            closeAllPanels()
+            // Only counted for the most-used row, and only while that row is
+            // switched on -- recordLaunch checks the setting itself.
+            edit { settingsRepository.recordLaunch(entry.key) }
+        } else {
+            refreshApps()
+        }
     }
 
     fun openAppInfo(entry: AppEntry) = appRepository.openAppInfo(entry.packageName)
@@ -384,6 +468,23 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun dockIsFull(): Boolean =
         settings.value.dockApps.size >= LauncherSettings.MAX_DOCK_APPS
+
+    private companion object {
+        const val SECTION_SEARCH = "q"
+        const val SECTION_MOST_USED = "mu"
+        const val SECTION_PLAIN = "a"
+
+        /**
+         * Below this many apps the drawer is a plain alphabetical grid.
+         *
+         * A heading takes a whole line, so sectioning a short list spreads a
+         * screenful of icons over several screens of mostly empty space. The
+         * headings only start paying for themselves once each one has a few
+         * icons under it, and at that point the list is long enough to be
+         * worth skipping through.
+         */
+        const val MIN_APPS_FOR_SECTIONS = 24
+    }
 
     private fun edit(block: suspend () -> Unit) {
         viewModelScope.launch { block() }

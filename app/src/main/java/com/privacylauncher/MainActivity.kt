@@ -105,8 +105,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSettings) {
-    val drawerApps by viewModel.drawerApps.collectAsStateWithLifecycle()
-    val drawerTotal by viewModel.drawerTotal.collectAsStateWithLifecycle()
+    val drawerList by viewModel.drawerList.collectAsStateWithLifecycle()
     val homeTiles by viewModel.homeTiles.collectAsStateWithLifecycle()
     val dock by viewModel.dockApps.collectAsStateWithLifecycle()
     val allApps by viewModel.allInstalledApps.collectAsStateWithLifecycle()
@@ -252,8 +251,7 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                     },
             ) {
                 AppDrawer(
-                    apps = drawerApps,
-                    totalAppCount = drawerTotal,
+                    list = drawerList,
                     query = query,
                     columns = adaptiveColumns(settings.drawerColumns),
                     iconSize = iconSize,
@@ -295,6 +293,8 @@ private fun LauncherRoot(viewModel: LauncherViewModel, settings: LauncherSetting
                 onDynamicColor = viewModel::setDynamicColor,
                 onShowGlance = viewModel::setShowGlance,
                 onAutoKeyboard = viewModel::setAutoKeyboard,
+                onShowMostUsed = viewModel::setShowMostUsed,
+                onClearUsage = viewModel::clearUsageHistory,
                 onFont = viewModel::setFont,
                 onIconSize = viewModel::setIconSize,
                 onDrawerColumns = viewModel::setDrawerColumns,
