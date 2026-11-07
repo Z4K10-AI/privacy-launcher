@@ -4,7 +4,7 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
-### Feature 1 — Basic launcher (code complete, not yet compiled)
+### Feature 1 — Basic launcher (builds clean, awaiting on-phone test)
 
 Added:
 - Gradle project: Kotlin 2.0.21, Jetpack Compose, minSdk 26, targetSdk 35.
@@ -24,3 +24,13 @@ Added:
   `AD_ID` are explicitly stripped from the merged manifest so no dependency
   can add them.
 - Cloud backup and device transfer disabled, so settings never leave the phone.
+- `tools/env.sh` to put the JDK, Android SDK and Gradle on `PATH`.
+- Gradle wrapper committed (8.11.1).
+
+Verified:
+- `gradle assembleDebug` succeeds; debug APK is 9.0 MB.
+- `aapt2 dump permissions` on the built APK reports no Android permissions.
+  The only entry is `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, a
+  signature-level permission AndroidX defines for the app's own broadcast
+  receiver; it grants no access to anything outside the app.
+- `INTERNET` appears nowhere in the APK's merged manifest.

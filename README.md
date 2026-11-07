@@ -7,7 +7,10 @@ file inside its own private directory.
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **feature 1 (basic launcher) — code complete, not yet compiled.**
+Status: **feature 1 (basic launcher) — builds clean, awaiting on-phone testing.**
+
+Debug APK: 9.0 MB. Verified with `aapt2 dump permissions` to hold no Android
+permissions and no reference to `INTERNET` anywhere in the merged manifest.
 
 ---
 
@@ -113,42 +116,61 @@ privacy-launcher/
 
 ## Prerequisites
 
-You need two things on the Mac. Android Studio is **not** required.
+Android Studio is **not** required. The toolchain is three directories under
+your home folder:
 
-1. **A Java 17 JDK.** Check with `java -version`.
-2. **The Android SDK**, with `platform-tools` (gives you `adb`), the
-   `android-35` platform, and build-tools 35.
+| Tool | Version | Location |
+|---|---|---|
+| Temurin JDK | 17.0.21+9 | `~/Library/Java/JavaVirtualMachines/temurin-17.jdk` |
+| Android SDK | platform-tools 37.0.1, platform 35, build-tools 35.0.0 | `~/Library/Android/sdk` |
+| Gradle | 8.11.1 | `~/Library/Gradle/gradle-8.11.1` |
 
-Set these in your shell (add to `~/.zshrc` to make them permanent):
+Nothing was installed system-wide and no admin password was used. Deleting
+those three directories removes the toolchain completely.
+
+Put them on your `PATH` for the current shell:
 
 ```bash
-export ANDROID_HOME="$HOME/Library/Android/sdk"
-export PATH="$ANDROID_HOME/platform-tools:$PATH"
+source tools/env.sh
 ```
 
-Then tell Gradle where the SDK is, from the project root:
+To make it permanent, add that same `source` line to your `~/.zshrc`.
+
+Gradle also needs to know where the SDK is. From the project root, once:
 
 ```bash
-echo "sdk.dir=$ANDROID_HOME" > local.properties
+echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
 ```
 
 `local.properties` is machine-specific and is in `.gitignore`.
 
 ## Build
 
-First time only, create the Gradle wrapper (this downloads Gradle itself):
-
 ```bash
-gradle wrapper --gradle-version 8.11.1
-```
-
-After that, always use the wrapper:
-
-```bash
-./gradlew assembleDebug
+gradle assembleDebug
 ```
 
 The APK lands at `app/build/outputs/apk/debug/app-debug.apk`.
+
+A Gradle wrapper (`./gradlew`) is committed so anyone cloning the repo gets the
+same Gradle version without installing it. Note that the first `./gradlew` run
+downloads its own copy of Gradle (~130 MB) into `~/.gradle/wrapper/dists`. Since
+Gradle 8.11.1 is already installed here, plain `gradle` avoids that duplicate.
+
+### The three manifest warnings
+
+Every build prints:
+
+```
+uses-permission#android.permission.INTERNET was tagged ... to remove other
+declarations but no other declaration present
+```
+
+That is the expected and desired result. The `tools:node="remove"` entries are
+a tripwire for a dependency sneaking a permission in; the warning says the
+tripwire found nothing to remove. If one of those warnings ever *disappears*,
+some dependency started asking for that permission and the build should be
+investigated.
 
 ## Install on a phone over USB
 
