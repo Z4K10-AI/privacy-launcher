@@ -442,35 +442,6 @@ class SettingsRepository(private val context: Context) {
          * component key is "package/activity"; neither part can contain one.
          */
         val KEY_DOCK_APPS = stringPreferencesKey("dock_apps")
-        const val SEPARATOR = "\n"
-
-        fun String.decodeList(): List<String> =
-            split(SEPARATOR).filter { it.isNotBlank() }
-
-        fun List<String>.encodeList(): String = joinToString(SEPARATOR)
-
-        /**
-         * Launch counts as "count<tab>key" lines.
-         *
-         * A component key is "package/activity"; neither part can contain a
-         * tab or a newline, so no escaping is needed. Unparseable lines are
-         * skipped rather than throwing: a corrupt count costs you one row in
-         * the drawer, and should not stop the launcher starting.
-         */
-        fun encodeCounts(counts: Map<String, Int>): String =
-            counts.entries.joinToString(SEPARATOR) { "${it.value}\t${it.key}" }
-
-        fun decodeCounts(raw: String?): Map<String, Int> {
-            if (raw.isNullOrEmpty()) return emptyMap()
-            return raw.split(SEPARATOR).mapNotNull { line ->
-                val tab = line.indexOf('\t')
-                if (tab <= 0) return@mapNotNull null
-                val count = line.substring(0, tab).toIntOrNull() ?: return@mapNotNull null
-                val key = line.substring(tab + 1)
-                if (key.isEmpty()) null else key to count
-            }.toMap()
-        }
-
         inline fun <reified T : Enum<T>> String.toEnum(): T? =
             enumValues<T>().firstOrNull { it.name == this }
 
