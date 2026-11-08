@@ -1,10 +1,12 @@
 package com.privacylauncher
 
 import android.content.pm.PackageManager
+import android.content.pm.PermissionInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -100,15 +102,25 @@ class PermissionPromiseTest {
     }
 
     @Test
-    fun theOnlyPermissionGrantedAtInstallIsTheOneWeGrantOurselves() {
-        // Both real permissions must be ones the user chooses later, so a
-        // fresh install genuinely starts with no access to anything. If a
-        // future permission were install-time ("normal"), it would be live
-        // the moment the app lands, and this says so.
-        val granted = requested().filter {
-            context.packageManager.checkPermission(it, context.packageName) ==
-                PackageManager.PERMISSION_GRANTED
+    fun neitherPermissionIsLiveTheMomentTheAppIsInstalled() {
+        // Both real permissions must be ones the user grants later, so a
+        // fresh install starts with no access to anything. A permission at
+        // protection level "normal" is granted at install with no dialog and
+        // no switch, so it would be live the moment the app lands.
+        //
+        // This asks the protection level rather than whether the permission
+        // happens to be granted right now. Checking the grant state would
+        // make the test a statement about the device it runs on -- `adb
+        // install -g` grants everything, and a reinstall keeps it -- rather
+        // than about this app, which is the thing being promised.
+        for (permission in requested().filterNot { it == selfGranted }) {
+            val info = context.packageManager.getPermissionInfo(permission, 0)
+            val base = info.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE
+            assertNotEquals(
+                "$permission is granted at install time",
+                PermissionInfo.PROTECTION_NORMAL,
+                base,
+            )
         }
-        assertEquals(listOf(selfGranted), granted)
     }
 }
