@@ -281,6 +281,20 @@ class SettingsRepository(private val context: Context) {
 
     // --- home layout ------------------------------------------------------
 
+    /**
+     * Rewrites the home layout with a pure transform.
+     *
+     * The sibling of [editHome] for everything in [HomeLayoutOps]: those
+     * take a list and return one, which is what lets them be tested without
+     * a device.
+     */
+    private suspend fun mapHome(transform: (List<HomeItem>) -> List<HomeItem>) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_HOME_ITEMS] = HomeLayoutCodec.encode(transform(readHomeItems(prefs)))
+            prefs.remove(KEY_HOME_APPS_LEGACY)
+        }
+    }
+
     private suspend fun editHome(block: (MutableList<HomeItem>) -> Unit) {
         context.dataStore.edit { prefs ->
             val items = readHomeItems(prefs).toMutableList()
@@ -310,10 +324,8 @@ class SettingsRepository(private val context: Context) {
         items.dissolveThinFolders()
     }
 
-    suspend fun moveHomeItem(fromIndex: Int, toIndex: Int) = editHome { items ->
-        if (fromIndex !in items.indices) return@editHome
-        val target = toIndex.coerceIn(0, items.lastIndex)
-        items.add(target, items.removeAt(fromIndex))
+    suspend fun moveHomeItem(fromIndex: Int, toIndex: Int) = mapHome {
+        HomeLayoutOps.move(it, fromIndex, toIndex)
     }
 
     /**
@@ -323,42 +335,30 @@ class SettingsRepository(private val context: Context) {
      * not merged into each other: it is rarely what someone means, and it
      * silently destroys one of the two names.
      */
-    suspend fun combineHomeItems(fromIndex: Int, ontoIndex: Int) = editHome { items ->
-        if (fromIndex !in items.indices || ontoIndex !in items.indices) return@editHome
-        if (fromIndex == ontoIndex) return@editHome
-
-        val dragged = items[fromIndex]
-        val target = items[ontoIndex]
-        if (dragged !is HomeItem.App) return@editHome
-
-        val merged = when (target) {
-            is HomeItem.App -> HomeItem.Folder(
-                id = "f:${UUID.randomUUID()}",
-                name = HomeLayoutCodec.DEFAULT_FOLDER_NAME,
-                appKeys = listOf(target.key, dragged.key),
-            )
-            is HomeItem.Folder -> target.copy(appKeys = target.appKeys + dragged.key)
-        }
-        items[ontoIndex] = merged
-        items.removeAt(fromIndex)
+    /**
+     * Drops the item at [fromIndex] onto the one at [ontoIndex].
+     *
+     * App onto app makes a new folder. App onto folder adds it. Folders are
+     * not merged into each other: it is rarely what someone means, and it
+     * silently destroys one of the two names. See [HomeLayoutOps.combine].
+     */
+    suspend fun combineHomeItems(fromIndex: Int, ontoIndex: Int) = mapHome {
+        HomeLayoutOps.combine(
+            items = it,
+            from = fromIndex,
+            onto = ontoIndex,
+            newFolderId = "f:${UUID.randomUUID()}",
+            folderName = HomeLayoutCodec.DEFAULT_FOLDER_NAME,
+        )
     }
 
-    suspend fun renameFolder(folderId: String, name: String) = editHome { items ->
-        items.replaceFolders { folder ->
-            if (folder.id == folderId) folder.copy(name = name.trim()) else folder
-        }
+    suspend fun renameFolder(folderId: String, name: String) = mapHome {
+        HomeLayoutOps.renameFolder(it, folderId, name)
     }
 
     /** Takes an app out of a folder and puts it back on the home screen. */
-    suspend fun removeFromFolder(folderId: String, appKey: String) = editHome { items ->
-        items.replaceFolders { folder ->
-            if (folder.id == folderId) {
-                folder.copy(appKeys = folder.appKeys.filterNot { it == appKey })
-            } else {
-                folder
-            }
-        }
-        items.dissolveThinFolders()
+    suspend fun removeFromFolder(folderId: String, appKey: String) = mapHome {
+        HomeLayoutOps.removeFromFolder(it, folderId, appKey)
     }
 
     // --- dock -------------------------------------------------------------
@@ -366,10 +366,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun addToDock(key: String) {
         context.dataStore.edit { prefs ->
             val current = prefs[KEY_DOCK_APPS]?.decodeList().orEmpty()
-            if (key in current || current.size >= LauncherSettings.MAX_DOCK_APPS) {
-                return@edit
-            }
-            prefs[KEY_DOCK_APPS] = (current + key).encodeList()
+            val next = HomeLayoutOps.addToDock(current, key, LauncherSettings.MAX_DOCK_APPS)
+            if (next === current) return@edit
+            prefs[KEY_DOCK_APPS] = next.encodeList()
         }
     }
 
@@ -386,14 +385,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun pruneMissing(installedKeys: Set<String>) {
         context.dataStore.edit { prefs ->
             val items = readHomeItems(prefs)
-            val kept = items.mapNotNull { item ->
-                when (item) {
-                    is HomeItem.App -> item.takeIf { it.key in installedKeys }
-                    is HomeItem.Folder ->
-                        item.copy(appKeys = item.appKeys.filter { it in installedKeys })
-                }
-            }.toMutableList()
-            kept.dissolveThinFolders()
+            val kept = HomeLayoutOps.prune(items, installedKeys)
             if (kept != items) prefs[KEY_HOME_ITEMS] = HomeLayoutCodec.encode(kept)
 
             val dock = prefs[KEY_DOCK_APPS]?.decodeList().orEmpty()
