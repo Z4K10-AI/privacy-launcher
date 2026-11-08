@@ -372,7 +372,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun refreshApps() {
         viewModelScope.launch {
-            val apps = appRepository.loadApps()
+            // null means the system would not answer, which is not the same
+            // as a phone with no apps. Keep showing the list we already have
+            // and try again on the next broadcast: replacing it would blank
+            // the drawer, and pruning against it would delete the home
+            // screen. See AppRepository.loadApps.
+            val apps = appRepository.loadApps() ?: return@launch
             allApps.value = apps
             // Drop home/hidden entries for apps that have been uninstalled.
             settingsRepository.pruneMissing(apps.mapTo(mutableSetOf()) { it.key })

@@ -2,9 +2,11 @@ package com.privacylauncher.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -15,8 +17,38 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
+/** The preferences file's name, shared so a test can reach the real one. */
+internal const val SETTINGS_FILE = "launcher_settings"
+
+/**
+ * What to do if the preferences file cannot be parsed.
+ *
+ * Without a handler here, DataStore rethrows and the failure surfaces on the
+ * `settings` flow -- which this launcher collects before it can draw
+ * anything. The result would be a home screen that crashes every time it is
+ * opened, in a loop, on the one app the user cannot avoid. There is no way
+ * out of that from the home screen itself.
+ *
+ * So a damaged file is replaced with an empty one. That costs the user their
+ * settings, which is a genuine loss and not one to be glib about: it is why
+ * the Settings screen can write a backup file. But the alternative is a
+ * phone whose home button does nothing, and defaults the user can see and
+ * change beat perfection they cannot reach.
+ *
+ * This only fires on an unparseable file. DataStore writes atomically --
+ * temp file, fsync, rename -- so reaching this needs something below the app
+ * to have gone wrong: power lost mid-rename, or damaged flash. Rare, total,
+ * and cheap to survive.
+ *
+ * Declared here rather than inline so [SettingsCorruptionTest] can check the
+ * real handler instead of a copy that could drift from it.
+ */
+internal val settingsCorruptionHandler =
+    ReplaceFileCorruptionHandler<Preferences> { emptyPreferences() }
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "launcher_settings",
+    name = SETTINGS_FILE,
+    corruptionHandler = settingsCorruptionHandler,
 )
 
 /**
@@ -383,6 +415,13 @@ class SettingsRepository(private val context: Context) {
 
     /** Drops anything referring to an app that is no longer installed. */
     suspend fun pruneMissing(installedKeys: Set<String>) {
+        // Deleting the user's layout against an answer we do not trust is
+        // worse than leaving a dead icon on the home screen until the next
+        // refresh. HomeLayoutOps.prunable says why an empty set is never an
+        // answer. The caller checks too; this is the edit that does the
+        // damage, so the guard belongs here as well.
+        if (!HomeLayoutOps.prunable(installedKeys)) return
+
         context.dataStore.edit { prefs ->
             val items = readHomeItems(prefs)
             val kept = HomeLayoutOps.prune(items, installedKeys)

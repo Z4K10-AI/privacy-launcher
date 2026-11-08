@@ -115,10 +115,36 @@ internal object HomeLayoutOps {
         }
 
     /**
+     * Whether [installedKeys] can be believed enough to delete against.
+     *
+     * [prune] is a filter and does exactly what it is told: handed an empty
+     * set it returns an empty layout, which is correct for a filter and
+     * catastrophic for a user. The set comes from asking the system what is
+     * installed, and that question can fail -- a binder transaction that
+     * throws, or a query made while the package manager is still coming up
+     * after a reboot -- and a failed query looks exactly like a phone with
+     * no apps on it.
+     *
+     * So the rule is: an empty answer is never a true statement about a
+     * running phone, because a phone with no launchable apps has no Settings
+     * either. Treat it as a failure to ask rather than an answer, and leave
+     * the layout alone. Nothing is lost by waiting for the next refresh; the
+     * alternative is the home screen, the dock, the hidden list and the
+     * focus list all being wiped at once, written to disk, with no undo.
+     *
+     * A short-but-not-empty answer is not caught here and cannot be: three
+     * apps is a believable phone. In practice the failure modes throw rather
+     * than silently truncate, which is why [AppRepository.loadApps] reports
+     * a failure as null instead of as an empty list.
+     */
+    fun prunable(installedKeys: Set<String>): Boolean = installedKeys.isNotEmpty()
+
+    /**
      * Drops everything referring to an app that is no longer installed.
      *
      * Runs when the app list loads, which is also what cleans up after a
-     * restored backup from a phone that had apps this one does not.
+     * restored backup from a phone that had apps this one does not. Callers
+     * must check [prunable] first; this function trusts what it is given.
      */
     fun prune(items: List<HomeItem>, installedKeys: Set<String>): List<HomeItem> =
         dissolveThinFolders(

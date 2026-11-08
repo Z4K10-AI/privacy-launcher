@@ -172,8 +172,13 @@ private fun LauncherRoot(
     val drawerSwipe = rememberSheetSwipe()
     LaunchedEffect(drawerOpen) { drawerSwipe.settle(if (drawerOpen) 1f else 0f) }
 
-    // The only permission request this app ever makes. It is reached from the
-    // row in the drawer and the switch in Settings, and from nowhere else.
+    // The only runtime permission dialog this app ever raises. It is reached
+    // from the row in the drawer and the switch in Settings, and from nowhere
+    // else. WRITE_SETTINGS is also declared but is an app-op, granted on a
+    // settings screen rather than through a dialog, so it is not requested
+    // here -- a distinction worth keeping straight, because losing track of
+    // it is how the app came to tell users it declared two permissions when
+    // the built manifest had three.
     val activity = LocalActivity.current
     val contactsPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),

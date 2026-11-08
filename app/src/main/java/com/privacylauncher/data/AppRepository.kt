@@ -22,26 +22,45 @@ class AppRepository(private val context: Context) {
     private val packageManager: PackageManager get() = context.packageManager
 
     /**
-     * Every app that has a home-screen icon, sorted by name.
+     * Every app that has a home-screen icon, sorted by name, or null when
+     * the system could not be asked.
      *
      * Runs on a background thread: on a phone with 150+ apps this takes long
      * enough to drop frames if done on the main thread.
+     *
+     * The return type is nullable, and that is the whole point. An empty
+     * list and a failed query used to be the same value, and the caller
+     * prunes the user's home screen against whatever comes back -- so a
+     * query that failed read as "this phone has no apps" and wiped the
+     * layout. Failure is now null and says nothing about the phone; an empty
+     * list is reserved for a phone that genuinely has nothing to show.
+     *
+     * One broken package no longer costs the whole list either. A label can
+     * throw while being read if its app is mid-upgrade or its resources are
+     * damaged, and that used to take every other app down with it.
      */
-    suspend fun loadApps(): List<AppEntry> = withContext(Dispatchers.IO) {
+    suspend fun loadApps(): List<AppEntry>? = withContext(Dispatchers.IO) {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
 
-        packageManager.queryIntentActivities(intent, 0)
+        // Only the query itself is allowed to fail the whole call: if the
+        // system will not answer, we have no answer to give.
+        val resolved = runCatching { packageManager.queryIntentActivities(intent, 0) }
+            .getOrNull() ?: return@withContext null
+
+        resolved
             .asSequence()
             .mapNotNull { resolveInfo ->
                 val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
                 // Our own launcher should not appear in its own drawer.
                 if (activityInfo.packageName == context.packageName) return@mapNotNull null
 
-                AppEntry(
-                    packageName = activityInfo.packageName,
-                    activityName = activityInfo.name,
-                    label = resolveInfo.loadLabel(packageManager).toString(),
-                )
+                runCatching {
+                    AppEntry(
+                        packageName = activityInfo.packageName,
+                        activityName = activityInfo.name,
+                        label = resolveInfo.loadLabel(packageManager).toString(),
+                    )
+                }.getOrNull()
             }
             .distinctBy { it.key }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })

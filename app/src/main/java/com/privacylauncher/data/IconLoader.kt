@@ -23,9 +23,19 @@ import kotlinx.coroutines.withContext
  *  - [LruCache] drops the least recently seen icons automatically, so the
  *    drawer can hold 300 apps without the cache growing without bound.
  */
-class IconLoader(private val context: Context) {
+class IconLoader(
+    private val context: Context,
+    /**
+     * How many icons to hold. Only ever changed by tests: the trim policy is
+     * a fraction of this number, so a test that wants to watch the cache
+     * shrink needs a cache small enough to fill, and how many apps happen to
+     * be installed on the machine running the test is not something a test
+     * should depend on.
+     */
+    private val maxIcons: Int = MAX_CACHED_ICONS,
+) {
 
-    private val cache = object : LruCache<String, ImageBitmap>(MAX_CACHED_ICONS) {}
+    private val cache = object : LruCache<String, ImageBitmap>(maxIcons) {}
 
     /** Returns a cached icon immediately, or null if it has not been loaded. */
     fun cached(entry: AppEntry): ImageBitmap? = cache.get(entry.key)
@@ -75,6 +85,21 @@ class IconLoader(private val context: Context) {
 
     /** Called when apps are installed or removed, so stale icons are not shown. */
     fun clear() = cache.evictAll()
+
+    /**
+     * Gives memory back when Android asks for it.
+     *
+     * [IconCachePolicy] decides how much. Called from the application
+     * object's `onTrimMemory`, which is the only warning an app gets before
+     * the system starts killing things.
+     */
+    fun trim(level: Int) {
+        val target = IconCachePolicy.targetSize(level, maxIcons)
+        if (target <= 0) cache.evictAll() else cache.trimToSize(target)
+    }
+
+    /** How many icons are held right now. For tests and for the dashboard. */
+    fun cachedCount(): Int = cache.size()
 
     private companion object {
         const val ICON_PX = 128

@@ -21,8 +21,10 @@ data class ContactMatch(val lookupKey: String, val contactId: Long, val name: St
  * Searching the phone's own contacts, if and only if the user has asked for
  * it and granted the permission.
  *
- * This is the only permission the launcher declares, and it is worth being
- * precise about the shape of it:
+ * READ_CONTACTS is one of the two permissions the launcher declares -- the
+ * other is WRITE_SETTINGS, for the brightness slider -- and it is the only
+ * one that touches personal data, so it is worth being precise about the
+ * shape of it:
  *
  *  - Nothing requests it at startup, on first run, or when the drawer opens.
  *    The only thing that triggers the request is the user turning contact
