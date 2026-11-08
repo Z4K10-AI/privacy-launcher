@@ -1,13 +1,12 @@
 package com.privacylauncher.baselineprofile
 
-import android.content.Intent
 import androidx.benchmark.macro.BaselineProfileMode
 import androidx.benchmark.macro.CompilationMode
-import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,6 +38,16 @@ class StartupBenchmark {
     @get:Rule
     val rule = MacrobenchmarkRule()
 
+    /**
+     * Walk past onboarding before measuring, and leave the app stopped.
+     *
+     * A fresh install shows the welcome flow rather than the home screen, so
+     * without this every iteration timed the first draw of onboarding and
+     * called it the launcher's cold start.
+     */
+    @Before
+    fun onboarded() = ensureOnboarded()
+
     @Test
     fun startupNoCompilation() = measure(CompilationMode.None())
 
@@ -48,7 +57,15 @@ class StartupBenchmark {
 
     private fun measure(mode: CompilationMode) = rule.measureRepeated(
         packageName = PACKAGE,
-        metrics = listOf(StartupTimingMetric(), FrameTimingMetric()),
+        // StartupTimingMetric only.
+        //
+        // FrameTimingMetric was here and had to go: a cold start draws too
+        // few frames for the platform's frame timeline to hold a single
+        // expect/actual pair, so the query behind it does not report a small
+        // number -- it throws "Observed no expect/actual slices in trace"
+        // and takes the whole startup measurement down with it. Frames are
+        // measured where there are frames; see FrameTimingBenchmark.
+        metrics = listOf(StartupTimingMetric()),
         compilationMode = mode,
         startupMode = StartupMode.COLD,
         iterations = ITERATIONS,
@@ -56,17 +73,10 @@ class StartupBenchmark {
     ) {
         // The same explicit HOME intent the profile generator uses, and for
         // the same reason: this app has no launcher intent to look up.
-        startActivityAndWait(
-            Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_HOME)
-                setClassName(PACKAGE, "$PACKAGE.MainActivity")
-            }
-        )
+        startActivityAndWait(homeIntent())
     }
 
     private companion object {
-        const val PACKAGE = "com.privacylauncher"
-
         /**
          * Ten is the usual figure. This emulator is software-rendered and
          * noisy, so fewer would leave the confidence interval wider than the

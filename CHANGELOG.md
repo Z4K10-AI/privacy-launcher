@@ -17,7 +17,7 @@ Added:
   still succeeds unsigned when the file is absent, so a fresh clone needs no
   key.
 - **Startup and frame-timing benchmarks** (`StartupBenchmark`,
-  `ScrollBenchmark`) alongside the profile generator.
+  `FrameTimingBenchmark`) alongside the profile generator.
 
 Changed:
 - **Every state class that crosses into composition is now `@Immutable`.**
@@ -53,16 +53,20 @@ Notes:
   ever matters more than it does now.
 - **The signing key is a development key.** The README says plainly not to
   publish anything signed with it.
-- **Cold start was measured and the numbers mean nothing yet**: 2097 ms
-  median uncompiled against 2306 ms with the profile, 10 cold starts each,
-  ranges 1744–3101 ms and 1767–2927 ms. Read that as "no measurable
-  difference", not as "the profile made it slower" — the ranges overlap
-  almost entirely and the spread inside each condition is larger than the gap
-  between them. The noise is the emulator: it renders in software through
-  SwiftShader on the machine that is also running the build, and
-  Macrobenchmark normally refuses to run on an emulator at all. So the
-  profile is recorded, verified to reach the APK, and unmeasured. Confirming
-  it is worth having needs the 4 GB Samsung.
+- **There is still no trustworthy startup number, and the first set was
+  measuring the wrong screen.** An earlier pass reported 2097 ms uncompiled
+  against 2306 ms with the profile. Both figures were the time to draw the
+  onboarding welcome page: the benchmark installs the app fresh, a fresh
+  install has an empty DataStore, and an empty DataStore means
+  `MainActivity` shows the welcome flow rather than the home screen.
+  `StartupBenchmark` now walks past onboarding in `@Before` and force-stops
+  the app so the first measured iteration is genuinely cold, but the
+  corrected run has not yet produced usable figures.
+- Independently of that, this emulator cannot give trustworthy numbers: it
+  renders in software through SwiftShader on the machine running the build,
+  and Macrobenchmark only runs on it at all with `suppressErrors=EMULATOR`.
+  So the profile is recorded, verified to reach the APK, and **unmeasured** —
+  confirming it is worth having needs the 4 GB Samsung.
 
 ### Onboarding, settings sections and local backup
 

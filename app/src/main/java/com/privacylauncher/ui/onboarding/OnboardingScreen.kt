@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -333,12 +335,19 @@ private fun PrivacyPage() {
                 .fillMaxWidth()
                 .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.sm),
         ) {
+            // Decorative: a screen reader would otherwise announce
+            // "bullet" before each of the four points.
             Text(
                 text = "•",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.size(width = 20.dp, height = 24.dp),
+                // A minimum rather than a fixed box, so the glyph is not
+                // clipped at a large font size; it still reserves the same
+                // width, which is what keeps the four points aligned.
+                modifier = Modifier
+                    .defaultMinSize(minWidth = 20.dp)
+                    .clearAndSetSemantics {},
             )
             Text(
                 text = stringResource(res),

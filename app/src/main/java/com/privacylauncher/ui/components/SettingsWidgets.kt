@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.designsystem.Motion
@@ -43,11 +45,17 @@ fun SettingsGroup(title: String, content: @Composable () -> Unit) {
             text = title.uppercase(),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(
-                start = Spacing.lg,
-                top = Spacing.lg,
-                bottom = Spacing.xs,
-            ),
+            // Marked as a heading so TalkBack's "next heading" gesture steps
+            // between sections. Settings is six sections of rows, and without
+            // this the only way through it with a screen reader is one row at
+            // a time from the top.
+            modifier = Modifier
+                .semantics { heading() }
+                .padding(
+                    start = Spacing.lg,
+                    top = Spacing.lg,
+                    bottom = Spacing.xs,
+                ),
         )
         content()
     }

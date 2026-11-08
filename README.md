@@ -326,6 +326,78 @@ account integration, no network clients, and no telemetry. Play Services is a
 separate, closed-source system app, and this project does not depend on it.
 The launcher therefore runs on a de-Googled ROM.
 
+## Accessibility
+
+Audited in full before the first release build. What was checked, and what it
+found:
+
+| Check | Result |
+|---|---|
+| Hard-coded user-facing strings | none — every string comes from `strings.xml` |
+| `left`/`right` instead of `start`/`end` | none, and `supportsRtl="true"` |
+| Text sized in `dp` rather than `sp` | none — every size is `sp`, all of them in `Typography.kt` |
+| Fixed-height rows that would clip text at a large font size | none |
+| Icon-only controls with no label | two, both fixed — see below |
+| Touch targets under 48 dp | none; the two 20 dp badges use `minimumInteractiveComponentSize()` |
+| Decorative icons announced to a screen reader | all seven carry `contentDescription = null` |
+| Heading structure | absent everywhere; now on every section and screen title |
+
+Fixed in this pass:
+
+- **Headings.** Nothing in the app was marked as a heading, so TalkBack's
+  "next heading" gesture had nothing to move between: the only way through
+  Settings with a screen reader was row by row from the top. Every
+  `SettingsGroup` title, every screen title in `ScreenScaffold`, and the
+  drawer's A–Z section letters are now headings.
+- **The focus schedule's two steppers.** "Starts at" and "Ends at" are each a
+  `−` and a `+` with no text, so a screen reader met four buttons announced as
+  "minus sign" and "plus sign", with nothing to say which row they belonged to
+  or what they changed. Each now says what it does — "Starts at, 15 minutes
+  earlier" — and the glyph itself is no longer read out after the label.
+- **The onboarding bullets.** Four `•` glyphs were announced as "bullet"
+  before each privacy point. They are decorative and are now cleared.
+
+Fixed in the performance pass before it: switches announced twice over (the
+row was a `Role.Button` containing an interactive `Switch`, so each setting
+was met first as a stateless button and then again as the switch; it is now
+one `toggleable` row with `Role.Switch`), the 20 dp remove badge, the four
+unlabelled onboarding page dots (now one spoken "Page 3 of 4"), and the
+empty-state text on the minimal home that carried no shadow.
+
+### Colour contrast
+
+Every text-on-surface pair in the palette is checked against WCAG 2.1 AA by
+[`tools/contrast.py`](tools/contrast.py), which reads the colours out of
+`Palette.kt` and `LauncherTheme.kt` rather than keeping copies of them, and
+exits non-zero on a failure so it can be a gate rather than a report:
+
+```bash
+python3 tools/contrast.py
+```
+
+**72 pairs, none below AA (4.5:1).** That covers body text and secondary text
+on all four surface steps in both themes, all six accents used as small text
+on three surfaces each, button labels on every accent, the three status tones,
+and the error colour. The tightest pair in the whole palette is Amber as
+small text on `Surface2` at 4.71:1; the loosest is body text on the base
+background at 17.3:1.
+
+The accents were chosen to "clear roughly 4.5:1 against their own
+background", and the measurement now says they do, which is a different
+statement from the one the comment in `Palette.kt` was making.
+
+What the checker deliberately cannot judge: **any text drawn straight onto
+the wallpaper** — the home-screen clock, the labels under the icons, every
+line of the minimal home. Those sit on whatever photo the user chose, so
+their legibility comes from the shadow each one carries rather than from a
+pair of known colours. The checker says so in its own output rather than
+quietly reporting a clean run over a smaller set than you think.
+
+### Still open
+
+**Layout by eye at large font and display sizes, on a real screen**, and the
+wallpaper-backed text above. Those are what the 4 GB Samsung is for.
+
 ## Dependencies and licences
 
 Every dependency is open source. Versions live in
@@ -350,6 +422,18 @@ ship baseline profiles of their own and depend on it to install them — so
 declaring it adds no bytes. It is listed because an undeclared dependency is
 an unexamined one. It writes only inside the app's own files and has no
 network access.
+
+Bundled as a file in the APK rather than resolved as a Gradle dependency,
+which is precisely why it is easy to leave off a dependency list — and it is
+42% of the APK:
+
+| Asset | Purpose | Licence |
+|---|---|---|
+| Inter — `app/src/main/res/font/inter_variable.ttf` | The default typeface, as a single variable font | SIL Open Font License 1.1 |
+
+The full licence text is kept at
+[`licenses/Inter-OFL.txt`](licenses/Inter-OFL.txt), with a note on what is
+bundled and where it came from in [`licenses/README.md`](licenses/README.md).
 
 Test-only, in the `:baselineprofile` module. These build a separate test APK
 and are never part of the launcher, so none of them reaches the shipped
@@ -445,30 +529,52 @@ dropping to the system font would roughly halve it.
 profile and measures cold start in two conditions that differ only in how
 the app was compiled.
 
-Measured on an AOSP arm64 emulator on an M4 MacBook Air, 10 cold starts each:
+**There is no trustworthy startup number for this app yet, and the ones
+this file used to quote were wrong.** Both facts are worth recording,
+because a plausible-looking number is more damaging than a missing one.
 
-| Compilation | Time to initial display (median) | Range |
-|---|---|---|
-| None (interpreted) | 2097 ms | 1744–3101 ms |
-| Baseline profile | 2306 ms | 1767–2927 ms |
+An earlier pass reported 2097 ms uncompiled against 2306 ms with the
+profile and called the difference noise. It was worse than noise: the
+benchmark installed the app fresh each time, a fresh install has an empty
+DataStore, and an empty DataStore means the first thing `MainActivity`
+draws is the four-page welcome flow. Every one of those figures was the
+time to draw onboarding. `StartupBenchmark` now walks past it in `@Before`
+and force-stops the app, so the first measured iteration is a genuine cold
+start of the home screen — but the corrected run has not produced usable
+numbers either (see "Still open" below).
 
-**Read that as "no measurable difference", not as "the profile made it
-slower".** The two ranges overlap almost completely, and the spread within
-each condition is larger than the gap between them. A baseline profile is
-usually worth something in the region of 10–30% of startup; a measurement
-this noisy cannot see an effect that size.
-
-The noise is the emulator. It renders in software through SwiftShader on a
-machine that is also running the build, and Macrobenchmark normally refuses
-to run on an emulator at all — these runs pass `suppressErrors=EMULATOR`,
-which silences the warning without making the numbers trustworthy. An
-earlier attempt with plain `adb shell am start -W` was worse still: twelve
-runs ranged from 233 ms to 2912 ms on the same build.
+Two reasons to distrust anything this emulator reports, independent of that
+bug. It renders in software through SwiftShader on the machine that is also
+running the build, and Macrobenchmark refuses to run on an emulator at all
+unless passed `suppressErrors=EMULATOR`, which silences the objection
+without answering it. An attempt with plain `adb shell am start -W` was
+worse still: twelve runs of one build ranged from 233 ms to 2912 ms.
 
 So the honest position is: **the profile is recorded, verified to be in the
 APK, and unmeasured.** Confirming it is worth having needs a run on the
 4 GB Samsung, which has not happened yet. What *can* be confirmed from here
 is that the profile is real and reaches the shipped APK — see below.
+
+### The profile is a committed file, and tasks delete it
+
+The recorded profile lives at
+`app/src/release/generated/baselineProfiles/baseline-prof.txt` and is
+committed. It is inside `src/`, not `build/`, precisely so that building
+the release does not require a device.
+
+**Benchmark and profile tasks delete it as a matter of course**, and a
+`git add -A` straight afterwards will quietly commit its removal — taking
+the whole of this work with it, because nothing else in the repository
+contains those 15,268 rules. Before committing after any `:baselineprofile`
+run:
+
+```bash
+git status --short app/src/release/generated/baselineProfiles/
+```
+
+If it shows `D`, the file was deleted rather than regenerated. Put it back
+with `git restore` on that path; only accept the deletion if a fresh
+recording has genuinely replaced it.
 
 ### Checking the profile actually ships
 
@@ -655,6 +761,12 @@ tools/install.sh
 
 On the emulator only, `tools/install.sh --home` also sets the launcher as the
 home app, skipping the picker. On a real phone use the in-app button.
+
+Check every colour pair in the palette against WCAG AA (no device needed):
+
+```bash
+python3 tools/contrast.py
+```
 
 Take a screenshot of whatever is on screen:
 

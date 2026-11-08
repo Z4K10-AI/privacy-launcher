@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import com.privacylauncher.R
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.designsystem.panelSurface
@@ -53,6 +55,8 @@ fun ScreenScaffold(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground,
+                // The screen's own name, and the first heading on it.
+                modifier = Modifier.semantics { heading() },
             )
         }
         content()

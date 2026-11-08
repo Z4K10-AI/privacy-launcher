@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -491,11 +492,15 @@ private fun SectionHeader(title: String) {
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(
-            start = Spacing.sm,
-            top = Spacing.sm,
-            bottom = Spacing.xxs,
-        ),
+        // A heading, so the A-Z sections can be stepped through with a
+        // screen reader the way the letter strip does it by touch.
+        modifier = Modifier
+            .semantics { heading() }
+            .padding(
+                start = Spacing.sm,
+                top = Spacing.sm,
+                bottom = Spacing.xxs,
+            ),
     )
 }
 

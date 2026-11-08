@@ -286,6 +286,11 @@
     <string name="focus_schedule_overnight_body">On, from %1$s to %2$s the next morning.</string>
     <string name="focus_schedule_start">Starts at</string>
     <string name="focus_schedule_end">Ends at</string>
+    <!-- Spoken labels for the two schedule steppers: %1$s is the row's own
+         title ("Starts at"), %2$d the step in minutes. Without them a screen
+         reader announces four buttons as "minus sign" and "plus sign". -->
+    <string name="focus_step_earlier">%1$s, %2$d minutes earlier</string>
+    <string name="focus_step_later">%1$s, %2$d minutes later</string>
     <string name="focus_group_truth">What focus does, and does not do</string>
     <string name="focus_truth_body">Focus hides apps. It does not block them.\n\nA set-aside app is still installed and still running whatever it was running. It can still be opened from a notification, from a link in another app, or from a different launcher. Only this launcher\'s home screen and drawer stop offering it.\n\nThe launcher\'s own screens are never hidden, so you can always get back here and switch focus off.\n\nNothing runs in the background to make this work. There is no alarm and no background service: the launcher simply looks at the clock when you look at the launcher.</string>
 

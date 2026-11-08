@@ -4,10 +4,10 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +27,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.privacylauncher.R
@@ -198,6 +201,16 @@ private fun TimeStepper(
     enabled: Boolean,
     onStep: (Int) -> Unit,
 ) {
+    // Both steppers on this screen are a "-" and a "+" with no text, so a
+    // screen reader met four buttons announced as "minus sign" and "plus
+    // sign" with nothing to say which row they belonged to or what they
+    // changed. The row's own title goes into each label.
+    val stepEarlier = stringResource(
+        R.string.focus_step_earlier, title, LauncherSettings.FOCUS_TIME_STEP,
+    )
+    val stepLater = stringResource(
+        R.string.focus_step_later, title, LauncherSettings.FOCUS_TIME_STEP,
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -214,10 +227,19 @@ private fun TimeStepper(
             },
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = { onStep(-1) }, enabled = enabled) {
+        IconButton(
+            onClick = { onStep(-1) },
+            enabled = enabled,
+            modifier = Modifier.semantics { contentDescription = stepEarlier },
+        ) {
             // U+2212 MINUS SIGN, not a hyphen: a hyphen next to a "+" at the
-            // same size reads as a dash in a sentence.
-            Text(text = "−", style = MaterialTheme.typography.titleLarge)
+            // same size reads as a dash in a sentence. Cleared for the screen
+            // reader so the glyph is not read out after the label.
+            Text(
+                text = "−",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
         }
         Text(
             text = formatMinuteOfDay(minute, use24Hour),
@@ -227,11 +249,22 @@ private fun TimeStepper(
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
-            modifier = Modifier.width(80.dp),
+            // A minimum, not a fixed width: 80dp holds "10:00 PM" at the
+            // default font size and clips it at 1.3x. The minimum is what
+            // keeps the two steppers from shifting as the time changes.
+            modifier = Modifier.defaultMinSize(minWidth = 80.dp),
             textAlign = TextAlign.Center,
         )
-        IconButton(onClick = { onStep(1) }, enabled = enabled) {
-            Text(text = "+", style = MaterialTheme.typography.titleLarge)
+        IconButton(
+            onClick = { onStep(1) },
+            enabled = enabled,
+            modifier = Modifier.semantics { contentDescription = stepLater },
+        ) {
+            Text(
+                text = "+",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
         }
     }
 }
