@@ -426,8 +426,8 @@ wallpaper-backed text above. Those are what the 4 GB Samsung is for.
 ## Tests
 
 ```bash
-gradle :app:testDebugUnitTest          # 122 JVM unit tests, no device needed
-gradle :app:connectedDebugAndroidTest  # 29 device tests, needs an emulator
+gradle :app:testDebugUnitTest          # 134 JVM unit tests, no device needed
+gradle :app:connectedDebugAndroidTest  # 45 device tests, needs an emulator
 python3 tools/contrast.py              # every colour pair against WCAG AA
 tools/soak.sh com.privacylauncher.debug  # drive every screen on a device
 ```
@@ -443,6 +443,8 @@ that code was written that way so it could be tested at all:
 | `FocusTest` | The clock arithmetic: overnight windows, empty windows, boundaries, snooze, the sleep clamp |
 | `SettingsBackupTest` | The backup codec, mostly against files it should not trust |
 | `SearchAndLayoutTest` | Drawer search ranking, section letters, the home layout codec |
+| `PruneGuardTest` | That a failed "what is installed?" cannot delete the home screen |
+| `IconCachePolicyTest` | How much of the icon cache survives each memory-pressure level |
 
 Two of them are exhaustive rather than example-based: one walks all 1,440
 minutes of the day across five window shapes to assert the focus timer can
@@ -458,6 +460,76 @@ JSON, a newer format version, unknown enum values, wrong types where a list
 belongs, absurd column counts and out-of-range schedule minutes. The rule
 they encode: a bad file costs you the settings it mangled and never stops
 the launcher starting.
+
+### Failures that destroy something quietly
+
+Three of the defects found so far share a shape: nothing crashes, nothing is
+logged, and the user finds out later. They are the ones worth writing tests
+for, because they are the ones no amount of using the app will reveal.
+
+**A failed question deleting the home screen.** The launcher asks Android
+what is installed and then deletes everything not in the answer. An empty
+list meant both "nothing is installed" and "I could not ask", so a failed
+query wiped the home screen, dock, hidden list and focus list to disk with
+no undo. `loadApps` now returns null for "could not ask", and pruning
+refuses an empty set: a phone with no launchable apps has no Settings app
+either, so that is never a true answer.
+
+The test was checked by removing the guard and watching it fail:
+
+```
+home screen expected:<[App(com.phone/Main), App(com.uninstalled/Main),
+                       Folder(id=f1, name=Tools, ...)]> but was:<[]>
+```
+
+**A damaged settings file bricking the launcher.** Verified on a device
+rather than argued about. Writing rubbish over the preferences file and
+starting the app, without a corruption handler:
+
+```
+FATAL EXCEPTION: main
+androidx.datastore.core.CorruptionException: Corruption in file
+  /data/data/com.privacylauncher.debug/files/datastore/launcher_settings.preferences_pb
+Caused by: Unable to parse preferences proto. Consider providing a
+  CorruptionHandler to the DataStore factory to handle such scenarios.
+```
+
+The process was gone, and it crashed again on every relaunch -- on the one
+app you cannot avoid, with no way out from the home screen. With the handler,
+the same corrupt file starts cleanly and DataStore replaces it. The user
+loses their settings, which is why the backup file exists; they do not lose
+the use of the phone.
+
+**Nothing answering Android's request for memory.** There was no
+`onTrimMemory` in the app at all. A launcher holding 10 MB of icons while
+invisible is a cheap kill, and a killed launcher means a cold start every
+time home is pressed. The cache now empties off screen and shrinks -- never
+to nothing -- while visible.
+
+### The permission list is asserted, not documented
+
+`PermissionPromiseTest` reads the permissions out of the *installed package*
+and asserts the exact set. The source manifest is not the list that ships: a
+dependency can add a permission during manifest merge, which is exactly how
+this project once came to tell users it declared two permissions when the
+built app asked for three. An exact set fails on a new permission whether or
+not anyone thought to forbid it, and separate cases assert there is no route
+to the network at all.
+
+### When the harness is the thing that is broken
+
+`tools/soak.sh` reported 24 failures against a perfectly working build. The
+emulator's data had been wiped, so the app opened on its onboarding flow
+while every check looked for home-screen text. Not a hypothetical risk: the
+same trap previously produced a baseline profile recorded against the
+onboarding screen and a set of startup numbers that timed the wrong screen.
+
+The script now refuses to start until it has established where it is -- that
+the launcher is the default home app, and that onboarding is cleared and the
+home screen is on screen -- and aborts with what it actually saw instead of
+printing failures that belong to it rather than the app. The quick-panel
+check also asserted nothing at all, so it passed while the eight checks
+around it failed; it names a string on the panel now.
 
 ### Testing at the target phone's Android version
 

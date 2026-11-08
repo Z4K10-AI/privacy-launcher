@@ -4,6 +4,69 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Surviving a bad day
+
+Four fixes, none of which a user could have reported as a bug, because
+three of them destroy something quietly and the fourth only shows up on a
+phone that is busier than the test machine.
+
+**The home screen could be wiped by a failed question.** The launcher asks
+Android what is installed, then deletes every reference to anything not in
+the answer — home screen, dock, hidden apps and focus list, written
+straight to disk with no undo. The two halves met like this:
+
+```kotlin
+val apps = appRepository.loadApps()          // empty list when the query failed
+settingsRepository.pruneMissing(apps.keys)   // therefore: delete everything
+```
+
+An empty list meant both "this phone has no apps" and "I could not ask",
+so a query that failed read as a phone with nothing on it. The user would
+press home and find a bare screen, already saved. This fires on every
+package install, uninstall, update and enable, and on every launcher
+start.
+
+`loadApps` now returns null when the system cannot be asked, which says
+nothing about the phone, and an empty list only when the phone genuinely
+has nothing. Pruning refuses an empty set outright — a phone with no
+launchable apps has no Settings app either, so that is never a true answer
+— and the check sits both at the call site and in the function that does
+the writing. Proved by removing the guard and watching the test fail with
+`expected:<[App(com.phone/Main), ...]> but was:<[]>`.
+
+One misbehaving app can no longer take the whole drawer down with it
+either: reading a label can throw while its app is mid-upgrade, and that
+used to abandon every other app in the list.
+
+**A damaged settings file bricked the launcher.** `preferencesDataStore`
+had no corruption handler, so an unparseable file made the settings flow
+throw — and the launcher reads it before it can draw. That is a crash on
+every start, in a loop, on the one app you cannot avoid, with no way out
+from the home screen. Damaged files now reset to defaults. That costs the
+user their settings, which is a real loss and the reason the backup file
+exists, but defaults you can see and change beat perfection you cannot
+reach.
+
+**Nothing answered Android when it asked for memory back.** There was no
+`onTrimMemory` anywhere in the app. A launcher holding up to 10 MB of
+icons while invisible is a cheap kill for the system, and a killed
+launcher means a cold start every time you press home — on the one app
+that has to be instant. On a 4 GB A30 with a browser open this is routine,
+not rare. The icon cache now empties when the launcher goes off screen and
+shrinks under pressure while it is still visible, never to nothing, which
+would blank the icons under the user's finger and then decode them again.
+Icons are both the only large thing held and the cheapest to rebuild.
+
+**Two claims in the code were wrong.** `ContactRepository` described
+READ_CONTACTS as "the only permission the launcher declares"; there are
+two. This is the same error, in a third place, as the README and
+onboarding text that said two permissions when the built manifest had
+three — so the permission list is now asserted by a test that reads it out
+of the *installed* package rather than the source manifest, which is the
+only list that is true. A dependency upgrade is enough to add one, and the
+test fails on a new permission whether or not anyone thought to forbid it.
+
+
 ### Tested on the phone it is actually for
 
 The target is a Galaxy A30: Android 11, 4 GB of RAM, 720x1560 at 320dpi,
