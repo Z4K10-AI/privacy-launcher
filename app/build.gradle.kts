@@ -41,8 +41,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // No instrumentation runner: we add no test dependencies that would
-        // pull in extra code, and none are needed to build the APK.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -155,4 +154,14 @@ dependencies {
     // nothing: `testImplementation` is not part of any APK.
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
+
+    // Compose UI tests. These run on a device, in a separate test APK, so
+    // nothing here reaches the shipped app. ui-test-manifest is the one
+    // exception and is debug-only: it supplies the empty activity the test
+    // rule hosts composables in.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

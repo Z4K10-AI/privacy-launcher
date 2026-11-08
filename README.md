@@ -426,7 +426,8 @@ wallpaper-backed text above. Those are what the 4 GB Samsung is for.
 ## Tests
 
 ```bash
-gradle :app:testDebugUnitTest          # 55 JVM unit tests, no device needed
+gradle :app:testDebugUnitTest          # 122 JVM unit tests, no device needed
+gradle :app:connectedDebugAndroidTest  # 16 Compose UI tests, needs a device
 python3 tools/contrast.py              # every colour pair against WCAG AA
 tools/soak.sh com.privacylauncher.debug  # drive every screen on a device
 ```
@@ -503,6 +504,31 @@ adb shell wm size reset && adb shell wm density reset    # back to normal
 It did not at first, and a swipe starting below the bottom of a shorter
 screen made nine checks fail for the harness's reasons rather than the
 app's.
+
+### Compose UI tests
+
+Sixteen, on a device, for the things only the semantics tree shows.
+
+`SettingsRowSemanticsTest` exists because of a bug nothing else could have
+caught. A settings switch was a `clickable` row with `Role.Button` wrapping
+an interactive `Switch`, so a screen reader met every setting twice: once
+as a button with no on/off state, then again as the switch. The code read
+fine, the screen looked fine, and tapping worked. It now asserts there is
+exactly one toggleable node, that it is a `Role.Switch`, that it carries
+its state, that the subtitle is merged into it, and that tapping the title
+toggles it.
+
+`MinimalHomeTest` covers the list-building that happens inside the
+composable, in a `remember`, where no unit test can reach it: folders
+flattened into their apps, dock apps appended, an app in both the grid and
+the dock listed once, and the two ways out of minimal mode always on
+screen.
+
+None of this ships. The instrumentation tests build a separate APK;
+`ui-test-manifest` is the one piece in the app module and it is
+`debugImplementation`, so it is absent from release. Verified rather than
+assumed: the release APK contains no `androidx/test`, `junit` or
+`ui-test` entries, and is still 2.1 MB with three manifest permissions.
 
 ### Device soak
 
