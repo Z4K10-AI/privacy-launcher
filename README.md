@@ -19,7 +19,8 @@ LineageOS-based ROM as the default launcher.
 Status: **home screen, app drawer, privacy dashboard, quick controls, focus
 mode, a text-only minimal mode, first-run onboarding, grouped settings with
 live previews, and local backup and restore — all on a design system.
-Verified on an Android 15 (API 35) AOSP emulator; not yet tested on physical
+Verified on AOSP emulators at Android 15 (API 35) and **Android 11 (API 30)
+at a Galaxy A30's screen size and memory**; not yet tested on physical
 hardware.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
@@ -456,6 +457,32 @@ JSON, a newer format version, unknown enum values, wrong types where a list
 belongs, absurd column counts and out-of-range schedule minutes. The rule
 they encode: a bad file costs you the settings it mangled and never stops
 the launcher starting.
+
+### Testing at the target phone's Android version
+
+The phone this is aimed at is a Galaxy A30: Android 11, 4 GB of RAM,
+720x1560. Everything was developed against Android 15, which is five
+releases of behaviour changes away, so there is a second AVD matching the
+phone:
+
+```bash
+sdkmanager "system-images;android-30;default;arm64-v8a"
+avdmanager create avd -n a30_api30 -k "system-images;android-30;default;arm64-v8a" -d pixel_3a
+# then set hw.lcd.width=720, hw.lcd.height=1560, hw.lcd.density=320,
+# hw.ramSize=4096 in ~/.android/avd/a30_api30.avd/config.ini
+```
+
+Three code paths differ below Android 12 and none of them had ever run.
+All three were checked on that AVD:
+
+| Path | On Android 11 | Verified |
+|---|---|---|
+| Material You | unavailable | row reads "Needs Android 12 or newer" |
+| Window blur | unavailable | quick panel falls back to an opaque surface |
+| Privacy dashboard | older `getInstalledPackages` overload | reads all 36 packages, no crash |
+
+The soak passes 27 of 27 there, across three font scales and dark mode, and
+monkey runs without a crash.
 
 ### Testing at the target phone's size
 

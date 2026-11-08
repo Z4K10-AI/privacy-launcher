@@ -4,6 +4,35 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Tested on the phone it is actually for
+
+The target is a Galaxy A30: Android 11, 4 GB of RAM, 720x1560 at 320dpi,
+which is **360dp wide**. Everything until now was tested on Android 15 at
+411dp. Both gaps hid a real problem.
+
+Fixed:
+- **The sixth accent colour was cut off the screen edge** on anything
+  narrower than about 400dp. Six 48dp targets with 12dp gaps need 348dp;
+  a 360dp phone has 312dp after insets. A `Row` overflows silently — no
+  scroll, no ellipsis, just a missing colour — so this was invisible on
+  the wider emulator and would have been plainly wrong on the phone. It
+  wraps now, as the theme chips above it already did.
+- `tools/soak.sh` sized its gestures in fixed pixels for a tall screen, so
+  on a 720x1560 display the swipes began below the bottom edge and nine
+  checks failed for the harness's reasons. It reads `wm size` now.
+
+Verified on an Android 11 AVD shaped like the A30 — the three code paths
+that differ below Android 12 had never once executed:
+
+| Path | Behaviour on Android 11 | Result |
+|---|---|---|
+| Material You | unavailable | row reads "Needs Android 12 or newer" |
+| Window blur | unavailable | quick panel falls back to an opaque surface |
+| Privacy dashboard | older `getInstalledPackages` | reads all 36 packages |
+
+The soak passes 27 of 27 there across three font scales and dark mode, and
+monkey runs without a crash.
+
 ### Tests, and the two things they caught
 
 Added:
