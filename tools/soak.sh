@@ -78,7 +78,7 @@ scroll_until() {
   local want="$1" tries="${2:-20}" i
   for i in $(seq 1 "$tries"); do
     present "$want" && return 0
-    $ADB shell input swipe 540 1600 540 700 400
+    scroll
     sleep 1
   done
   present "$want"
@@ -95,10 +95,22 @@ retry_until() {
   done
   return 1
 }
+# Gestures sized from the real display, not hardcoded.
+#
+# These were fixed pixel values for a 1080x2400 emulator. On a 720x1560
+# phone -- a Galaxy A30, say -- a swipe starting at y=1800 begins below the
+# bottom of the screen, so nothing happens and every check downstream
+# reports a failure that is the harness's fault, not the app's.
+read -r W H <<< "$($ADB shell wm size | tail -1 | sed 's/.*: *//' | tr 'x' ' ')"
+W=${W:-1080}; H=${H:-2400}
+MIDX=$((W / 2))
+
 home()   { $ADB shell input keyevent KEYCODE_HOME; }
 back()   { $ADB shell input keyevent KEYCODE_BACK; }
-up()     { $ADB shell input swipe 540 1800 540 600 250; }
-left()   { $ADB shell input swipe 900 1200 200 1200 250; }
+# Start clear of the bottom edge, where the system's own gesture lives.
+up()     { $ADB shell input swipe $MIDX $((H * 75 / 100)) $MIDX $((H * 25 / 100)) 250; }
+left()   { $ADB shell input swipe $((W * 85 / 100)) $((H / 2)) $((W * 15 / 100)) $((H / 2)) 250; }
+scroll() { $ADB shell input swipe $MIDX $((H * 68 / 100)) $MIDX $((H * 30 / 100)) 400; }
 
 run_suite() {
   echo "--- $1 ---"

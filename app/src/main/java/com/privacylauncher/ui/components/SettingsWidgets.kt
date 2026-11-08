@@ -280,6 +280,7 @@ private fun Chip(
 }
 
 /** A row of colour circles, one per accent. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SwatchRow(
     title: String,
@@ -304,7 +305,18 @@ fun SwatchRow(
             },
             modifier = Modifier.padding(bottom = Spacing.sm),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        // FlowRow, not Row, for the same reason ChoiceRow uses one.
+        //
+        // Six 48dp touch targets with 12dp between them need 348dp, and a
+        // 360dp-wide phone has 312dp once this column's own insets are
+        // taken off. On a 411dp test device they fit with 15dp to spare; on
+        // a Galaxy A30 the sixth swatch was simply cut off at the screen
+        // edge, with no hint that a colour was missing. A Row overflows
+        // silently, which is the worst way for a layout to fail.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+        ) {
             swatches.forEach { (label, color) ->
                 val isSelected = enabled && label == selectedLabel
                 Box(

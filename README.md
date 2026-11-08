@@ -457,6 +457,26 @@ belongs, absurd column counts and out-of-range schedule minutes. The rule
 they encode: a bad file costs you the settings it mangled and never stops
 the launcher starting.
 
+### Testing at the target phone's size
+
+Every emulator here is 1080x2400 at 420dpi, which is 411dp wide. A Galaxy
+A30 -- the phone this is actually for -- is 720x1560 at 320dpi, which is
+**360dp**. Fifty-one dp is enough to break a layout, and it did: the sixth
+accent swatch was cut off at the screen edge, invisible on the test device
+and invisible in every screenshot taken on it.
+
+Reproduce a narrower phone without a second emulator image:
+
+```bash
+adb shell wm size 720x1560 && adb shell wm density 320   # Galaxy A30
+adb shell wm size reset && adb shell wm density reset    # back to normal
+```
+
+`tools/soak.sh` derives its gestures from `wm size`, so it works at either.
+It did not at first, and a swipe starting below the bottom of a shorter
+screen made nine checks fail for the harness's reasons rather than the
+app's.
+
 ### Device soak
 
 `tools/soak.sh` walks home, drawer, search, settings, the About section and
