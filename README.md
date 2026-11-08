@@ -427,7 +427,7 @@ wallpaper-backed text above. Those are what the 4 GB Samsung is for.
 
 ```bash
 gradle :app:testDebugUnitTest          # 122 JVM unit tests, no device needed
-gradle :app:connectedDebugAndroidTest  # 22 device tests, needs an emulator
+gradle :app:connectedDebugAndroidTest  # 29 device tests, needs an emulator
 python3 tools/contrast.py              # every colour pair against WCAG AA
 tools/soak.sh com.privacylauncher.debug  # drive every screen on a device
 ```
@@ -529,6 +529,24 @@ None of this ships. The instrumentation tests build a separate APK;
 `debugImplementation`, so it is absent from release. Verified rather than
 assumed: the release APK contains no `androidx/test`, `junit` or
 `ui-test` entries, and is still 2.1 MB with three manifest permissions.
+
+### The drawer at the size a phone reaches
+
+This emulator has a dozen apps; a phone in use has well over a hundred.
+Everything about the drawer that only matters at scale had therefore never
+been drawn, only reasoned about. `AppDrawerScaleTest` renders the real
+drawer with 156 apps and checks it comes up, reports the count, shows its
+section headers, searches, and **scrolls to the last row** -- the one that
+fails if the grid composes everything at once instead of lazily, which on
+a 4 GB phone is the difference between scrolling and being killed.
+
+Three of its assertions were wrong on the first run and none of them was
+the app: two nodes legitimately read "A" (the section header and the
+fast-scroll letter), the label fixture yields six matches rather than the
+ten that looked obvious, and a plain text match counts the search box
+along with the results because the box holds the typed query. The
+expected counts are now derived from the fixture rather than written in,
+so they stay honest if it changes.
 
 ### Backup round trip, on the real preferences file
 
