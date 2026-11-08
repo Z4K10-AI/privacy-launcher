@@ -1,0 +1,27 @@
+// Privacy Launcher as a system app.
+//
+// Drop this folder into an AOSP or LineageOS tree at
+// packages/apps/PrivacyLauncher/ with the release APK beside it, then add
+// PrivacyLauncher to the device's PRODUCT_PACKAGES.
+android_app_import {
+    name: "PrivacyLauncher",
+    apk: "PrivacyLauncher.apk",
+
+    // Privileged, so it lands in /system/priv-app. A home app does not
+    // strictly need privileged status, but priv-app is what keeps it out of
+    // the user-removable set and makes it survive a factory reset.
+    privileged: true,
+
+    // PRESIGNED keeps the launcher's own signature rather than re-signing
+    // with the ROM's platform key. That matters for updates: an APK signed
+    // with the same key can be installed over this one, so the launcher can
+    // be updated without rebuilding the whole system image.
+    certificate: "PRESIGNED",
+
+    dex_preopt: {
+        // Ahead-of-time compile it into the image. This is the system-app
+        // equivalent of the baseline profile: the home screen is the one
+        // app that must not be slow on first boot.
+        enabled: true,
+    },
+}
