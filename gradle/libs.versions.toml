@@ -15,6 +15,10 @@ benchmark = "1.5.0"
 uiautomator = "2.4.1"
 testExtJunit = "1.3.0"
 junit = "4.13.2"
+# A real org.json for JVM unit tests. Android ships org.json in the
+# platform, but the android.jar used for unit tests is stubbed and every
+# method throws, so the codecs could not otherwise be tested off-device.
+orgJson = "20260814"
 profileinstaller = "1.4.1"
 
 [libraries]
@@ -37,6 +41,7 @@ androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchm
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "testExtJunit" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

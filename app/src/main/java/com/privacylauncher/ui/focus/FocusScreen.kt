@@ -205,11 +205,17 @@ private fun TimeStepper(
     // screen reader met four buttons announced as "minus sign" and "plus
     // sign" with nothing to say which row they belonged to or what they
     // changed. The row's own title goes into each label.
-    val stepEarlier = stringResource(
-        R.string.focus_step_earlier, title, LauncherSettings.FOCUS_TIME_STEP,
+    val stepEarlier = pluralStringResource(
+        R.plurals.focus_step_earlier,
+        LauncherSettings.FOCUS_TIME_STEP,
+        title,
+        LauncherSettings.FOCUS_TIME_STEP,
     )
-    val stepLater = stringResource(
-        R.string.focus_step_later, title, LauncherSettings.FOCUS_TIME_STEP,
+    val stepLater = pluralStringResource(
+        R.plurals.focus_step_later,
+        LauncherSettings.FOCUS_TIME_STEP,
+        title,
+        LauncherSettings.FOCUS_TIME_STEP,
     )
     Row(
         modifier = Modifier

@@ -4,6 +4,51 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Tests, and the two things they caught
+
+Added:
+- **55 JVM unit tests** — the first automated tests in this project.
+  `FocusTest` covers the clock arithmetic, `SettingsBackupTest` the backup
+  codec against files it should not trust, `SearchAndLayoutTest` drawer
+  ranking and the layout codec. They need no device and run in about a
+  second.
+- **`tools/soak.sh`**, which walks every screen at three font scales and in
+  dark mode. It clears the crash buffer before each step and checks it
+  after, so a crash names the step that caused it, and each step asserts
+  what should be on screen — an earlier version only checked "no crash,
+  still running", which passes just as well when a tap misses and the app
+  sits on the home screen for twenty steps.
+
+Fixed:
+- **The baseline profile was recorded against the onboarding screen.** It
+  held 45 rules mentioning `Onboarding` and none at all for `AppDrawer`,
+  `HomeScreen` or `SettingsScreen`: a fresh install has an empty DataStore,
+  so the app draws the welcome flow, and the generator walked that instead
+  of the launcher. Re-recorded, it is 20,757 rules with 63 for the drawer,
+  61 for the home screen and 58 for settings, and 1 for onboarding. The
+  earlier claim that the profile was "verified" checked that it reached the
+  APK and never checked what was in it.
+- **The app told users it declares two permissions.** The merged release
+  manifest has three: AndroidX core generates
+  `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` for runtime-registered
+  receivers. It is `protectionLevel="signature"`, so only something signed
+  with the same key could hold it and its only job is to stop other apps
+  broadcasting to this one — but the onboarding page that says it is headed
+  "a promise is only worth what can be checked", so it now says three and
+  explains the third.
+- The two focus-stepper labels were `%d minutes` strings rather than
+  plurals, which lint flagged and which would be wrong in most languages.
+- `README.md` claimed 2.0 MB in one place and 2.1 MB in another, and its
+  Status paragraph still described the app as it stood four features ago.
+
+Notes:
+- `minutesUntilChange` has a guard against returning zero that **cannot
+  currently fire**: standing on the window's start is inside it, standing
+  on its end is outside it, so neither edge is ever the target. The comment
+  claimed the guard was doing real work; it now says what it is, and
+  `FocusTest` fails if a change ever makes it reachable.
+- Lint is at 0 errors and 1 warning — the deliberate `targetSdk 35` hold.
+
 ### Performance pass, release signing and accessibility fixes
 
 Added:

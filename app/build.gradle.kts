@@ -150,4 +150,9 @@ dependencies {
     // Test-only: the module that records the profile. Not an app
     // dependency -- this tells AGP where the recorded profile comes from.
     baselineProfile(project(":baselineprofile"))
+
+    // JVM unit tests. These run on the machine, not a device, and ship in
+    // nothing: `testImplementation` is not part of any APK.
+    testImplementation(libs.junit)
+    testImplementation(libs.org.json)
 }

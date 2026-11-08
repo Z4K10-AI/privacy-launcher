@@ -85,8 +85,16 @@ fun FocusSchedule.minutesUntilChange(minute: Int): Int? {
     if (!enabled || startMinute == endMinute) return null
     val target = if (coversMinute(minute)) endMinute else startMinute
     val diff = (target - minute + FocusClock.MINUTES_PER_DAY) % FocusClock.MINUTES_PER_DAY
-    // 0 means we are standing exactly on the boundary; the next one is a day
-    // away, and returning 0 would spin.
+    // Belt and braces: a zero here would make the focus clock sleep for no
+    // time and immediately ask again.
+    //
+    // It cannot currently happen, and `FocusTest` is what keeps that true.
+    // Zero needs the target edge to be the current minute, and neither edge
+    // can be: standing on `startMinute` is inside the window, so the target
+    // is the end, and standing on `endMinute` is outside it, so the target
+    // is the start. The branch is unreachable rather than redundant, and it
+    // is left in because the cost is one comparison and the failure it
+    // guards against is a spin.
     return if (diff == 0) FocusClock.MINUTES_PER_DAY else diff
 }
 

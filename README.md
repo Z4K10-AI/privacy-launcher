@@ -16,16 +16,40 @@ switch on the feature that needs it.
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **home screen, app drawer, privacy dashboard and quick controls
-complete, on a design system. Verified on an Android 15 (API 35) AOSP
-emulator; not yet tested on physical hardware.**
+Status: **home screen, app drawer, privacy dashboard, quick controls, focus
+mode, a text-only minimal mode, first-run onboarding, grouped settings with
+live previews, and local backup and restore — all on a design system.
+Verified on an Android 15 (API 35) AOSP emulator; not yet tested on physical
+hardware.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
 
-Release APK: 2.0 MB. Verified with `aapt2 dump permissions` to hold exactly
-those two permissions and no reference to `INTERNET` anywhere in the merged
-manifest.
+Release APK: 2.1 MB.
+
+**`INTERNET` appears nowhere in the merged release manifest** — checked
+directly, not inferred from the source manifest. The merged manifest holds
+three `uses-permission` entries rather than the two this file used to claim:
+
+| Permission | Where from |
+|---|---|
+| `READ_CONTACTS` | ours, inert until contact search is switched on |
+| `WRITE_SETTINGS` | ours, inert until the brightness slider is used |
+| `com.privacylauncher.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | generated |
+
+The third is not a capability the app gains. AndroidX core generates it when
+a receiver is registered at runtime, declares it `android:protectionLevel="signature"`,
+and has the app hold its own permission — so only something signed with the
+same key could satisfy it, which means nothing else on the phone. Its whole
+job is to stop other apps delivering broadcasts to ours. It reaches nothing
+of yours, but it is in the manifest, and a privacy claim that quietly
+rounds three down to two is not one worth making.
+
+Check it yourself:
+
+```bash
+aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
+```
 
 ---
 
@@ -397,6 +421,59 @@ quietly reporting a clean run over a smaller set than you think.
 
 **Layout by eye at large font and display sizes, on a real screen**, and the
 wallpaper-backed text above. Those are what the 4 GB Samsung is for.
+
+## Tests
+
+```bash
+gradle :app:testDebugUnitTest          # 55 JVM unit tests, no device needed
+python3 tools/contrast.py              # every colour pair against WCAG AA
+tools/soak.sh com.privacylauncher.debug  # drive every screen on a device
+```
+
+### Unit tests
+
+JVM tests, so they need no emulator and run in about a second. They cover
+the parts that are pure functions of their inputs, which is deliberate —
+that code was written that way so it could be tested at all:
+
+| File | What it pins down |
+|---|---|
+| `FocusTest` | The clock arithmetic: overnight windows, empty windows, boundaries, snooze, the sleep clamp |
+| `SettingsBackupTest` | The backup codec, mostly against files it should not trust |
+| `SearchAndLayoutTest` | Drawer search ranking, section letters, the home layout codec |
+
+Two of them are exhaustive rather than example-based: one walks all 1,440
+minutes of the day across five window shapes to assert the focus timer can
+never return a zero delay, and one counts the minutes a window covers to
+assert an overnight window partitions the day exactly. An overnight bug is
+wrong for a few minutes a day, at two in the morning, and picking those
+minutes by hand is how you miss them.
+
+The backup tests are the ones worth reading. A backup file is the only
+input a user can hand-edit, truncate, or pick by mistake from a folder of
+unrelated JSON, so there are cases for a truncated file, another app's
+JSON, a newer format version, unknown enum values, wrong types where a list
+belongs, absurd column counts and out-of-range schedule minutes. The rule
+they encode: a bad file costs you the settings it mangled and never stops
+the launcher starting.
+
+### Device soak
+
+`tools/soak.sh` walks home, drawer, search, settings, the About section and
+the quick panel, at three font scales and in dark mode.
+
+It clears the crash buffer before each step and checks it after, so a crash
+is attributed to the step that caused it rather than appearing as a wall of
+log afterwards. Each step also names what should be on screen when it
+finishes: an earlier version only checked "no crash, still running", which
+passes just as happily when a tap misses and the app sits on the home
+screen for twenty steps. On this emulator taps do miss, so that mattered.
+
+### What is not tested
+
+No Compose UI tests, and no instrumentation tests beyond the benchmarks.
+Layout at large font and display sizes has been checked by eye on the
+emulator, not asserted. And none of it has run on the 4 GB Samsung.
 
 ## Dependencies and licences
 
