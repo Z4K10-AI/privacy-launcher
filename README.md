@@ -427,7 +427,7 @@ wallpaper-backed text above. Those are what the 4 GB Samsung is for.
 
 ```bash
 gradle :app:testDebugUnitTest          # 122 JVM unit tests, no device needed
-gradle :app:connectedDebugAndroidTest  # 16 Compose UI tests, needs a device
+gradle :app:connectedDebugAndroidTest  # 22 device tests, needs an emulator
 python3 tools/contrast.py              # every colour pair against WCAG AA
 tools/soak.sh com.privacylauncher.debug  # drive every screen on a device
 ```
@@ -529,6 +529,19 @@ None of this ships. The instrumentation tests build a separate APK;
 `debugImplementation`, so it is absent from release. Verified rather than
 assumed: the release APK contains no `androidx/test`, `junit` or
 `ui-test` entries, and is still 2.1 MB with three manifest permissions.
+
+### Backup round trip, on the real preferences file
+
+`BackupRoundTripTest` guards a bug that does not exist yet. `importBackup`
+writes about twenty keys by hand, so adding a setting means remembering to
+add it there as well; forget, and every restore silently drops it, with no
+error and no log. The test sets every field away from its default, exports,
+restores and compares field by field, so a forgotten one comes back as its
+default and fails by name.
+
+It also holds the promises the backup screens make: a running focus session
+is not carried across, the usage record never reaches the file, restoring
+does not wipe that record, and a file that is not a backup changes nothing.
 
 ### Device soak
 
