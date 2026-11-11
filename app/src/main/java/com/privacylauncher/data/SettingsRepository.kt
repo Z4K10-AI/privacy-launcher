@@ -356,29 +356,27 @@ class SettingsRepository(private val context: Context) {
         items.dissolveThinFolders()
     }
 
-    suspend fun moveHomeItem(fromIndex: Int, toIndex: Int) = mapHome {
-        HomeLayoutOps.move(it, fromIndex, toIndex)
+    /**
+     * Moves one home screen item to where another is.
+     *
+     * By id, not by position: see [HomeLayoutOps.moveById].
+     */
+    suspend fun moveHomeItem(fromId: String, toId: String) = mapHome {
+        HomeLayoutOps.moveById(it, fromId, toId)
     }
 
     /**
-     * Drops the item at [fromIndex] onto the one at [ontoIndex].
-     *
-     * App onto app makes a new folder. App onto folder adds it. Folders are
-     * not merged into each other: it is rarely what someone means, and it
-     * silently destroys one of the two names.
-     */
-    /**
-     * Drops the item at [fromIndex] onto the one at [ontoIndex].
+     * Drops one home screen item onto another.
      *
      * App onto app makes a new folder. App onto folder adds it. Folders are
      * not merged into each other: it is rarely what someone means, and it
      * silently destroys one of the two names. See [HomeLayoutOps.combine].
      */
-    suspend fun combineHomeItems(fromIndex: Int, ontoIndex: Int) = mapHome {
-        HomeLayoutOps.combine(
+    suspend fun combineHomeItems(fromId: String, ontoId: String) = mapHome {
+        HomeLayoutOps.combineById(
             items = it,
-            from = fromIndex,
-            onto = ontoIndex,
+            fromId = fromId,
+            ontoId = ontoId,
             newFolderId = "f:${UUID.randomUUID()}",
             folderName = HomeLayoutCodec.DEFAULT_FOLDER_NAME,
         )

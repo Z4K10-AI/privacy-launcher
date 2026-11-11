@@ -249,22 +249,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      */
     val homeTiles: StateFlow<List<HomeTile>> =
         combine(allApps, settings, focus) { apps, s, f ->
-            val byKey = apps.associateBy { it.key }
-            s.homeItems.mapNotNull { item ->
-                when (item) {
-                    is HomeItem.App ->
-                        byKey[item.key]?.takeIf { f.allows(it.key) }?.let { HomeTile.App(it) }
-                    is HomeItem.Folder -> {
-                        // A folder is filtered rather than hidden whole: with
-                        // one allowed app inside it, hiding the folder would
-                        // put that app out of reach for no reason.
-                        val entries = item.appKeys.mapNotNull { byKey[it] }
-                            .filter { f.allows(it.key) }
-                        if (entries.isEmpty()) null
-                        else HomeTile.Folder(item.id, item.name, entries)
-                    }
-                }
-            }
+            resolveHomeTiles(s.homeItems, apps, f)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** The dock, resolved and capped. */
@@ -885,13 +870,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         settingsRepository.removeHomeItem(tile.id)
     }
 
-    fun moveHomeItem(from: Int, to: Int) = edit {
-        settingsRepository.moveHomeItem(from, to)
+    /**
+     * A drag on the home grid. Tiles are named by id because what is drawn
+     * can be shorter than what is stored; see [resolveHomeTiles].
+     */
+    fun moveHomeItem(fromId: String, toId: String) = edit {
+        settingsRepository.moveHomeItem(fromId, toId)
     }
 
     /** Dropping one icon onto another: makes a folder, or adds to one. */
-    fun combineHomeItems(from: Int, onto: Int) = edit {
-        settingsRepository.combineHomeItems(from, onto)
+    fun combineHomeItems(fromId: String, ontoId: String) = edit {
+        settingsRepository.combineHomeItems(fromId, ontoId)
     }
 
     fun renameFolder(folderId: String, name: String) = edit {

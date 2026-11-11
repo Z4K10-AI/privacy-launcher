@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -103,8 +104,8 @@ fun HomeScreen(
     onEnterEditMode: () -> Unit,
     onExitEditMode: () -> Unit,
     onRemoveTile: (HomeTile) -> Unit,
-    onMove: (Int, Int) -> Unit,
-    onCombine: (Int, Int) -> Unit,
+    onMove: (fromId: String, toId: String) -> Unit,
+    onCombine: (fromId: String, ontoId: String) -> Unit,
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenClock: () -> Unit,
@@ -248,7 +249,7 @@ fun HomeScreen(
  * position. Drag-and-drop needs exactly that.
  */
 @Composable
-private fun HomeGrid(
+internal fun HomeGrid(
     tiles: List<HomeTile>,
     columns: Int,
     iconSize: Dp,
@@ -258,20 +259,36 @@ private fun HomeGrid(
     onOpenFolder: (String) -> Unit,
     onEnterEditMode: () -> Unit,
     onRemoveTile: (HomeTile) -> Unit,
-    onMove: (Int, Int) -> Unit,
-    onCombine: (Int, Int) -> Unit,
+    onMove: (fromId: String, toId: String) -> Unit,
+    onCombine: (fromId: String, ontoId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
     var dragIndex by remember { mutableIntStateOf(-1) }
+    /** Which icon was picked up. A cell can change hands during a drag. */
+    var dragId by remember { mutableStateOf<String?>(null) }
     var targetIndex by remember { mutableIntStateOf(-1) }
     /** Set when the drop would merge into a folder rather than reorder. */
     var combineIndex by remember { mutableIntStateOf(-1) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
 
+    // A cell's drag handler lives a long time: Compose restarts it only
+    // when its keys change, and until then it carries on with whatever it
+    // was holding when it started. Anything it reads that can change during
+    // its life -- the icons, the callbacks, the cell size further down --
+    // therefore goes through one of these, which always has the newest
+    // value. Reading `tiles` directly meant that after a reorder the
+    // handler was still working out what was under the finger from the
+    // layout before it.
+    val currentTiles by rememberUpdatedState(tiles)
+    val currentOnEnterEditMode by rememberUpdatedState(onEnterEditMode)
+    val currentOnMove by rememberUpdatedState(onMove)
+    val currentOnCombine by rememberUpdatedState(onCombine)
+
     LaunchedEffect(editMode) {
         if (!editMode) {
             dragIndex = -1
+            dragId = null
             targetIndex = -1
             combineIndex = -1
             dragOffset = Offset.Zero
@@ -298,8 +315,11 @@ private fun HomeGrid(
         val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 1.6f)
         val cellHeight = iconSize + (Spacing.xl + Spacing.sm) * fontScale
         val density = LocalDensity.current
-        val cellWpx = with(density) { cellWidth.toPx() }
-        val cellHpx = with(density) { cellHeight.toPx() }
+        // Through state for the same reason as the icons above: a larger
+        // icon or font makes the rows taller without restarting any
+        // handler, and a drop is placed by dividing by the row height.
+        val cellWpx by rememberUpdatedState(with(density) { cellWidth.toPx() })
+        val cellHpx by rememberUpdatedState(with(density) { cellHeight.toPx() })
 
         Column {
             tiles.chunked(columns).forEachIndexed { rowIndex, rowTiles ->
@@ -324,16 +344,6 @@ private fun HomeGrid(
                                 .width(cellWidth)
                                 .height(cellHeight)
                                 .zIndex(if (isDragging) 1f else 0f)
-                                .graphicsLayer {
-                                    rotationZ = angle
-                                    if (isDragging) {
-                                        translationX = dragOffset.x
-                                        translationY = dragOffset.y
-                                        scaleX = 1.12f
-                                        scaleY = 1.12f
-                                        alpha = 0.9f
-                                    }
-                                }
                                 .pointerInput(editMode, tile.id) {
                                     detectTapGestures(
                                         onTap = {
@@ -348,12 +358,13 @@ private fun HomeGrid(
                                 // Long-press starts a drag in the same motion.
                                 // Entering edit mode here means the first
                                 // long-press can carry straight into a drag.
-                                .pointerInput(index, columns, tiles.size) {
+                                .pointerInput(index, columns) {
                                     detectDragGesturesAfterLongPress(
                                         onDragStart = {
                                             haptics.dragStart()
-                                            onEnterEditMode()
+                                            currentOnEnterEditMode()
                                             dragIndex = index
+                                            dragId = currentTiles.getOrNull(index)?.id
                                             targetIndex = index
                                             combineIndex = -1
                                             dragOffset = Offset.Zero
@@ -365,8 +376,10 @@ private fun HomeGrid(
                                             val cy = rowIndex * cellHpx + cellHpx / 2 + dragOffset.y
                                             val tc = (cx / cellWpx).toInt().coerceIn(0, columns - 1)
                                             val tr = (cy / cellHpx).toInt().coerceAtLeast(0)
+                                            val now = currentTiles
                                             val next = (tr * columns + tc)
-                                                .coerceIn(0, tiles.lastIndex)
+                                                .coerceAtMost(now.lastIndex)
+                                                .coerceAtLeast(0)
 
                                             // Near the middle of another icon
                                             // means "make a folder"; nearer an
@@ -377,7 +390,7 @@ private fun HomeGrid(
                                                 dy < cellHpx * 0.28f
                                             val canCombine = overCentre &&
                                                 next != index &&
-                                                tiles.getOrNull(index) is HomeTile.App
+                                                now.getOrNull(index) is HomeTile.App
 
                                             val nextCombine = if (canCombine) next else -1
                                             if (next != targetIndex || nextCombine != combineIndex) {
@@ -388,24 +401,67 @@ private fun HomeGrid(
                                         },
                                         onDragEnd = {
                                             haptics.dragEnd()
+                                            // Reported by id, never by
+                                            // position: this list can be
+                                            // shorter than the stored one.
+                                            val now = currentTiles
+                                            // Only if this cell still holds
+                                            // the icon that was picked up.
+                                            // The icons can change during a
+                                            // drag -- an app is removed, a
+                                            // focus schedule starts -- and
+                                            // then this cell has a different
+                                            // one in it, which the user
+                                            // never chose to move.
+                                            val from = now.getOrNull(dragIndex)?.id
+                                                ?.takeIf { it == dragId }
+                                            val onto = now.getOrNull(combineIndex)?.id
+                                            val to = now.getOrNull(targetIndex)?.id
                                             when {
-                                                combineIndex >= 0 && combineIndex != dragIndex ->
-                                                    onCombine(dragIndex, combineIndex)
-                                                targetIndex >= 0 && targetIndex != dragIndex ->
-                                                    onMove(dragIndex, targetIndex)
+                                                from == null -> Unit
+                                                onto != null && onto != from ->
+                                                    currentOnCombine(from, onto)
+                                                to != null && to != from ->
+                                                    currentOnMove(from, to)
                                             }
                                             dragIndex = -1
+                                            dragId = null
                                             targetIndex = -1
                                             combineIndex = -1
                                             dragOffset = Offset.Zero
                                         },
                                         onDragCancel = {
                                             dragIndex = -1
+                                            dragId = null
                                             targetIndex = -1
                                             combineIndex = -1
                                             dragOffset = Offset.Zero
                                         },
                                     )
+                                }
+                                // After the gesture modifiers, on purpose. A
+                                // modifier sees pointer positions in the
+                                // space of everything before it in the chain,
+                                // so with this layer first the drag was being
+                                // measured inside the lifted, 1.12x icon: the
+                                // finger moved 112 pixels and the handler was
+                                // told 100. The icon fell further behind the
+                                // finger the further it was dragged -- a
+                                // third of a cell across the screen -- and
+                                // since the drop is judged from where the
+                                // icon is, a drop aimed at the edge of a cell
+                                // could land in its middle and make a folder.
+                                // Here the layer changes only how the cell is
+                                // drawn, and the gestures see plain pixels.
+                                .graphicsLayer {
+                                    rotationZ = angle
+                                    if (isDragging) {
+                                        translationX = dragOffset.x
+                                        translationY = dragOffset.y
+                                        scaleX = 1.12f
+                                        scaleY = 1.12f
+                                        alpha = 0.9f
+                                    }
                                 },
                             contentAlignment = Alignment.Center,
                         ) {

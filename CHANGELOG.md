@@ -4,6 +4,48 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Dragging the icon you meant
+
+Three faults in rearranging the home screen. None crashed, and each one
+moved or grouped an icon other than the one under the finger.
+
+**With focus mode on, a drag moved a different icon.** The home screen does
+not always draw everything that is saved: focus mode hides apps, and an app
+removed a moment ago is skipped until it is cleaned up. The grid reported a
+drag as "position 1 to position 2" and those numbers were applied to the
+saved layout, where position 1 can be a hidden app. Drags are now reported
+by the icons' ids, which mean the same thing in both lists.
+
+**After one rearrangement, the next drag used the old layout.** Each cell's
+drag handler kept the list of icons, the callbacks and the row height it
+was given when it was first touched. Rearranging keeps the same number of
+icons, so nothing told the handler to let go of them. The second drag was
+then judged against the layout before the first one, an app sitting where a
+folder had been could not be dropped onto anything, and after an icon-size
+change a drop landed a row too far down. The handler now reads all of these
+fresh at the moment it needs them.
+
+**If the icons shifted while one was in the air, the wrong one was moved.**
+A side effect of the fix above, caught by a test written before finishing
+it: if an app disappears during a drag, the cell under the finger has a
+different icon in it by the time the finger lifts. The grid now remembers
+which icon was picked up and does nothing if that is no longer the one in
+its cell.
+
+Proof, on an Android 11 emulator (`a30_api30`: 720x1560, 4 GB RAM, software
+rendering): `HomeReorderTest` (8 JVM tests) covers the first fault and
+`HomeGridDragTest` (8 device tests, a real finger on the real grid) covers
+the other two. Three of the device tests were watched failing before the
+fix, with the wrong pair of icons in the message, and the icons-shifted
+test was watched failing against the half-finished fix:
+
+    expected:<[]> but was:<[(a:p.D/A, a:p.A/A)]>
+
+`tools/devtest.sh` is new: it runs the device tests and prints which ones
+failed and why, where Gradle prints only a link to an HTML report.
+
+Tests are now 142 on the JVM and 53 on a device, all passing.
+
 ### Surviving a bad day
 
 Four fixes, none of which a user could have reported as a bug, because

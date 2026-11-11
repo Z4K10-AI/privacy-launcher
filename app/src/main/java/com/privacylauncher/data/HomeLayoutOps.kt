@@ -71,6 +71,48 @@ internal object HomeLayoutOps {
         return out
     }
 
+    /**
+     * Moves the item called [fromId] to where the item called [toId] is.
+     *
+     * This is what a drag on the home screen calls, and it takes ids rather
+     * than positions for a reason that cost a bug: the screen does not
+     * always draw everything that is stored. Focus mode hides apps, and an
+     * app uninstalled a moment ago is skipped until it is cleaned up. So
+     * "second on screen" and "second on disk" can be different items, and a
+     * drag reported by position moved whichever one happened to be stored
+     * there -- often one the user could not see.
+     *
+     * An id means the same thing in both lists. Looking the positions up
+     * here, inside the same edit that writes the result, also means they
+     * are read from the layout as it is at that instant rather than as it
+     * was when the finger went down.
+     *
+     * Dragging forward lands just after the target and dragging backward
+     * just before it, exactly as [move] does, so with nothing hidden the two
+     * give the same answer. Hidden items between the two are stepped over
+     * and keep their order.
+     */
+    fun moveById(items: List<HomeItem>, fromId: String, toId: String): List<HomeItem> {
+        val from = items.indexOfFirst { it.id == fromId }
+        val to = items.indexOfFirst { it.id == toId }
+        if (from < 0 || to < 0) return items
+        return move(items, from, to)
+    }
+
+    /** [combine], naming the two items by id. See [moveById] for why. */
+    fun combineById(
+        items: List<HomeItem>,
+        fromId: String,
+        ontoId: String,
+        newFolderId: String,
+        folderName: String,
+    ): List<HomeItem> {
+        val from = items.indexOfFirst { it.id == fromId }
+        val onto = items.indexOfFirst { it.id == ontoId }
+        if (from < 0 || onto < 0) return items
+        return combine(items, from, onto, newFolderId, folderName)
+    }
+
     /** Renames one folder, leaving everything else alone. */
     fun renameFolder(items: List<HomeItem>, folderId: String, name: String): List<HomeItem> =
         items.map { item ->

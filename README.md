@@ -426,8 +426,8 @@ wallpaper-backed text above. Those are what the 4 GB Samsung is for.
 ## Tests
 
 ```bash
-gradle :app:testDebugUnitTest          # 134 JVM unit tests, no device needed
-gradle :app:connectedDebugAndroidTest  # 45 device tests, needs an emulator
+gradle :app:testDebugUnitTest          # 142 JVM unit tests, no device needed
+tools/devtest.sh                       # 53 device tests, needs an emulator
 python3 tools/contrast.py              # every colour pair against WCAG AA
 tools/soak.sh com.privacylauncher.debug  # drive every screen on a device
 ```
@@ -602,6 +602,20 @@ None of this ships. The instrumentation tests build a separate APK;
 assumed: the release APK contains no `androidx/test`, `junit` or
 `ui-test` entries, and is still 2.1 MB with three manifest permissions.
 
+### A finger on the real home grid
+
+`HomeGridDragTest` long-presses an icon on the real grid and drags it, and
+checks which two icons the grid says the drag was about. It exists because
+of a fault that only shows on the *second* drag: each cell's gesture
+handler lives on between drags and used to keep the icons it was first
+given, so after one rearrangement it was still working from the layout
+before it. Every test there changes something first and drags second, and
+one changes the icons while an icon is in the air.
+
+`HomeReorderTest` is its JVM partner for the step after: with focus mode
+hiding apps, the third icon on screen can be the fifth one saved, so a drag
+has to be reported by the icons' ids rather than by where they were drawn.
+
 ### The drawer at the size a phone reaches
 
 This emulator has a dozen apps; a phone in use has well over a hundred.
@@ -647,9 +661,11 @@ screen for twenty steps. On this emulator taps do miss, so that mattered.
 
 ### What is not tested
 
-No Compose UI tests, and no instrumentation tests beyond the benchmarks.
 Layout at large font and display sizes has been checked by eye on the
-emulator, not asserted. And none of it has run on the 4 GB Samsung.
+emulator, not asserted. TalkBack has not been run against it; the
+accessibility tests read the same information TalkBack would, but nobody
+has listened to it. And none of it has run on a real phone: every result
+in this file comes from an emulator.
 
 ## Dependencies and licences
 
