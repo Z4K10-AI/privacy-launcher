@@ -426,6 +426,8 @@ wallpaper-backed text above. Those are what the 4 GB Samsung is for.
 ## Tests
 
 ```bash
+tools/check.sh                     # all four below on the a30 emulator, with a summary
+tools/check.sh all                 # the same on all three emulators (15 minutes)
 ./gradlew :app:testDebugUnitTest   # 142 JVM unit tests, no device needed
 tools/devtest.sh a30               # 53 device tests, on the a30 emulator
 python3 tools/contrast.py          # every colour pair against WCAG AA
@@ -540,7 +542,7 @@ for a reason. `tools/emulators.sh` makes them, the same way every time:
 |---|---|---|---|---|
 | `a30` | 11 (API 30) | 1080x2340 at 420 dpi | 4 GB | The screen, memory and Android version of a Samsung Galaxy A30: the low-end phone this has to feel good on |
 | `modern` | 15 (API 35) | 1080x2400 at 420 dpi | 4 GB | What newer versions of Android do differently |
-| `small` | 15 (API 35) | 720x1280 at 320 dpi, text at 1.3x | 2 GB | The accessibility squeeze: a 360 dp wide screen, the narrowest in common use, with large text |
+| `small` | 15 (API 35) | 720x1280 at 320 dpi, text at 1.3x | 2.5 GB | The accessibility squeeze: a 360 dp wide screen, the narrowest in common use, with large text |
 
 ```bash
 tools/emulators.sh create      # make all three; safe to repeat
@@ -784,6 +786,7 @@ privacy-launcher/
 │   ├── emulators.sh           makes, starts and stops the three emulators
 │   ├── device.sh              picks the emulator the other scripts use
 │   ├── install.sh             builds and installs on an emulator
+│   ├── check.sh               every test in one command, with a summary
 │   ├── devtest.sh             runs the on-device tests
 │   ├── soak.sh                drives every screen and checks it came up
 │   └── contrast.py            checks the palette against WCAG AA
@@ -1074,6 +1077,14 @@ Build the app and install it on one, and make it the home app there:
 
 ```bash
 tools/install.sh a30 --home
+```
+
+Run everything -- JVM tests, contrast check, on-device tests and the soak
+-- and get a short summary. `all` does it on every emulator in turn:
+
+```bash
+tools/check.sh
+tools/check.sh all
 ```
 
 Run the on-device tests, and see which failed and why:

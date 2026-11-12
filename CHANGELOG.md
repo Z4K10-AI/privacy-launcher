@@ -11,10 +11,31 @@ same way every time, and every test script now takes one of their names:
 
 - `a30`: Android 11, 1080x2340, 4 GB RAM. The shape of a Galaxy A30.
 - `modern`: Android 15, 1080x2400, 4 GB RAM.
-- `small`: Android 15, 720x1280 (360 dp wide), 2 GB RAM, text at 1.3x.
+- `small`: Android 15, 720x1280 (360 dp wide), 2.5 GB RAM, text at 1.3x.
 
 `tools/devtest.sh a30`, `tools/soak.sh modern` and `tools/install.sh small`
 boot the emulator they name if it is not already up. One runs at a time.
+
+`tools/check.sh` is the whole suite in one command: JVM tests, the contrast
+check, the on-device tests and the soak, then a summary. `tools/check.sh
+all` does it on every emulator in turn. Its first full run, 15 minutes:
+
+    ok    JVM tests     142 passed, 0 failed
+    ok    Contrast      72 pairs checked, 0 below AA
+    a30: emulator pl_a30: Android 11 (API 30), 1080x2340 at 420 dpi, 3.8 GB RAM, software rendering
+    ok    Device tests  53 passed, 0 failed
+    ok    Soak          27 ok, 0 problems
+    modern: emulator pl_modern: Android 15 (API 35), 1080x2400 at 420 dpi, 3.8 GB RAM, software rendering
+    ok    Device tests  53 passed, 0 failed
+    ok    Soak          27 ok, 0 problems
+    small: emulator pl_small: Android 15 (API 35), 720x1280 at 320 dpi, 2.4 GB RAM, software rendering
+    ok    Device tests  53 passed, 0 failed
+    ok    Soak          27 ok, 0 problems
+    RESULT: PASS
+
+(The RAM figures are what each emulator reports, which is a little under
+what it was given. `small` was first set to 2 GB; the emulator will not go
+below 2.5 GB for Android 15, so the profile now says 2.5.)
 
 **The old "A30" emulator was the wrong shape.** This file and the README
 said a Galaxy A30's screen is 720x1560. It is 1080x2340. The emulator built

@@ -20,7 +20,8 @@
 #            catch what newer versions of Android do differently.
 #   small    Android 15 (API 35), 720x1280 at 320 dpi -- a 360x640 dp
 #            screen, the smallest in common use -- with the system font at
-#            1.3x. The accessibility squeeze: least room, biggest text.
+#            1.3x and 2.5 GB RAM, the least the emulator will give Android
+#            15. The accessibility squeeze: least room, biggest text.
 #
 # All three use the plain AOSP system image for Apple Silicon (arm64), not
 # the Google one: no Play Services, which is what the launcher will find on
@@ -59,7 +60,9 @@ profile() {
             P_TITLE="Privacy Launcher: a30 (Galaxy A30 shape, Android 11)" ;;
     modern) P_AVD=pl_modern; P_API=35; P_ANDROID=15; P_W=1080; P_H=2400; P_DPI=420; P_RAM=4096; P_FONT=1.0
             P_TITLE="Privacy Launcher: modern (Android 15)" ;;
-    small)  P_AVD=pl_small;  P_API=35; P_ANDROID=15; P_W=720;  P_H=1280; P_DPI=320; P_RAM=2048; P_FONT=1.3
+    # 2560, not 2048: asked for less, the emulator raises it to 2560 for
+    # this version of Android anyway, and the profile should say what it is.
+    small)  P_AVD=pl_small;  P_API=35; P_ANDROID=15; P_W=720;  P_H=1280; P_DPI=320; P_RAM=2560; P_FONT=1.3
             P_TITLE="Privacy Launcher: small screen, large font (Android 15)" ;;
     *) return 1 ;;
   esac
@@ -138,10 +141,16 @@ create_one() {
   say "$1: ready  (Android $P_ANDROID, ${P_W}x${P_H} at $P_DPI dpi, $P_RAM MB RAM)"
 }
 
-wait_gone() {
-  local avd="$1" i
+# Shuts down the emulator at serial $1 and waits until adb has let go of
+# it. adb goes on listing a dead emulator for a second or two, and anything
+# that reads the list in that time sees a ghost: the first full run of the
+# suite reported "another emulator is also running" about the one it had
+# just stopped.
+kill_serial() {
+  local s="$1" i
+  "$ADB" -s "$s" emu kill >/dev/null 2>&1
   for i in $(seq 1 40); do
-    serial_of "$avd" >/dev/null || return 0
+    "$ADB" devices 2>/dev/null | grep -q "^$s[[:space:]]" || return 0
     sleep 1
   done
   return 1
@@ -152,8 +161,7 @@ stop_one() {
   local s
   s="$(serial_of "$P_AVD")" || { say "$1: not running"; return 0; }
   say "$1: stopping ($s)"
-  "$ADB" -s "$s" emu kill >/dev/null 2>&1
-  wait_gone "$P_AVD" || die "$1 did not shut down"
+  kill_serial "$s" || die "$1 did not shut down"
 }
 
 # Booted far enough to install and run things.
@@ -198,8 +206,7 @@ start_one() {
     [ "$other" = "$name" ] && continue
     if os="$(profile "$other" && serial_of "$P_AVD")"; then
       say "stopping $other first: one emulator at a time on this Mac"
-      "$ADB" -s "$os" emu kill >/dev/null 2>&1
-      (profile "$other" && wait_gone "$P_AVD") || die "$other did not shut down"
+      kill_serial "$os" || die "$other did not shut down"
     fi
   done
   need_profile "$name"
