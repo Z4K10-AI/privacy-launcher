@@ -132,6 +132,13 @@ check() {
   PASS=$((PASS+1))
 }
 
+# report <label> <command...>: ok if the command succeeds.
+report() {
+  local label="$1"; shift
+  if "$@"; then echo "  ok      $label"; PASS=$((PASS+1))
+  else echo "  WRONG   $label"; FAIL=$((FAIL+1)); fi
+}
+
 tap_on() { local c; c=$(coords_of "$1"); [ -z "$c" ] && return 1; $ADB shell input tap $c; }
 
 # Press and hold on $1, then let go without moving.
@@ -422,6 +429,54 @@ run_trackers() {
 # The dashboard again, scrolled to where the results are.
 open_dashboard_results() { open_dashboard && scroll_until "List from Exodus" 6; }
 
+# --- short of memory, and killed -------------------------------------------
+#
+# On a 4 GB phone Android asks apps to give memory back, and when that is
+# not enough it kills them, launchers included. Two things have to be true.
+# Asked to give memory back, the launcher does so and carries on. Killed
+# outright, it comes back by itself with the home screen as the user left
+# it: what they arranged is on disk, not in the memory that was just lost.
+#
+# The kill is a real one: the process is ended with no warning, the way the
+# system does it, not asked politely to stop. That needs a debug build,
+# where adb is allowed to act as the app. For any other build the nearest
+# thing is a force-stop, which is harsher still.
+launcher_pid() { $ADB shell pidof "$PKG" 2>/dev/null | tr -d '\r'; }
+
+kill_launcher() {
+  local pid; pid="$(launcher_pid)"
+  [ -z "$pid" ] && return 1
+  $ADB shell run-as "$PKG" kill -9 "$pid" >/dev/null 2>&1 \
+    || $ADB shell am force-stop "$PKG" >/dev/null 2>&1
+  sleep 4
+  home
+}
+
+calendar_on_home() {
+  calendar_menu >/dev/null 2>&1
+  local on=1
+  present "Remove from home screen" && on=0
+  back; sleep 1; home; sleep 1
+  return $on
+}
+
+run_memory() {
+  echo "--- short of memory, and killed ---"
+  calendar_on_home || carry_calendar_home >/dev/null 2>&1
+  sleep 2
+  check "an icon is on the home screen"       "$HOME_MARK+Calendar"   home
+
+  local before; before="$(launcher_pid)"
+  check "asked for memory back, it carries on" "$HOME_MARK+Calendar" \
+        $ADB shell am send-trim-memory "$PKG" RUNNING_CRITICAL
+  report "and is still the same process" test "$(launcher_pid)" = "$before"
+
+  check "killed, it comes back as it was"      "$HOME_MARK+Calendar"   kill_launcher
+  report "as a new process (was $before, is $(launcher_pid))" \
+         test -n "$(launcher_pid)" -a "$(launcher_pid)" != "$before"
+  check "the icon is taken off again"          "$HOME_MARK+!Calendar"  take_calendar_off_home
+}
+
 # --- lock down -------------------------------------------------------------
 #
 # Lock down has to do more than lock the screen: after it, Android must
@@ -478,13 +533,6 @@ lockdown_cleanup() {
     echo "          Turn it off: launcher Settings, Gestures, Lock down. Until"
     echo "          then Android will refuse to uninstall the launcher."
   fi
-}
-
-# report <label> <command...>: ok if the command succeeds.
-report() {
-  local label="$1"; shift
-  if "$@"; then echo "  ok      $label"; PASS=$((PASS+1))
-  else echo "  WRONG   $label"; FAIL=$((FAIL+1)); fi
 }
 
 run_lockdown() {
@@ -594,7 +642,8 @@ fi
 echo "onboarding cleared, home screen reached"
 echo
 
-# SOAK_ONLY=carry (or lock, search, trackers, lockdown, or screens) runs one part. It is for working on
+# SOAK_ONLY=carry (or lock, search, trackers, memory, lockdown, or screens)
+# runs one part. It is for working on
 # this script, not for calling the app tested: a full run has no SOAK_ONLY.
 ONLY="${SOAK_ONLY:-}"
 wanted() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
@@ -645,11 +694,17 @@ echo "=== G. the tracker scan ==="
 run_trackers
 fi
 
+if wanted memory; then
+echo
+echo "=== H. short of memory, and killed ==="
+run_memory
+fi
+
 # Last, because it locks the emulator, and a lock that would not open again
 # would otherwise take every part after it down too.
 if wanted lockdown; then
 echo
-echo "=== H. lock down, with a PIN on the emulator ==="
+echo "=== I. lock down, with a PIN on the emulator ==="
 run_lockdown
 fi
 

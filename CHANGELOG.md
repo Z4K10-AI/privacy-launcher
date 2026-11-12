@@ -4,6 +4,29 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Killed, and back as it was
+
+The performance budget says the launcher must hand memory back when asked
+and come back intact after being killed. The first half had a test; the
+second had never been tried.
+
+New soak part H does both in the real app, on every run:
+
+- asks for memory back with Android's own "running critical" signal, and
+  requires the same process to carry on with the home screen intact;
+- then ends the process with no warning, as the system does when memory
+  runs out, and requires the launcher to return by itself, as a new
+  process, with the icon that was on the home screen still there.
+
+On emulator `a30` (Android 11) both hold. An emulator with 4 GB and little
+installed is rarely short of memory by itself, so this shows the launcher
+recovers from a kill, not how often a real phone would kill it.
+
+Also corrected: the welcome pages said everything the launcher knows "lives
+in one file". With tracker scan results now remembered that is two files.
+It now says what is true and what matters: it all stays in the launcher's
+private storage on the phone.
+
 ### Lock down now means what it says
 
 The Lock down tile used to lock the screen and nothing more: a fingerprint

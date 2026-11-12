@@ -796,13 +796,20 @@ Another runs the tracker scan in the real app: opens the dashboard, presses
 the button, waits for an answer, leaves, comes back, and checks the answer
 is still there without a second scan.
 
+One part is about memory, which on a 4 GB phone is the thing most likely
+to go wrong. It asks the launcher to give memory back, as Android does when
+it runs short, and requires the same process to carry on with the home
+screen intact. Then it kills the process outright, with no warning, the way
+the system does, and requires the launcher to come back by itself as a new
+process with the home screen as it was left.
+
 The last is Lock down, and it does not judge by the screen. Android keeps a
 number that says whether the lock screen will take a fingerprint or only
 the PIN, and prints it on request. An ordinary lock leaves it at 0. The
 check presses the Lock down tile and requires the phone to be asleep and
 that number to be 2, types the PIN and requires it to be 0 again, then
 turns Lock down off through the launcher's own Settings and requires
-Android to agree it is off. That is 48 checks in all.
+Android to agree it is off. That is 54 checks in all.
 
 It clears the crash buffer before each step and checks it after, so a crash
 is attributed to the step that caused it rather than appearing as a wall of
