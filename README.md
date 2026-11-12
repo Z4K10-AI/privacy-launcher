@@ -996,27 +996,51 @@ packages to Android and both can be the home app candidate at once.
 
 #### About the signing key
 
-Signing is read from `keystore.properties` next to `app/`. Both that file and
-the key are in `.gitignore`, and **if either is missing the release build
-still succeeds and comes out unsigned** — a fresh clone builds without having
-to be handed a key first.
+The signing key does **not** live in this project folder. The build looks
+for a small settings file, `keystore.properties`, in two places, in order:
 
-The key committed to nobody and generated for this project is a
-**development key**. It exists so release builds can be installed and
-measured. Do not publish anything signed with it: its password is written in
-plain text in the same file, so anyone with the repository can sign an APK
-that claims to be this app.
+1. the path in the `PL_KEYSTORE_PROPERTIES` environment variable (what an
+   automated build uses);
+2. `~/.privacy-launcher-signing/keystore.properties`, in the home folder of
+   whoever is building.
 
-For a real release, make your own and keep it somewhere safe:
+That file names the key (`storeFile`, read relative to the file's own
+folder), its alias and its two passwords. **If no file or no key is found
+the release build still succeeds and comes out unsigned**, so a fresh clone
+builds without being handed a key first.
+
+If the key turns up *inside* the project folder the build stops and says so.
+A key in the project is one `git add` away from being public, and
+`.gitignore` alone is not treated as enough. (`*.p12`, `*.jks`, `*.keystore`
+and `keystore.properties` are ignored as well, as a second line of defence.)
+
+On the Mac this was developed on, the key is
+`~/.privacy-launcher-signing/privacy-launcher-dev.p12`. It is a
+**development key**: it exists so release builds can be installed and
+measured. Do not publish anything signed with it. Its password sits in plain
+text in the file beside it, and it has never been backed up or protected the
+way a real release key must be.
+
+For a real release, make your own and keep it somewhere safe, with a backup:
 
 ```bash
-keytool -genkeypair -v -keystore my-release.p12 -storetype PKCS12 -alias privacy-launcher -keyalg RSA -keysize 4096 -validity 10000
+keytool -genkeypair -v -keystore ~/.privacy-launcher-signing/my-release.p12 -storetype PKCS12 -alias privacy-launcher -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-Then point `keystore.properties` at it. Guard that file: Android refuses an
-update signed with a different key than the installed app, so losing the key
-means never being able to update an installed copy again — the only way
-forward is uninstalling, which takes the user's settings with it.
+Then write `~/.privacy-launcher-signing/keystore.properties` with four
+lines:
+
+```
+storeFile=my-release.p12
+storePassword=<the password you chose>
+keyAlias=privacy-launcher
+keyPassword=<the same password, for a .p12 key>
+```
+
+Guard both files. Android refuses an update signed with a different key than
+the installed app, so losing the key means never being able to update an
+installed copy again: the only way forward is uninstalling, which takes the
+user's settings with it.
 
 ### compileSdk 37, targetSdk 35
 

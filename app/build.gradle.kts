@@ -10,18 +10,43 @@ plugins {
 }
 
 /**
- * Release signing, read from `keystore.properties` beside this file.
+ * Release signing. The key and its passwords live OUTSIDE this project
+ * folder, so neither can be committed or published by accident.
  *
- * That file and the key itself are both in .gitignore. If either is missing
- * the release build still succeeds and simply comes out unsigned, so a fresh
- * clone of this repository builds without having to be given a key first.
+ * The build looks for a `keystore.properties` file in two places, in order:
+ *
+ *   1. the path in the PL_KEYSTORE_PROPERTIES environment variable (this is
+ *      what an automated build uses);
+ *   2. `~/.privacy-launcher-signing/keystore.properties` in the home folder
+ *      of whoever is building.
+ *
+ * `storeFile` inside it is read relative to that file's own folder. If no
+ * file or no key is found the release build still succeeds and simply comes
+ * out unsigned, so a fresh clone builds without being given a key first.
  */
+val keystorePropertiesFile: File? = sequenceOf(
+    providers.environmentVariable("PL_KEYSTORE_PROPERTIES").orNull
+        ?.takeIf { it.isNotBlank() }?.let(::File),
+    File(System.getProperty("user.home"), ".privacy-launcher-signing/keystore.properties"),
+).filterNotNull().firstOrNull { it.isFile }
 val keystoreProperties = Properties().apply {
-    val file = rootProject.file("keystore.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+    keystorePropertiesFile?.inputStream()?.use { load(it) }
 }
-val hasSigningKey = keystoreProperties.getProperty("storeFile")
-    ?.let { rootProject.file(it).exists() } == true
+val keystoreFile: File? = keystoreProperties.getProperty("storeFile")
+    ?.let { keystorePropertiesFile!!.absoluteFile.parentFile.resolve(it) }
+    ?.takeIf { it.isFile }
+// A key inside the project folder is one `git add` away from being public.
+// Refuse it outright rather than trust .gitignore alone.
+if (keystoreFile != null &&
+    keystoreFile.canonicalFile.startsWith(rootProject.projectDir.canonicalFile)
+) {
+    throw GradleException(
+        "The signing key is inside the project folder:\n  $keystoreFile\n" +
+            "Move it and keystore.properties somewhere outside it, for example " +
+            "~/.privacy-launcher-signing/, and build again.",
+    )
+}
+val hasSigningKey = keystoreFile != null
 
 android {
     namespace = "com.privacylauncher"
@@ -48,7 +73,7 @@ android {
     signingConfigs {
         if (hasSigningKey) {
             create("release") {
-                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storeFile = keystoreFile
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
