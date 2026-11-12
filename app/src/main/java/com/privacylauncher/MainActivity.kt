@@ -88,6 +88,7 @@ import com.privacylauncher.ui.followCarry
 import com.privacylauncher.system.Guarded
 import com.privacylauncher.system.guard
 import com.privacylauncher.system.moveLockSwitch
+import com.privacylauncher.ui.settings.LockDownDialog
 
 /**
  * The launcher's one and only Activity.
@@ -566,6 +567,8 @@ private fun LauncherRoot(
                 guard = guarded,
                 gestureServiceEnabled = viewModel.gestureServiceEnabled,
                 onGestureService = { viewModel.showGestureExplainerDialog() },
+                lockDownState = viewModel.lockDownState,
+                onLockDown = viewModel::openLockDownDialog,
                 onDesignPreview = viewModel::openDesignPreview,
                 onPrivacyDashboard = viewModel::openPrivacyDashboard,
                 onQuickPanel = viewModel::openQuickPanel,
@@ -623,7 +626,7 @@ private fun LauncherRoot(
                 ) {
                     QuickPanel(
                         state = quickState,
-                        gestureServiceEnabled = viewModel.gestureServiceEnabled,
+                        lockDownState = viewModel.lockDownState,
                         onObserve = viewModel::observeQuickControls,
                         onRefresh = viewModel::refreshQuickControls,
                         onTile = viewModel::onQuickTile,
@@ -682,6 +685,16 @@ private fun LauncherRoot(
                 drag = homeDrag,
                 iconSize = iconSize,
                 iconLoader = viewModel.iconLoader,
+            )
+        }
+
+        if (viewModel.showLockDownDialog) {
+            LockDownDialog(
+                state = viewModel.lockDownState,
+                onDismiss = viewModel::dismissLockDownDialog,
+                onAllow = viewModel::allowLockDown,
+                onOpenSecurity = viewModel::openSecuritySettings,
+                onTurnOff = viewModel::turnOffLockDown,
             )
         }
 

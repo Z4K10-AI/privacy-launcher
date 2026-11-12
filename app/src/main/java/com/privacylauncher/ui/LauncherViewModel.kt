@@ -59,6 +59,9 @@ import com.privacylauncher.data.AppScan
 import com.privacylauncher.data.TrackerFinding
 import com.privacylauncher.data.TrackerReport
 import kotlinx.coroutines.NonCancellable
+import com.privacylauncher.system.LockDown
+import com.privacylauncher.system.LockDownState
+import com.privacylauncher.R
 
 /** Which full-screen panel is showing, if any. */
 enum class Panel {
@@ -299,6 +302,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var showGestureExplainer by mutableStateOf(false)
         private set
 
+    /** Whether Lock down can lock right now, and if not what it is waiting for. */
+    var lockDownState by mutableStateOf(LockDownState.NEEDS_PERMISSION)
+        private set
+
+    var showLockDownDialog by mutableStateOf(false)
+        private set
+
     val drawerOpen: Boolean get() = panel == Panel.DRAWER
 
     // --- package install/uninstall tracking -------------------------------
@@ -402,6 +412,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         // screen is whatever it was last night.
         focusTick.value = System.currentTimeMillis()
         gestureServiceEnabled = LauncherAccessibilityService.isEnabled
+        lockDownState = LockDown.state(getApplication<Application>())
         if (panel == Panel.PRIVACY) rescanPrivacy()
         // Coming back from Android's own settings is the usual way one of
         // these changes, so the panel must not still be showing the old
@@ -674,18 +685,55 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Locks the screen, or explains why it cannot.
+     * Shuts the phone until the PIN is typed, or says what is needed first.
      *
-     * Same route as double-tap-to-lock: there is no lock API for an ordinary
-     * app, so it goes through the optional accessibility service.
+     * Not the same route as double-tap-to-lock. That locks the screen and a
+     * fingerprint opens it again, which is what a quick lock should do and
+     * not what "lock down" means. See [LockDown].
      */
     private fun onLockDown() {
-        if (!LauncherAccessibilityService.lockScreenSupported) return
-        if (LauncherAccessibilityService.isEnabled) {
-            LauncherAccessibilityService.lockScreen()
-        } else {
-            showGestureExplainer = true
+        val app = getApplication<Application>()
+        lockDownState = LockDown.state(app)
+        if (lockDownState != LockDownState.READY || !LockDown.lockNow(app)) {
+            // Not ready, or Android refused because the permission was
+            // taken away while the launcher was not looking.
+            lockDownState = LockDown.state(app)
+            showLockDownDialog = true
         }
+    }
+
+    /** Opens the Lock down dialog from Settings, whatever state it is in. */
+    fun openLockDownDialog() {
+        lockDownState = LockDown.state(getApplication<Application>())
+        showLockDownDialog = true
+    }
+
+    fun dismissLockDownDialog() {
+        showLockDownDialog = false
+    }
+
+    /** On to Android's own screen, where the permission is actually granted. */
+    fun allowLockDown() {
+        showLockDownDialog = false
+        val app = getApplication<Application>()
+        runCatching {
+            app.startActivity(
+                LockDown.allowIntent(app, app.getString(R.string.lock_down_admin_description)),
+            )
+        }
+    }
+
+    fun turnOffLockDown() {
+        showLockDownDialog = false
+        val app = getApplication<Application>()
+        LockDown.giveUp(app)
+        // Android takes a moment to act on it; the answer here is known.
+        lockDownState = LockDown.state(allowed = false, screenLockSet = LockDown.screenLockSet(app))
+    }
+
+    fun openSecuritySettings() {
+        showLockDownDialog = false
+        appRepository.openAction(android.provider.Settings.ACTION_SECURITY_SETTINGS)
     }
 
     private var pendingBrightness: Float? = null

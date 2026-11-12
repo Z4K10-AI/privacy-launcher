@@ -115,9 +115,22 @@ aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
   and Private DNS show their state, carry a corner arrow, and open Android's
   own screen — Wi‑Fi opens an inline Settings *panel* with a working switch on
   it. A line under the grid says all of this plainly.
-- **Lock down** locks the screen through the optional accessibility service.
-  It is not Android's own Lockdown, which also disables fingerprint unlock;
-  that lives in the power menu and no app can start it. The panel says so.
+- **Lock down** shuts the phone so that only your PIN, pattern or password
+  opens it. Fingerprint and face unlock stay off until you have typed it
+  once: the point of a lock-down is that nobody can open the phone by
+  pressing your finger to it.
+  - It needs your OK once, on one of Android's own screens, to let the
+    launcher lock the screen. Android calls that a "device admin app". The
+    launcher asks for that one ability and no other; it cannot erase the
+    phone, change your PIN or see anything, and Android enforces that.
+  - While it is allowed, **Android will not uninstall the launcher**. That
+    is Android's rule for every such app. A dialog says so before you
+    agree, and Settings → Gestures → Lock down takes it back.
+  - It is not all of Android's own Lockdown, the one in the power menu,
+    which also hides notifications on the lock screen. An app cannot do
+    that part, and the panel says so.
+  - Double-tap to lock, which goes through the optional accessibility
+    service, is the ordinary kind of lock: a fingerprint opens it again.
 - A brightness slider with a haptic tick every twentieth of the bar. Disabled
   until you allow "Modify system settings"; the panel explains and links.
 - Every state is read without a permission: the Settings provider for Wi‑Fi,
@@ -341,6 +354,8 @@ such as an open folder, where the thing being blurred is our own UI.
 | No analytics, ads or crash reporting | No such dependency exists in the build |
 | Settings stay on the phone | `android:allowBackup="false"` plus `data_extraction_rules.xml` excluding every domain from cloud backup and device transfer |
 | Narrow app visibility | The manifest's `<queries>` block asks only for apps with a launcher icon, not `QUERY_ALL_PACKAGES`. The privacy dashboard works within that limit and states it on screen |
+| Two optional abilities, each off until you turn it on in Android's settings | An accessibility service that can open the notification shade and lock the screen and is refused everything else, and a device admin right that can lock the screen and nothing else (`res/xml/lock_down_admin.xml`). Neither is a permission the app requests, and `PermissionPromiseTest` reads both lists back from the installed app |
+| No tracker code inside it | The launcher's own tracker scan is run against its own installed file in `TrackerScanDeviceTest`, and must find none of the 428 trackers on the list |
 
 ### Contacts: a permission you switch on
 
@@ -777,9 +792,17 @@ must list no Android settings until the switch for that is turned on. The
 PIN is removed again afterwards, and the emulator scripts clear it at boot
 in case a run was killed half way.
 
-The last part runs the tracker scan in the real app: opens the dashboard,
-presses the button, waits for an answer, leaves, comes back, and checks the
-answer is still there without a second scan. That is 42 checks in all.
+Another runs the tracker scan in the real app: opens the dashboard, presses
+the button, waits for an answer, leaves, comes back, and checks the answer
+is still there without a second scan.
+
+The last is Lock down, and it does not judge by the screen. Android keeps a
+number that says whether the lock screen will take a fingerprint or only
+the PIN, and prints it on request. An ordinary lock leaves it at 0. The
+check presses the Lock down tile and requires the phone to be asleep and
+that number to be 2, types the PIN and requires it to be 0 again, then
+turns Lock down off through the launcher's own Settings and requires
+Android to agree it is off. That is 48 checks in all.
 
 It clears the crash buffer before each step and checks it after, so a crash
 is attributed to the step that caused it rather than appearing as a wall of
@@ -1274,6 +1297,10 @@ The app cannot do this itself — only you can, in system settings. Either:
 To go back to Samsung's launcher, pick **One UI Home** on that same screen.
 
 ## Uninstall
+
+If you allowed **Lock down**, turn it off first: Settings → Gestures → Lock
+down → Turn off. Android will not uninstall an app while it is allowed to
+lock the screen, and says "this app is a device admin app" if you try.
 
 ```bash
 adb uninstall com.privacylauncher.debug

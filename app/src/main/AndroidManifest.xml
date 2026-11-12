@@ -118,6 +118,31 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
         <!--
+          Optional, and off until the user allows it on one of Android's own
+          screens. It lets the Lock down tile shut the phone so that only
+          the PIN, pattern or password opens it again. The one thing it may
+          do is listed in res/xml/lock_down_admin.xml: lock the screen.
+
+          This is not a permission the launcher asks for, and the
+          permissions it does ask for are unchanged. BIND_DEVICE_ADMIN
+          below is the other way round: it stops any app except Android
+          itself from talking to this receiver.
+        -->
+        <receiver
+            android:name=".system.LockDownAdminReceiver"
+            android:description="@string/lock_down_admin_description"
+            android:exported="true"
+            android:label="@string/lock_down_admin_label"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/lock_down_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
           START-UP HELPERS
 
           AndroidX libraries register small start-up helpers by merging lines

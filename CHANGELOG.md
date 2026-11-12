@@ -4,6 +4,43 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Lock down now means what it says
+
+The Lock down tile used to lock the screen and nothing more: a fingerprint
+opened it again. A lock-down is for the moment someone else might press
+your finger to the phone, so that was the wrong thing under the right name.
+The tile said as much, which was honest, but the feature was half there.
+
+It now locks so that **only the PIN, pattern or password opens the phone**.
+
+- **How.** Android lets an app the user has approved as a "device admin
+  app" lock the screen with `DevicePolicyManager.lockNow()`, after which,
+  in Android's own words, "the device must be unlocked using strong
+  authentication". The launcher asks for that one ability,
+  locking the screen, and lists no other.
+- **Measured, not assumed.** Android keeps a number saying whether the lock
+  screen will take a fingerprint, and prints it on request. On emulator
+  `a30` (Android 11): an ordinary power-button lock leaves it at 0; the
+  Lock down tile makes it 2; typing the PIN puts it back to 0. New soak
+  part H checks exactly that on every run.
+- **The cost is said first.** While Lock down is allowed, Android will not
+  uninstall the launcher. The dialog says so before sending the user to
+  Android's screen, and Settings → Gestures → Lock down takes it back.
+- **No screen lock, no promise.** On a phone with no PIN the tile says it
+  needs one, instead of "locking" a phone anyone can swipe open.
+- **Still not all of Android's Lockdown.** That also hides notifications on
+  the lock screen. An app cannot, and the panel says so.
+
+Double-tap to lock is unchanged: it is the ordinary lock, through the
+optional accessibility service, and a fingerprint opens it.
+
+The two permissions the app asks for are unchanged. Being a device admin is
+not a permission an app requests; it is something the user switches on.
+`PermissionPromiseTest` now also reads the admin's list of abilities from
+the installed app and fails if it is ever more than "lock the screen".
+
+Tests: 3 JVM, 5 on the emulator, 6 soak checks.
+
 ### A tracker scan, done on the phone
 
 The privacy dashboard can now look inside each app for known advertising,

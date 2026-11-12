@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the launcher may do as a device admin app: lock the screen. That is
+  the whole list.
+
+  A device admin app can be given far more than this: erasing the phone,
+  setting the PIN, watching failed unlocks, turning the camera off. None of
+  those is here, and Android will refuse any of them to an app that did not
+  list it. PermissionPromiseTest reads this back from the installed app and
+  fails if a second line ever appears.
+-->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <force-lock />
+    </uses-policies>
+</device-admin>

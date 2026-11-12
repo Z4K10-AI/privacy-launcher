@@ -53,6 +53,7 @@ import com.privacylauncher.designsystem.rememberHaptics
 import com.privacylauncher.ui.components.LauncherIcons
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.privacylauncher.system.LockDownState
 
 /** How much of the brightness bar a step has to cover to earn a tick. */
 private const val HAPTIC_STEP = 0.05f
@@ -73,7 +74,7 @@ private const val HAPTIC_STEP = 0.05f
 @Composable
 fun QuickPanel(
     state: QuickControlsState,
-    gestureServiceEnabled: Boolean,
+    lockDownState: LockDownState,
     onObserve: () -> (() -> Unit),
     onRefresh: () -> Unit,
     onTile: (QuickTile) -> Unit,
@@ -131,7 +132,7 @@ fun QuickPanel(
                 TileCard(
                     tile = tile,
                     state = state,
-                    gestureServiceEnabled = gestureServiceEnabled,
+                    lockDownState = lockDownState,
                     onClick = { onTile(tile) },
                 )
             }
@@ -149,7 +150,8 @@ fun QuickPanel(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     // Lock down deserves its own sentence: "lockdown" means
-                    // something specific on Android, and this tile is not it.
+                    // something specific on Android, and this tile does the
+                    // part of it that matters but not all of it.
                     Text(
                         text = stringResource(R.string.quick_lockdown_note),
                         style = MaterialTheme.typography.bodySmall,
@@ -250,7 +252,7 @@ private fun BrightnessCard(
 private fun TileCard(
     tile: QuickTile,
     state: QuickControlsState,
-    gestureServiceEnabled: Boolean,
+    lockDownState: LockDownState,
     onClick: () -> Unit,
 ) {
     val active = tile.isActive(state)
@@ -314,7 +316,7 @@ private fun TileCard(
                     },
                 )
                 Text(
-                    text = tile.statusText(state, gestureServiceEnabled),
+                    text = tile.statusText(state, lockDownState),
                     style = MaterialTheme.typography.bodySmall,
                     color = content,
                 )
@@ -327,7 +329,7 @@ private fun TileCard(
 @Composable
 private fun QuickTile.statusText(
     state: QuickControlsState,
-    gestureServiceEnabled: Boolean,
+    lockDownState: LockDownState,
 ): String = when (this) {
     QuickTile.FLASHLIGHT -> when {
         !state.torchAvailable -> stringResource(R.string.quick_no_flash)
@@ -335,7 +337,11 @@ private fun QuickTile.statusText(
         else -> stringResource(R.string.quick_off)
     }
     QuickTile.LOCKDOWN -> stringResource(
-        if (gestureServiceEnabled) R.string.quick_locks_now else R.string.quick_needs_service,
+        when (lockDownState) {
+            LockDownState.READY -> R.string.quick_locks_now
+            LockDownState.NEEDS_PERMISSION -> R.string.quick_needs_ok
+            LockDownState.NEEDS_SCREEN_LOCK -> R.string.quick_needs_screen_lock
+        },
     )
     QuickTile.PRIVATE_DNS -> when (state.privateDns) {
         PrivateDnsMode.OFF -> stringResource(R.string.quick_off)

@@ -265,6 +265,12 @@ run_carry() {
 # away again, whatever happens in between.
 LOCK_PIN=1234
 lock_cleanup() { $ADB shell locksettings clear --old "$LOCK_PIN" >/dev/null 2>&1; }
+# Gives the emulator the PIN. If it already has it, left by a run that was
+# killed before it could clean up, that counts too.
+give_pin() {
+  $ADB shell locksettings set-pin "$LOCK_PIN" 2>&1 | grep -q "Pin set" && return 0
+  $ADB shell locksettings verify --old "$LOCK_PIN" 2>&1 | grep -qi "verified successfully"
+}
 
 # Is the switch on the row called $1 on? Prints true or false.
 switch_state() {
@@ -310,7 +316,7 @@ lock_row() { home; sleep 1; tap_on "Settings"; sleep 2; scroll_until "Require un
 
 run_lock() {
   echo "--- the hidden-apps lock ---"
-  if ! $ADB shell locksettings set-pin "$LOCK_PIN" >/dev/null 2>&1; then
+  if ! give_pin; then
     echo "  skip    could not give this emulator a PIN, so there is nothing to ask for"
     return
   fi
@@ -416,6 +422,106 @@ run_trackers() {
 # The dashboard again, scrolled to where the results are.
 open_dashboard_results() { open_dashboard && scroll_until "List from Exodus" 6; }
 
+# --- lock down -------------------------------------------------------------
+#
+# Lock down has to do more than lock the screen: after it, Android must
+# accept only the PIN, not a fingerprint. Android keeps a number that says
+# exactly that, and prints it on request. An ordinary lock, the power
+# button, leaves it at 0. Lock down has to make it 2 ("strong
+# authentication required after a device-admin lock"). This reads the
+# number before, after, and once the PIN has been typed.
+#
+# It needs a PIN on the emulator and the launcher allowed to lock the
+# screen. Both are given here and both are taken away again. The allowing is
+# done through adb, because that screen is Android's and its wording
+# differs between versions; the taking away is done through the launcher's
+# own Settings, because that part is the launcher's and should be tested.
+LOCKDOWN_ADMIN="$PKG/com.privacylauncher.system.LockDownAdminReceiver"
+
+auth_flags() {
+  $ADB shell dumpsys lock_settings 2>/dev/null | grep -A3 'PrimaryAuthFlags' \
+    | grep -oE 'primaryAuthFlags=[0-9]+' | head -1 | sed 's/.*=//'
+}
+asleep() { $ADB shell dumpsys power 2>/dev/null | grep -q 'mWakefulness=Asleep'; }
+admin_on() { $ADB shell dumpsys device_policy 2>/dev/null | grep -q "$LOCKDOWN_ADMIN"; }
+# Android acts on the request a moment after it is made.
+admin_gone() {
+  local i
+  for i in 1 2 3 4 5; do admin_on || return 0; sleep 1; done
+  return 1
+}
+
+unlock_with_pin() {
+  $ADB shell input keyevent KEYCODE_WAKEUP; sleep 1
+  $ADB shell input swipe $MIDX $((H * 77 / 100)) $MIDX $((H * 25 / 100)) 200; sleep 2
+  $ADB shell input text "$LOCK_PIN"
+  $ADB shell input keyevent KEYCODE_ENTER; sleep 3
+}
+
+# Through the launcher's own Settings: Gestures, Lock down, Turn off.
+turn_lockdown_off() {
+  home; sleep 1
+  tap_on "Settings"; sleep 2
+  scroll_until "Tap to turn it off" 30 || return 1
+  tap_on "Tap to turn it off"; sleep 2
+  tap_on "re:turn off"; sleep 3
+}
+
+lockdown_cleanup() {
+  # Whatever state it was left in: no PIN, awake, not a device admin.
+  $ADB shell locksettings clear --old "$LOCK_PIN" >/dev/null 2>&1
+  $ADB shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+  $ADB shell wm dismiss-keyguard >/dev/null 2>&1
+  if admin_on; then turn_lockdown_off >/dev/null 2>&1; fi
+  if admin_on; then
+    echo "  NOTE    the launcher is still allowed to lock this emulator's screen."
+    echo "          Turn it off: launcher Settings, Gestures, Lock down. Until"
+    echo "          then Android will refuse to uninstall the launcher."
+  fi
+}
+
+# report <label> <command...>: ok if the command succeeds.
+report() {
+  local label="$1"; shift
+  if "$@"; then echo "  ok      $label"; PASS=$((PASS+1))
+  else echo "  WRONG   $label"; FAIL=$((FAIL+1)); fi
+}
+
+run_lockdown() {
+  echo "--- lock down ---"
+  if ! give_pin; then
+    echo "  skip    could not give this emulator a PIN"
+    return
+  fi
+  trap lockdown_cleanup EXIT
+  if ! admin_on && ! $ADB shell dpm set-active-admin --user 0 "$LOCKDOWN_ADMIN" 2>&1 | grep -q Success; then
+    echo "  skip    could not allow the launcher to lock the screen through adb"
+    lockdown_cleanup; trap - EXIT
+    return
+  fi
+  if [ -z "$(auth_flags)" ]; then
+    echo "  skip    this Android does not print the number this check reads"
+    lockdown_cleanup; trap - EXIT
+    return
+  fi
+
+  home; sleep 1
+  check "the tile says it is ready"   "Locks until your PIN"   retry_until "Quick controls" left
+  local before; before="$(auth_flags)"
+  tap_on "Lock down" >/dev/null 2>&1; sleep 4
+  report "it locks the phone"                    asleep
+  report "and Android now demands the PIN (was $before, is $(auth_flags), must be 2)" \
+         test "$(auth_flags)" = "2"
+  unlock_with_pin
+  report "the PIN opens it again"                test "$(auth_flags)" = "0"
+  check  "back on the home screen"    "$HOME_MARK"             home
+  turn_lockdown_off >/dev/null 2>&1
+  report "it can be turned off in the launcher's Settings" admin_gone
+  home
+  lockdown_cleanup
+  trap - EXIT
+}
+
 # A fresh install opens on the onboarding flow, not the home screen.
 #
 # Without this, every check below looks for home-screen text, finds a welcome
@@ -488,7 +594,7 @@ fi
 echo "onboarding cleared, home screen reached"
 echo
 
-# SOAK_ONLY=carry (or lock, search, trackers, or screens) runs one part. It is for working on
+# SOAK_ONLY=carry (or lock, search, trackers, lockdown, or screens) runs one part. It is for working on
 # this script, not for calling the app tested: a full run has no SOAK_ONLY.
 ONLY="${SOAK_ONLY:-}"
 wanted() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
@@ -537,6 +643,14 @@ if wanted trackers; then
 echo
 echo "=== G. the tracker scan ==="
 run_trackers
+fi
+
+# Last, because it locks the emulator, and a lock that would not open again
+# would otherwise take every part after it down too.
+if wanted lockdown; then
+echo
+echo "=== H. lock down, with a PIN on the emulator ==="
+run_lockdown
 fi
 
 [ -n "$ONLY" ] && echo && echo "(SOAK_ONLY=$ONLY: only part of the soak ran)"

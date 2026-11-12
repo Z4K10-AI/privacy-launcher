@@ -1,6 +1,8 @@
 package com.privacylauncher
 
+import android.app.admin.DeviceAdminInfo
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -149,6 +151,35 @@ class PermissionPromiseTest {
             "a start-up helper for emoji fonts is registered",
             emptyList<String>(),
             helpers.filter { it.contains("emoji", ignoreCase = true) },
+        )
+    }
+
+    @Test
+    fun asADeviceAdminTheLauncherMayLockTheScreenAndNothingElse() {
+        // Lock down needs the launcher to be what Android calls a device
+        // admin app. That phrase covers a great deal: such an app can be
+        // given the power to erase the phone, set its PIN, or turn the
+        // camera off. Which powers one has is a list in its own files, and
+        // this reads that list back from the installed app. It must say
+        // "lock the screen" and stop.
+        val receiver = Intent("android.app.action.DEVICE_ADMIN_ENABLED")
+            .setPackage(context.packageName)
+        val admins = context.packageManager.queryBroadcastReceivers(
+            receiver, PackageManager.GET_META_DATA,
+        )
+        assertEquals("exactly one device admin component", 1, admins.size)
+        val info = DeviceAdminInfo(context, admins.single())
+
+        val granted = (0..20).filter { info.usesPolicy(it) }
+        assertEquals(
+            "the device admin lists more than locking the screen",
+            listOf(DeviceAdminInfo.USES_POLICY_FORCE_LOCK),
+            granted,
+        )
+        // And only Android itself may talk to it.
+        assertEquals(
+            "android.permission.BIND_DEVICE_ADMIN",
+            admins.single().activityInfo.permission,
         )
     }
 }

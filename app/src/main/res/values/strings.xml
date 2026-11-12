@@ -47,14 +47,28 @@
     <string name="quick_unknown">Unknown</string>
     <string name="quick_dns_automatic">Automatic</string>
     <string name="quick_no_flash">No flash on this phone</string>
-    <string name="quick_locks_now">Locks the screen now</string>
-    <string name="quick_needs_service">Needs the gesture service</string>
+    <string name="quick_locks_now">Locks until your PIN</string>
+    <string name="quick_needs_ok">Needs your OK once</string>
+    <string name="quick_needs_screen_lock">Needs a screen lock</string>
     <string name="quick_brightness">Brightness</string>
     <string name="quick_brightness_auto">Auto-brightness is on, so Android may move this again on its own.</string>
     <string name="quick_brightness_blocked">Changing screen brightness needs Android\'s “Modify system settings” access. Nothing else here uses it, and you can take it back in the same place.</string>
     <string name="quick_brightness_allow">Allow in Android settings</string>
     <string name="quick_honesty">Only the flashlight and Lock down work from here. Android stopped letting ordinary apps switch Wi\u2011Fi, Bluetooth, location, Do Not Disturb, rotation or Private DNS, so those tiles show the state and open the right Android screen — the corner arrow marks them.</string>
-    <string name="quick_lockdown_note">Lock down locks the screen straight away. Android\'s own Lockdown, which also turns off fingerprint unlock until you next type your PIN, lives in the power menu and cannot be started by an app.</string>
+    <string name="quick_lockdown_note">Lock down shuts the phone so that only your PIN, pattern or password opens it. Fingerprint and face unlock stay off until you have typed it once. Android\'s own Lockdown, in the power menu, also hides notifications on the lock screen; an app cannot do that part.</string>
+
+    <!-- Lock down -->
+    <string name="lock_down_admin_label">Lock down</string>
+    <string name="lock_down_admin_description">Lets the Lock down tile lock the screen so that only your PIN, pattern or password opens it. It is allowed to lock the screen and nothing else.</string>
+    <string name="lock_down_explainer">Lock down shuts the phone so that only your PIN, pattern or password opens it. Fingerprint and face unlock stay off until you have typed it once.\n\nTo do that the launcher has to be allowed to lock the screen. Android calls an app with that right a “device admin app”. This one asks to lock the screen and nothing else: it cannot erase the phone, change your PIN or see anything.\n\nOne thing to know first. While it is allowed, Android will not uninstall the launcher. You can take it back at any time, here in Settings under Gestures or in Android\'s Security settings.</string>
+    <string name="lock_down_continue">Continue</string>
+    <string name="lock_down_needs_lock">Lock down shuts the phone so that only your PIN, pattern or password opens it. This phone has none set, so there is nothing to shut it with.\n\nSet a screen lock in Android\'s Security settings, then come back.</string>
+    <string name="lock_down_open_security">Open security settings</string>
+    <string name="lock_down_allowed">Lock down is allowed. The tile in Quick controls shuts the phone until your PIN, pattern or password is typed.\n\nWhile it is allowed, Android will not uninstall the launcher. Turning it off here takes the right to lock the screen away again.</string>
+    <string name="lock_down_turn_off">Turn off</string>
+    <string name="settings_lock_down_on">Allowed. The tile shuts the phone until your PIN is typed. Tap to turn it off.</string>
+    <string name="settings_lock_down_off">Not allowed yet. Tap to see what it needs.</string>
+    <string name="settings_lock_down_no_lock">Needs a screen lock, and this phone has none set.</string>
 
     <string name="settings_quick_panel">Quick controls</string>
     <string name="settings_quick_panel_body">Swipe left anywhere on the home screen, or tap here</string>

@@ -41,6 +41,7 @@ import com.privacylauncher.ui.components.SettingsRow
 import com.privacylauncher.ui.components.SettingsSwitchRow
 import com.privacylauncher.ui.components.SwatchRow
 import com.privacylauncher.system.Guarded
+import com.privacylauncher.system.LockDownState
 
 /**
  * Every launcher preference, in six sections.
@@ -75,6 +76,8 @@ fun SettingsScreen(
     onLockHiddenApps: (Boolean) -> Unit,
     gestureServiceEnabled: Boolean,
     onGestureService: () -> Unit,
+    lockDownState: LockDownState,
+    onLockDown: () -> Unit,
     onDesignPreview: () -> Unit,
     onPrivacyDashboard: () -> Unit,
     onQuickPanel: () -> Unit,
@@ -444,6 +447,17 @@ fun SettingsScreen(
                         horizontal = Spacing.lg,
                         vertical = Spacing.xxs,
                     ),
+                )
+                SettingsRow(
+                    title = stringResource(R.string.quick_lockdown),
+                    subtitle = stringResource(
+                        when (lockDownState) {
+                            LockDownState.READY -> R.string.settings_lock_down_on
+                            LockDownState.NEEDS_PERMISSION -> R.string.settings_lock_down_off
+                            LockDownState.NEEDS_SCREEN_LOCK -> R.string.settings_lock_down_no_lock
+                        },
+                    ),
+                    onClick = onLockDown,
                 )
             }
 
