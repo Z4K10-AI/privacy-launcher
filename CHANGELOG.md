@@ -4,6 +4,41 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### The hidden-apps lock could be switched off without the PIN
+
+"Require unlock" puts the list of hidden apps behind the phone's own lock.
+The switch that turns that off sat beside it and took one tap. Shown on
+emulator `a30` with a PIN set for the purpose: before the fix, tapping the
+switch turned the lock off with no question asked.
+
+- Turning the lock off now goes through the lock.
+- So do the two other ways round it, while anything is hidden: saving a
+  backup (the file lists the hidden apps in plain text) and restoring one
+  (it replaces the list and the lock setting).
+- Each prompt says what it is for, so nobody types a PIN into a prompt that
+  does not say why.
+- New soak part E does it for real: gives the emulator a PIN, taps the
+  switch, expects Android's "confirm it is you" screen, backs out, and
+  checks the lock is still on. Failed before, passes now. 9 JVM tests hold
+  the rule itself (`HiddenAppsLockTest`).
+
+Still true, and now said in the README: hiding is not a vault. A hidden app
+is still listed in Android's Settings and in this launcher's own lists of
+installed apps. The lock keeps private which apps you chose to hide.
+
+### Settings screens in search are now a choice
+
+Drawer search listed Android's settings screens (Wi‑Fi, Display and so on)
+for everyone. The brief asks for apps by default and anything more only
+after the user opts in, as contacts already were.
+
+- New switch, **Settings → Search → Search Android settings**, off by
+  default. It is saved in backups.
+- While it is off the launcher no longer asks Android which of those
+  screens exist at every start.
+- New soak part F checks the real app both ways: off, searching "displ"
+  lists no settings; on, it lists Display. 6 JVM tests (`SettingsSearchTest`).
+
 ### Icons can be carried between the grid, the dock and the drawer
 
 Drag and drop used to stop at the edge of the home grid. Now:

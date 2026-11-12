@@ -192,6 +192,8 @@
 
     <string name="settings_most_used">Most used row</string>
     <string name="settings_most_used_body">A few frequently opened apps at the top of the drawer. Counted on this phone and stored only here. Turning this off also erases the counts.</string>
+    <string name="settings_search_settings">Search Android settings</string>
+    <string name="settings_search_settings_body">Also find Android\'s own settings screens, such as Wi‑Fi or Display, from the drawer\'s search. It is a fixed list of shortcuts: nothing on the phone is read to build it.</string>
     <string name="settings_contacts">Search contacts</string>
     <string name="settings_contacts_body">Include contacts in drawer search. Asks for the Contacts permission the first time. Only names that match what you type are read, and this app has no network access.</string>
     <string name="settings_contacts_revoke">Turned off here. To take the permission back as well, use App info.</string>
@@ -215,10 +217,13 @@
 
     <!-- Hidden apps screen -->
     <string name="settings_lock_hidden">Require unlock</string>
-    <string name="settings_lock_hidden_body">Ask for your PIN, pattern or fingerprint before showing the hidden apps list.</string>
+    <string name="settings_lock_hidden_body">Ask for your PIN, pattern or fingerprint before showing the hidden apps list, before turning this off, and before a backup or restore while anything is hidden.</string>
     <string name="settings_lock_hidden_unavailable">This phone has no screen lock set, so there is nothing to ask for. Set one in Android\'s Security settings and this starts working.</string>
     <string name="unlock_title">Hidden apps</string>
     <string name="unlock_description">Confirm it is you before showing the hidden apps list.</string>
+    <string name="unlock_turn_off">Confirm it is you before turning this lock off.</string>
+    <string name="unlock_backup">Confirm it is you before saving a backup. The file lists your hidden apps.</string>
+    <string name="unlock_restore">Confirm it is you before restoring. It replaces your hidden apps list.</string>
 
     <string name="hidden_apps_title">Hidden apps</string>
     <string name="hidden_apps_body">Hidden apps stay installed and keep running. They are only removed from this launcher\'s drawer and home screen.</string>

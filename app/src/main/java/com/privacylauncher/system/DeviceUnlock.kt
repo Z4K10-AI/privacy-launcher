@@ -35,7 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 class DeviceUnlock(
     context: Context,
     private val start: (Intent, () -> Unit) -> Unit,
-) {
+) : Unlocker {
     private val keyguard: KeyguardManager? =
         context.getSystemService(KeyguardManager::class.java)
 
@@ -52,7 +52,7 @@ class DeviceUnlock(
      * way back. The Settings row says as much rather than pretending.
      */
     @Suppress("DEPRECATION")
-    fun confirm(title: String, description: String, onUnlocked: () -> Unit) {
+    override fun confirm(title: String, description: String, onUnlocked: () -> Unit) {
         val manager = keyguard
         if (manager == null || !manager.isDeviceSecure) {
             onUnlocked()

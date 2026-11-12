@@ -27,6 +27,29 @@ data class SettingsTarget(
 }
 
 /**
+ * The settings screens that match [query], best first, and none at all
+ * until the user has switched this on.
+ *
+ * [label] is passed in because the names are string resources, and a test
+ * on the build machine has no resources to read them from.
+ */
+internal fun rankSettingsTargets(
+    enabled: Boolean,
+    query: String,
+    targets: List<SettingsTarget>,
+    max: Int,
+    label: (SettingsTarget) -> String,
+): List<SettingsTarget> {
+    if (!enabled || query.isBlank()) return emptyList()
+    return targets
+        .map { it to Fuzzy.score(label(it), query) }
+        .filter { it.second != Fuzzy.NO_MATCH }
+        .sortedByDescending { it.second }
+        .take(max)
+        .map { it.first }
+}
+
+/**
  * The table of settings screens, and the one place that checks which of them
  * this device actually has.
  *

@@ -246,6 +246,119 @@ run_carry() {
   check "taken off again"        "$HOME_MARK+!Calendar"        take_calendar_off_home
 }
 
+# --- the hidden-apps lock ------------------------------------------------
+#
+# "Require unlock" puts the list of hidden apps behind the phone's own PIN.
+# It used to be possible to switch that off with one tap and no PIN, which
+# made it a lock with the key left in it. An emulator has no PIN, and with
+# no PIN there is nothing to ask for, so the fault cannot show without one.
+# This gives the emulator a PIN for the length of the check and takes it
+# away again, whatever happens in between.
+LOCK_PIN=1234
+lock_cleanup() { $ADB shell locksettings clear --old "$LOCK_PIN" >/dev/null 2>&1; }
+
+# Is the switch on the row called $1 on? Prints true or false.
+switch_state() {
+  dump | python3 -c '
+import sys, re
+want = sys.argv[1].lower()
+nodes = []
+for m in re.finditer(r"<node[^>]*>", sys.stdin.read()):
+    tag = m.group(0)
+    b = re.search(r"bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", tag)
+    if b:
+        nodes.append((tag, tuple(map(int, b.groups()))))
+def text_of(tag):
+    m = re.search(r"text=\"([^\"]*)\"", tag)
+    return m.group(1).lower() if m else ""
+label = next((box for tag, box in nodes if want in text_of(tag)), None)
+if label is None:
+    sys.exit(1)
+cx, cy = (label[0] + label[2]) // 2, (label[1] + label[3]) // 2
+# The smallest checkable thing that contains the label: its row.
+rows = [(tag, box) for tag, box in nodes
+        if "checkable=\"true\"" in tag
+        and box[0] <= cx <= box[2] and box[1] <= cy <= box[3]]
+if not rows:
+    sys.exit(1)
+tag, _ = min(rows, key=lambda r: (r[1][2] - r[1][0]) * (r[1][3] - r[1][1]))
+print("true" if "checked=\"true\"" in tag else "false")
+' "$1" 2>/dev/null
+}
+
+# check_switch <label> <row> <true|false>: the switch on <row> is in that state.
+check_switch() {
+  local got; got="$(switch_state "$2")"
+  if [ "$got" = "$3" ]; then
+    echo "  ok      $1"; PASS=$((PASS+1))
+  else
+    echo "  WRONG   $1  (the \"$2\" switch reads \"${got:-not found}\", expected $3)"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+lock_row() { home; sleep 1; tap_on "Settings"; sleep 2; scroll_until "Require unlock" 30; }
+
+run_lock() {
+  echo "--- the hidden-apps lock ---"
+  if ! $ADB shell locksettings set-pin "$LOCK_PIN" >/dev/null 2>&1; then
+    echo "  skip    could not give this emulator a PIN, so there is nothing to ask for"
+    return
+  fi
+  trap lock_cleanup EXIT
+  lock_row >/dev/null 2>&1
+  if [ "$(switch_state "Require unlock")" != "true" ]; then
+    # Left off by an earlier run or by hand. Turning it on is always free.
+    tap_on "Require unlock" >/dev/null 2>&1; sleep 2
+  fi
+  check_switch "the lock starts on" "Require unlock" true
+  check "turning it off asks first"  "turning this lock off"  tap_on "Require unlock"
+  # Refuse: back out of Android's "confirm it is you" screen. The first
+  # back only puts its keyboard away, so keep going until the screen has
+  # gone, but never so far as to back out of Settings as well.
+  local i
+  for i in 1 2 3 4; do
+    present "turning this lock off" || break
+    back; sleep 2
+  done
+  scroll_until "Require unlock" 30 >/dev/null 2>&1
+  check_switch "refusing leaves it on" "Require unlock" true
+  home
+  lock_cleanup
+  trap - EXIT
+}
+
+# --- settings in search, only when asked --------------------------------
+#
+# Drawer search finds apps. Android's own settings screens are found too
+# only after a switch is turned on. This turns it on, checks, and puts it
+# back off, which is how it starts.
+search_switch() { home; sleep 1; tap_on "Settings"; sleep 2; scroll_until "Search Android settings" 30; }
+search_for_display() {
+  home; sleep 1
+  retry_until "Search apps" up || return 1
+  $ADB shell input text "displ"; sleep 2
+}
+
+run_search_optin() {
+  echo "--- settings in search, only when asked ---"
+  search_switch >/dev/null 2>&1
+  if [ "$(switch_state "Search Android settings")" = "true" ]; then
+    echo "  note    it was left on; turning it off to start from the default"
+    tap_on "Search Android settings" >/dev/null 2>&1; sleep 2
+  fi
+  check_switch "it starts off" "Search Android settings" false
+  check "off: no settings in search"  "Close app drawer+!Display"  search_for_display
+  search_switch >/dev/null 2>&1
+  tap_on "Search Android settings" >/dev/null 2>&1; sleep 2
+  check_switch "it can be turned on" "Search Android settings" true
+  check "on: search finds Display"    "Close app drawer+Display"   search_for_display
+  search_switch >/dev/null 2>&1
+  tap_on "Search Android settings" >/dev/null 2>&1; sleep 2
+  check_switch "and it is put back off" "Search Android settings" false
+  home
+}
+
 # A fresh install opens on the onboarding flow, not the home screen.
 #
 # Without this, every check below looks for home-screen text, finds a welcome
@@ -318,6 +431,12 @@ fi
 echo "onboarding cleared, home screen reached"
 echo
 
+# SOAK_ONLY=carry (or lock, search, or screens) runs one part. It is for working on
+# this script, not for calling the app tested: a full run has no SOAK_ONLY.
+ONLY="${SOAK_ONLY:-}"
+wanted() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
+
+if wanted screens; then
 echo "=== A. as the emulator is set (font $FONT_BEFORE) ==="
 run_suite "as set"
 
@@ -336,12 +455,28 @@ echo
 echo "=== restore device settings ==="
 $ADB shell settings put system font_scale "$FONT_BEFORE" >/dev/null
 $ADB shell "cmd uimode night $NIGHT_BEFORE" >/dev/null 2>&1
+sleep 3
+fi
 
-
+if wanted carry; then
 echo
 echo "=== D. a finger carrying an icon (font $FONT_BEFORE) ==="
-sleep 3
 run_carry
+fi
+
+if wanted lock; then
+echo
+echo "=== E. the hidden-apps lock, with a PIN on the emulator ==="
+run_lock
+fi
+
+if wanted search; then
+echo
+echo "=== F. what search finds ==="
+run_search_optin
+fi
+
+[ -n "$ONLY" ] && echo && echo "(SOAK_ONLY=$ONLY: only part of the soak ran)"
 
 echo
 echo "=== result: $PASS ok, $FAIL problems ==="

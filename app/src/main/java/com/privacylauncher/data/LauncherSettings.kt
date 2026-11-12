@@ -89,6 +89,16 @@ data class LauncherSettings(
      * and what is deliberately not.
      */
     val searchContacts: Boolean = false,
+    /**
+     * Include Android's own settings screens in drawer search.
+     *
+     * Off until the user turns it on, like contacts. Nothing private is
+     * read to offer them -- the list is a fixed table of shortcuts -- but
+     * search results the user never asked for are still noise, and the
+     * rule for this launcher is that search finds apps and anything more is
+     * a choice.
+     */
+    val searchSettings: Boolean = false,
     /** Require the device PIN, pattern or biometric to open hidden apps. */
     val lockHiddenApps: Boolean = true,
     /**

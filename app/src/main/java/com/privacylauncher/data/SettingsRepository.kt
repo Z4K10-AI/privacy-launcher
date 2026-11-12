@@ -76,6 +76,7 @@ class SettingsRepository(private val context: Context) {
             autoKeyboard = p[KEY_AUTO_KEYBOARD] ?: true,
             showMostUsed = p[KEY_SHOW_MOST_USED] ?: true,
             searchContacts = p[KEY_SEARCH_CONTACTS] ?: false,
+            searchSettings = p[KEY_SEARCH_SETTINGS] ?: false,
             lockHiddenApps = p[KEY_LOCK_HIDDEN] ?: true,
             focusAllowed = p[KEY_FOCUS_ALLOWED].orEmpty(),
             focusUntil = p[KEY_FOCUS_UNTIL] ?: 0L,
@@ -141,6 +142,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSearchContacts(value: Boolean) {
         context.dataStore.edit { it[KEY_SEARCH_CONTACTS] = value }
+    }
+
+    suspend fun setSearchSettings(value: Boolean) {
+        context.dataStore.edit { it[KEY_SEARCH_SETTINGS] = value }
     }
 
     /** Turning the most-used row off also throws away what it was built from. */
@@ -301,6 +306,7 @@ class SettingsRepository(private val context: Context) {
             p[KEY_AUTO_KEYBOARD] = s.autoKeyboard
             p[KEY_SHOW_MOST_USED] = s.showMostUsed
             p[KEY_SEARCH_CONTACTS] = s.searchContacts
+            p[KEY_SEARCH_SETTINGS] = s.searchSettings
             p[KEY_LOCK_HIDDEN] = s.lockHiddenApps
             p[KEY_FOCUS_ALLOWED] = s.focusAllowed
             p[KEY_FOCUS_SCHEDULE_ON] = s.focusSchedule.enabled
@@ -524,6 +530,7 @@ class SettingsRepository(private val context: Context) {
         val KEY_AUTO_KEYBOARD = booleanPreferencesKey("auto_keyboard")
         val KEY_SHOW_MOST_USED = booleanPreferencesKey("show_most_used")
         val KEY_SEARCH_CONTACTS = booleanPreferencesKey("search_contacts")
+        val KEY_SEARCH_SETTINGS = booleanPreferencesKey("search_settings")
         val KEY_LOCK_HIDDEN = booleanPreferencesKey("lock_hidden_apps")
         val KEY_LAUNCH_COUNTS = stringPreferencesKey("launch_counts")
         val KEY_FOCUS_ALLOWED = stringSetPreferencesKey("focus_allowed")

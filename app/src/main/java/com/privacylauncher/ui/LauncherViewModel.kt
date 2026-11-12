@@ -53,6 +53,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalTime
+import com.privacylauncher.data.rankSettingsTargets
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** Which full-screen panel is showing, if any. */
 enum class Panel {
@@ -214,14 +216,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val rows = mutableListOf<DrawerRow>()
 
         val context = getApplication<Application>()
-        val matchedSettings = targets
-            .map { it to Fuzzy.score(context.getString(it.labelRes), query) }
-            .filter { it.second != Fuzzy.NO_MATCH }
-            .sortedByDescending { it.second }
-            .take(MAX_SETTINGS_RESULTS)
+        val matchedSettings = rankSettingsTargets(
+            enabled = s.searchSettings,
+            query = query,
+            targets = targets,
+            max = MAX_SETTINGS_RESULTS,
+        ) { context.getString(it.labelRes) }
         if (matchedSettings.isNotEmpty()) {
             rows += DrawerRow.SettingsSearchHeader
-            matchedSettings.forEach { rows += DrawerRow.SettingsScreen(it.first) }
+            matchedSettings.forEach { rows += DrawerRow.SettingsScreen(it) }
         }
 
         when {
@@ -313,7 +316,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         refreshApps()
         refreshSystemState()
         viewModelScope.launch {
-            settingsTargets.value = SettingsTargets.available(application)
+            // Only once the user has asked for settings in search. Finding
+            // out which of these screens this phone has is one question to
+            // the package manager per screen, and there is no reason to ask
+            // nineteen of them at every start for a feature that is off.
+            settings.map { it.searchSettings }.distinctUntilChanged().collect { on ->
+                if (on && settingsTargets.value.isEmpty()) {
+                    settingsTargets.value = SettingsTargets.available(application)
+                }
+            }
         }
         startFocusClock()
     }
@@ -942,6 +953,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setShowMostUsed(v: Boolean) = edit { settingsRepository.setShowMostUsed(v) }
 
     fun setLockHiddenApps(v: Boolean) = edit { settingsRepository.setLockHiddenApps(v) }
+
+    fun setSearchSettings(v: Boolean) = edit { settingsRepository.setSearchSettings(v) }
 
     fun clearUsageHistory() = edit { settingsRepository.clearLaunchCounts() }
 

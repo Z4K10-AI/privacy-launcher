@@ -54,6 +54,7 @@ class BackupRoundTripTest {
         autoKeyboard = false,
         showMostUsed = false,
         searchContacts = true,
+        searchSettings = true,
         lockHiddenApps = false,
         focusAllowed = setOf("f1/a"),
         focusSchedule = FocusSchedule(enabled = true, startMinute = 1290, endMinute = 390),
@@ -88,6 +89,7 @@ class BackupRoundTripTest {
         assertEquals("autoKeyboard", populated.autoKeyboard, back.autoKeyboard)
         assertEquals("showMostUsed", populated.showMostUsed, back.showMostUsed)
         assertEquals("searchContacts", populated.searchContacts, back.searchContacts)
+        assertEquals("searchSettings", populated.searchSettings, back.searchSettings)
         assertEquals("lockHiddenApps", populated.lockHiddenApps, back.lockHiddenApps)
         assertEquals("focusAllowed", populated.focusAllowed, back.focusAllowed)
         assertEquals("focusSchedule", populated.focusSchedule, back.focusSchedule)

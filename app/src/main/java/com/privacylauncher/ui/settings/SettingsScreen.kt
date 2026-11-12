@@ -40,6 +40,7 @@ import com.privacylauncher.ui.components.SettingsGroup
 import com.privacylauncher.ui.components.SettingsRow
 import com.privacylauncher.ui.components.SettingsSwitchRow
 import com.privacylauncher.ui.components.SwatchRow
+import com.privacylauncher.system.Guarded
 
 /**
  * Every launcher preference, in six sections.
@@ -62,6 +63,7 @@ fun SettingsScreen(
     onShowMostUsed: (Boolean) -> Unit,
     onClearUsage: () -> Unit,
     onSearchContacts: (Boolean) -> Unit,
+    onSearchSettings: (Boolean) -> Unit,
     onAppInfo: () -> Unit,
     onFont: (FontChoice) -> Unit,
     onIconSize: (IconSize) -> Unit,
@@ -89,6 +91,14 @@ fun SettingsScreen(
     onRestoreFrom: (Uri) -> Unit,
     backupResult: BackupResult?,
     onDismissBackupResult: () -> Unit,
+    /**
+     * Runs something that the hidden-apps lock may stand in front of.
+     *
+     * A backup lists the hidden apps and a restore replaces the list, so
+     * both go through here before Android's file picker opens. The default
+     * lets everything through, for previews and tests.
+     */
+    guard: (Guarded, () -> Unit) -> Unit = { _, run -> run() },
 ) {
     val dark = settings.themeMode.resolveIsDark()
     val dynamicOn = settings.dynamicColor && dynamicColorAvailable
@@ -141,7 +151,9 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         confirmRestore = false
-                        openFile.launch(arrayOf("application/json", "text/plain", "*/*"))
+                        guard(Guarded.RESTORE_BACKUP) {
+                            openFile.launch(arrayOf("application/json", "text/plain", "*/*"))
+                        }
                     },
                 ) { Text(stringResource(R.string.settings_restore_action)) }
             },
@@ -378,6 +390,12 @@ fun SettingsScreen(
                     onClick = { confirmClearUsage = true },
                 )
                 SettingsSwitchRow(
+                    title = stringResource(R.string.settings_search_settings),
+                    subtitle = stringResource(R.string.settings_search_settings_body),
+                    checked = settings.searchSettings,
+                    onCheckedChange = onSearchSettings,
+                )
+                SettingsSwitchRow(
                     title = stringResource(R.string.settings_contacts),
                     subtitle = stringResource(R.string.settings_contacts_body),
                     checked = settings.searchContacts,
@@ -477,7 +495,7 @@ fun SettingsScreen(
                 SettingsRow(
                     title = stringResource(R.string.settings_backup),
                     subtitle = stringResource(R.string.settings_backup_body),
-                    onClick = { saveFile.launch(backupFileName) },
+                    onClick = { guard(Guarded.SAVE_BACKUP) { saveFile.launch(backupFileName) } },
                 )
                 SettingsRow(
                     title = stringResource(R.string.settings_restore),

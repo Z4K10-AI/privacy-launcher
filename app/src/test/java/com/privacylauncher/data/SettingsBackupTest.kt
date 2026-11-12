@@ -35,6 +35,7 @@ class SettingsBackupTest {
         autoKeyboard = false,
         showMostUsed = false,
         searchContacts = true,
+        searchSettings = true,
         lockHiddenApps = false,
         focusAllowed = setOf("p6/a6"),
         focusSchedule = FocusSchedule(enabled = true, startMinute = 1290, endMinute = 390),
@@ -62,6 +63,7 @@ class SettingsBackupTest {
         assertEquals(populated.autoKeyboard, back.autoKeyboard)
         assertEquals(populated.showMostUsed, back.showMostUsed)
         assertEquals(populated.searchContacts, back.searchContacts)
+        assertEquals(populated.searchSettings, back.searchSettings)
         assertEquals(populated.lockHiddenApps, back.lockHiddenApps)
         assertEquals(populated.focusAllowed, back.focusAllowed)
         assertEquals(populated.focusSchedule, back.focusSchedule)

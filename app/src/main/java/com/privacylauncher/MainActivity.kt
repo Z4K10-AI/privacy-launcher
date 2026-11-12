@@ -85,6 +85,9 @@ import com.privacylauncher.ui.HomeDragLayer
 import com.privacylauncher.ui.HomeDragState
 import com.privacylauncher.ui.HomeDrop
 import com.privacylauncher.ui.followCarry
+import com.privacylauncher.system.Guarded
+import com.privacylauncher.system.guard
+import com.privacylauncher.system.moveLockSwitch
 
 /**
  * The launcher's one and only Activity.
@@ -216,16 +219,28 @@ private fun LauncherRoot(
     // because the result launcher has to be registered in composition.
     val deviceUnlock = rememberDeviceUnlock()
     val unlockTitle = stringResource(R.string.unlock_title)
-    val unlockDescription = stringResource(R.string.unlock_description)
-    val openHiddenApps = {
-        if (settings.lockHiddenApps) {
-            deviceUnlock.confirm(unlockTitle, unlockDescription) {
-                viewModel.openHiddenApps()
-            }
-        } else {
-            viewModel.openHiddenApps()
-        }
+    // What Android's "confirm it is you" screen says under the title. It
+    // names the thing being asked for, so the user is never typing a PIN
+    // into a prompt that does not say why.
+    val unlockReasons = mapOf(
+        Guarded.OPEN_HIDDEN_APPS to stringResource(R.string.unlock_description),
+        Guarded.TURN_LOCK_OFF to stringResource(R.string.unlock_turn_off),
+        Guarded.SAVE_BACKUP to stringResource(R.string.unlock_backup),
+        Guarded.RESTORE_BACKUP to stringResource(R.string.unlock_restore),
+    )
+    // Everything the hidden-apps lock stands in front of goes through this
+    // one function; see HiddenAppsLock for what that is and why.
+    val guarded: (Guarded, () -> Unit) -> Unit = { action, run ->
+        deviceUnlock.guard(
+            action = action,
+            lockOn = settings.lockHiddenApps,
+            hiddenCount = settings.hiddenApps.size,
+            title = unlockTitle,
+            description = unlockReasons.getValue(action),
+            run = run,
+        )
     }
+    val openHiddenApps = { guarded(Guarded.OPEN_HIDDEN_APPS) { viewModel.openHiddenApps() } }
 
     // derivedStateOf, not a plain read: this only invalidates when the boolean
     // flips, so a drag does not recompose the whole tree 60 times a second.
@@ -529,6 +544,7 @@ private fun LauncherRoot(
                 onSearchContacts = { wanted ->
                     if (wanted) askForContacts() else viewModel.disableContactSearch()
                 },
+                onSearchSettings = viewModel::setSearchSettings,
                 onAppInfo = { viewModel.openOwnAppInfo() },
                 onFont = viewModel::setFont,
                 onIconSize = viewModel::setIconSize,
@@ -537,7 +553,16 @@ private fun LauncherRoot(
                 onWallpaper = { viewModel.openWallpaperPicker() },
                 onHiddenApps = openHiddenApps,
                 deviceSecure = deviceUnlock.isSecure,
-                onLockHiddenApps = viewModel::setLockHiddenApps,
+                onLockHiddenApps = { wanted ->
+                    deviceUnlock.moveLockSwitch(
+                        wanted = wanted,
+                        lockOn = settings.lockHiddenApps,
+                        title = unlockTitle,
+                        description = unlockReasons.getValue(Guarded.TURN_LOCK_OFF),
+                        set = viewModel::setLockHiddenApps,
+                    )
+                },
+                guard = guarded,
                 gestureServiceEnabled = viewModel.gestureServiceEnabled,
                 onGestureService = { viewModel.showGestureExplainerDialog() },
                 onDesignPreview = viewModel::openDesignPreview,

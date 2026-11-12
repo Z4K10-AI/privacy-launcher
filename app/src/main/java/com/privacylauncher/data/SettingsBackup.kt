@@ -87,6 +87,7 @@ internal object SettingsBackup {
             put("autoKeyboard", s.autoKeyboard)
             put("showMostUsed", s.showMostUsed)
             put("searchContacts", s.searchContacts)
+            put("searchSettings", s.searchSettings)
             put("lockHiddenApps", s.lockHiddenApps)
             put("focusAllowed", JSONArray(s.focusAllowed.toList()))
             put(
@@ -137,6 +138,7 @@ internal object SettingsBackup {
             autoKeyboard = o.optBoolean("autoKeyboard", defaults.autoKeyboard),
             showMostUsed = o.optBoolean("showMostUsed", defaults.showMostUsed),
             searchContacts = o.optBoolean("searchContacts", defaults.searchContacts),
+            searchSettings = o.optBoolean("searchSettings", defaults.searchSettings),
             lockHiddenApps = o.optBoolean("lockHiddenApps", defaults.lockHiddenApps),
             focusAllowed = o.stringSet("focusAllowed"),
             focusSchedule = o.optJSONObject("focusSchedule").let { f ->

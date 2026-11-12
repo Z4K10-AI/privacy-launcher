@@ -91,8 +91,10 @@ aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
   Browser Tester), anywhere in the name, then the letters in order with gaps.
   Within a tier the shorter name wins.
 - The keyboard opens with the drawer, with a switch in Settings to stop it.
-- Search also finds **system settings screens** — Wi‑Fi, Display, Battery and
-  so on — and, if you switch it on, **contacts**. See
+- Search finds apps. Two more things are found only after you switch them
+  on in Settings: Android's own **settings screens** (Wi‑Fi, Display,
+  Battery and so on, a fixed list of shortcuts that reads nothing from the
+  phone) and **contacts**. See
   [Contacts, in detail](#contacts-a-permission-you-switch-on).
 - An optional **most used** row at the top, counted on the phone, stored only
   there, and erasable from Settings.
@@ -201,8 +203,17 @@ aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
   they are enrolled, PIN, pattern or password otherwise. That uses the
   platform's `createConfirmDeviceCredentialIntent`, not the `androidx.biometric`
   library, which would be a sizeable dependency for one dialog.
-- Search: auto keyboard, the most used row, clearing usage history, and
-  contact search.
+  - The lock also stands in front of the ways round it: turning the lock
+    off, and, while anything is hidden, saving a backup (the file lists the
+    hidden apps) or restoring one (it replaces the list). Each prompt says
+    what it is for.
+  - It is not a vault. A hidden app is still listed in Android's own
+    Settings, and in this launcher's privacy dashboard and focus picker,
+    because those are lists of what is installed. The lock keeps one thing
+    private: which apps you chose to hide. On a phone with no screen lock
+    there is nothing to ask for, and the Settings screen says so.
+- Search: auto keyboard, the most used row, clearing usage history, and the
+  two opt-ins: Android settings and contacts.
 - Focus and quiet: focus mode and its allowed apps, and minimal mode.
 - Set as default home app: a shortcut into Android's home-app picker.
 
@@ -715,7 +726,14 @@ vanished while the finger was down.
 the quick panel, at three font scales and in dark mode. Then, once, it
 carries an icon: it holds Calendar in the real drawer, drags it onto the
 home screen, checks it is there, and takes it off again through the
-long-press menu. That is 31 checks in all.
+long-press menu.
+
+Two more parts check a promise each. With a PIN put on the emulator for the
+purpose, turning the hidden-apps lock off must raise Android's "confirm it
+is you" screen, and backing out of that must leave the lock on. And search
+must list no Android settings until the switch for that is turned on. The
+PIN is removed again afterwards, and the emulator scripts clear it at boot
+in case a run was killed half way. That is 39 checks in all.
 
 It clears the crash buffer before each step and checks it after, so a crash
 is attributed to the step that caused it rather than appearing as a wall of

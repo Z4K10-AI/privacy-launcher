@@ -178,8 +178,15 @@ wait_boot() {
 }
 
 # The state every test run should start from.
+# The PIN tools/soak.sh gives an emulator for its lock check. The soak takes
+# it away again, but an emulator killed in the middle of that check would
+# come back up behind a lock screen and every later test would sit there
+# looking at it. Clearing it at boot costs nothing when there is none.
+SOAK_PIN=1234
+
 settle() {
   local s="$1"
+  "$ADB" -s "$s" shell locksettings clear --old "$SOAK_PIN" >/dev/null 2>&1
   "$ADB" -s "$s" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
   "$ADB" -s "$s" shell wm dismiss-keyguard >/dev/null 2>&1
   # A screen that switches itself off mid-run fails every check after it.
