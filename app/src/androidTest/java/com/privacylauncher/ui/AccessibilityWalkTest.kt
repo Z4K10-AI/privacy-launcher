@@ -120,11 +120,32 @@ class AccessibilityWalkTest {
             node.config.contains(SemanticsProperties.ToggleableState) ||
             node.config.contains(SemanticsActions.SetProgress)
 
+    /**
+     * The largest touch area each named thing has been seen with, in pixels.
+     *
+     * Largest, because where something sits when it is measured matters.
+     * Android lets a small button be pressed a little way outside its
+     * drawn edge, and that margin is cut off when the button is hard
+     * against the edge of a scrolling area. A 40 dp button resting on the
+     * bottom edge of a short screen measures 40 dp there and 48 dp one
+     * scroll later. It is the same button, and the second number is the
+     * one a finger gets once the page has moved. A button that is too small
+     * wherever it is seen still fails.
+     */
+    private val bestTouch = HashMap<String, Pair<Float, Float>>()
+
     /** What is wrong with what is on screen right now, and how many pressable things were looked at. */
     private fun look(problems: MutableSet<String>, seen: MutableSet<String>) {
         val smallest = 48 * density - 1f // a pixel for rounding
         var screenWidth = 0
         fun walk(node: SemanticsNode) {
+            // Prepared but not put anywhere yet. A pager gets the next page
+            // ready ahead of the swipe: it is built and measured, and then
+            // waits, with no position on the screen. A screen reader is not
+            // told about it until it is placed, and nothing measured on it
+            // before then means anything. (It reads as a button 40 dp tall
+            // at the top-left corner, which is how this was found.)
+            if (!node.layoutInfo.isPlaced) return
             if (pressable(node)) {
                 val name = describe(node)
                 val drawn = node.boundsInRoot
@@ -153,8 +174,12 @@ class AccessibilityWalkTest {
                     seen += "$name@${drawn.left.toInt()},${drawn.top.toInt()}"
                     if (name.isBlank()) {
                         problems += "something pressable has no name ($w by $h dp)"
-                    } else if (touch.width < smallest || touch.height < smallest) {
-                        problems += "\"${name.take(40)}\" is $w by $h dp to touch"
+                    } else {
+                        val best = bestTouch[name]
+                        bestTouch[name] = Pair(
+                            maxOf(best?.first ?: 0f, touch.width),
+                            maxOf(best?.second ?: 0f, touch.height),
+                        )
                     }
                 }
             }
@@ -173,8 +198,9 @@ class AccessibilityWalkTest {
     private fun problems(scroll: Boolean = true): List<String> {
         val problems = sortedSetOf<String>()
         val seen = HashSet<String>()
+        bestTouch.clear()
         look(problems, seen)
-        if (scroll) {
+        if (scroll) run {
             repeat(30) {
                 val before = seen.size
                 compose.onAllNodes(isRoot()).onFirst().performTouchInput {
@@ -186,7 +212,14 @@ class AccessibilityWalkTest {
                 }
                 compose.waitForIdle()
                 look(problems, seen)
-                if (seen.size == before) return problems.toList()
+                if (seen.size == before) return@run
+            }
+        }
+        val smallest = 48 * density - 1f
+        bestTouch.forEach { (name, size) ->
+            if (size.first < smallest || size.second < smallest) {
+                problems += "\"${name.take(40)}\" is ${(size.first / density).toInt()} by " +
+                    "${(size.second / density).toInt()} dp to touch"
             }
         }
         return problems.toList()

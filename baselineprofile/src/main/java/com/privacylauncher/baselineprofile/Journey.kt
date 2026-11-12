@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import androidx.test.uiautomator.Direction
 
 /**
  * The steps both the profile recording and the frame-timing benchmarks need,
@@ -30,6 +31,16 @@ internal const val DRAWER_DESC = "Open app drawer"
 
 /** `R.string.drawer_search_hint`, which only exists once the drawer is open. */
 internal const val SEARCH_HINT = "Search apps"
+
+/** The label on the drawer's handle, which is there for as long as the drawer is. */
+internal const val CLOSE_DRAWER_DESC = "Close app drawer"
+
+/** `R.string.quick_title`, the heading of the quick controls panel. */
+internal const val QUICK_TITLE = "Quick controls"
+
+/** The Settings row that opens the privacy dashboard, and a line that is only on it. */
+internal const val DASHBOARD_ROW = "Privacy dashboard"
+internal const val DASHBOARD_MARK = "Privacy score"
 
 /** The content description on the home screen's settings button. */
 internal const val SETTINGS_DESC = "Settings"
@@ -148,9 +159,44 @@ internal fun MacrobenchmarkScope.openDrawer(verify: Boolean = true) {
     )
     device.waitForIdle()
     if (verify) {
-        check(device.wait(Until.hasObject(By.text(SEARCH_HINT)), TIMEOUT_MS)) {
-            "Swiping up did not open the drawer: no \"$SEARCH_HINT\" field."
+        // By the handle, not by the search box's hint. The hint used to be
+        // the box's only name; the box now also carries the same words as
+        // a spoken label, and which of the two a test tool reports as
+        // "text" is not something to depend on.
+        check(device.wait(Until.hasObject(By.desc(CLOSE_DRAWER_DESC)), TIMEOUT_MS)) {
+            "Swiping up did not open the drawer: no \"$CLOSE_DRAWER_DESC\" handle."
         }
+    }
+}
+
+/** Type into the drawer's search box, which has the keyboard as soon as the drawer opens. */
+internal fun MacrobenchmarkScope.searchFor(text: String) {
+    device.executeShellCommand("input text $text")
+    device.waitForIdle()
+}
+
+/** Swipe the quick controls panel in from the right, and wait for its heading. */
+internal fun MacrobenchmarkScope.openQuickPanel() {
+    device.swipe(
+        (device.displayWidth * 0.85).toInt(), device.displayHeight / 2,
+        (device.displayWidth * 0.15).toInt(), device.displayHeight / 2,
+        SWIPE_STEPS,
+    )
+    check(device.wait(Until.hasObject(By.text(QUICK_TITLE)), TIMEOUT_MS)) {
+        "Swiping left did not open the quick controls: no \"$QUICK_TITLE\" heading."
+    }
+}
+
+/** From Settings, scroll to the privacy dashboard's row, open it, and wait for it. */
+internal fun MacrobenchmarkScope.openPrivacyDashboard() {
+    val list = device.findObject(By.scrollable(true))
+        ?: error("Settings exposes no scrollable node, so it is not up.")
+    list.setGestureMargin(device.displayWidth / 5)
+    val row = list.scrollUntil(Direction.DOWN, Until.findObject(By.text(DASHBOARD_ROW)))
+        ?: error("Scrolled Settings to the end without finding \"$DASHBOARD_ROW\".")
+    row.click()
+    check(device.wait(Until.hasObject(By.text(DASHBOARD_MARK)), TIMEOUT_MS)) {
+        "The privacy dashboard did not open: no \"$DASHBOARD_MARK\"."
     }
 }
 
@@ -204,5 +250,7 @@ internal fun MacrobenchmarkScope.closeDrawer() {
 }
 
 private const val SWIPE_STEPS = 40
-private const val MAX_BACKS = 3
+// One for the keyboard, one for a search that has text in it (back clears
+// the text before it closes the drawer), one for the drawer, and one spare.
+private const val MAX_BACKS = 4
 private const val SHORT_TIMEOUT_MS = 2_000L

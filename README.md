@@ -16,12 +16,13 @@ switch on the feature that needs it.
 Written in Kotlin and Jetpack Compose so it can later be built into a
 LineageOS-based ROM as the default launcher.
 
-Status: **home screen, app drawer, privacy dashboard, quick controls, focus
-mode, a text-only minimal mode, first-run onboarding, grouped settings with
-live previews, and local backup and restore — all on a design system.
-Verified on AOSP emulators at Android 15 (API 35) and **Android 11 (API 30)
-at a Galaxy A30's screen size and memory**; not yet tested on physical
-hardware.**
+Status: **home screen, app drawer, privacy dashboard with a tracker scan,
+quick controls with a real lock-down, focus mode, a text-only minimal mode,
+first-run onboarding, grouped settings with live previews, and local backup
+and restore — all on a design system. It is for any phone on Android 8.0 or
+later, not one model: see [Which phones it runs on](#which-phones-it-runs-on).
+Verified on emulators only, at Android 11 and Android 15 and on seven
+screen shapes; not yet tested on a physical phone.**
 
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
@@ -51,6 +52,76 @@ Check it yourself:
 ```bash
 aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
 ```
+
+---
+
+## Which phones it runs on
+
+**Any phone running Android 8.0 or later.** It is not written for one phone
+or one maker.
+
+- **No maker-specific code.** Nothing in it asks what brand or model the
+  phone is.
+- **Nothing it insists on.** Its manifest requires no piece of hardware, so
+  no phone is refused for lacking one. Where a phone has no camera flash the
+  flashlight tile says so.
+- **No Google Play Services.** It works the same on phones without them.
+- **Any screen.** It lays itself out from 320 dp wide, the narrowest
+  Android Go handsets, upwards. Icons are drawn at the size you chose, or
+  at the largest that fits when the screen is too narrow for it. On a phone
+  the home screen stays upright when the phone is turned; on a tablet or an
+  opened folding phone it turns freely.
+- **Either reading direction.** Right-to-left languages lay out mirrored and
+  dragging follows the finger. The words themselves are in English only so
+  far.
+- **Light.** The release is a little over 2 MB and is measured against a
+  4 GB phone.
+
+The **Galaxy A30** comes up often in this project. It is not the phone the
+launcher is for. It is the slowest phone the launcher is expected to feel
+good on: one of the three test emulators copies its screen, memory and
+Android version, so there is a fixed low bar to measure against.
+
+### What that claim rests on
+
+| What varies between phones | Checked how | Result |
+|---|---|---|
+| Android version | Every test on emulators at Android 11 and Android 15 | see [Tests](#tests) |
+| Android 8, 9, 10, 12, 13, 14 and 16 | **Not run.** The build refuses any call a supported version does not have (lint's `NewApi`), and the six places the code branches on version are listed below | unproven on a device |
+| Screen size and density | `tools/shapes.sh`: seven shapes from 480x854 to 1440x3120, one turned sideways, one a folding phone opened, each with every device test and a tour of the real app | all seven pass on Android 11 and on Android 15 |
+| Makers' own versions of Android (One UI, MIUI, ColorOS and so on) | **Not run.** The emulators run plain Android | unproven |
+| A real phone | **Not run** | unproven |
+
+Where the code does something different by Android version:
+
+| From | What changes | Below it |
+|---|---|---|
+| Android 9 | Double-tap to lock, through the optional gesture service | Not offered; Settings says the phone is too old for it. Lock down works on every version |
+| Android 9 | Whether location is on is read from `LocationManager` | Read from the older setting |
+| Android 10 | The Wi‑Fi tile opens Android's inline Wi‑Fi panel | Opens the Wi‑Fi settings screen |
+| Android 10 | "Is this the home app?" asks the role manager | Asks the package manager |
+| Android 12 | Wallpaper colours, blur behind panels, a link to Android's own privacy dashboard | None of the three exist; the dashboard says so |
+| Android 13 | A newer form of the installed-apps query | The older form |
+
+Only the first row changes what the user is told, and that choice has a
+unit test (`GestureSummaryTest`) because no emulator here is old enough to
+show it.
+
+### What it does not do, that some launchers do
+
+Worth knowing before choosing it as a daily home screen:
+
+- **Apps in a work profile are not shown.** The launcher lists the apps of
+  the person using the phone. A phone set up by an employer with a separate
+  work profile keeps its work apps there, and they do not appear. This is
+  the largest gap for "any phone", and it is the next thing to build.
+- **No widgets**, no icon packs, no app shortcuts on long-press, and no
+  notification dots. Dots would need access to your notifications, which
+  this launcher does not ask for.
+- **Android's "private space"** (Android 15) is not shown either.
+- On some makers' phones, **swipe navigation works poorly with any launcher
+  that is not the maker's own.** That is the phone's rule, not something a
+  launcher can change. Three-button navigation is unaffected.
 
 ---
 
@@ -626,7 +697,7 @@ for a reason. `tools/emulators.sh` makes them, the same way every time:
 
 | Profile | Android | Screen | RAM | Why it exists |
 |---|---|---|---|---|
-| `a30` | 11 (API 30) | 1080x2340 at 420 dpi | 4 GB | The screen, memory and Android version of a Samsung Galaxy A30: the low-end phone this has to feel good on |
+| `a30` | 11 (API 30) | 1080x2340 at 420 dpi | 4 GB | The low bar. The screen, memory and Android version of a Samsung Galaxy A30, as an example of the slowest phone this has to feel good on. It is not the only phone the launcher is for |
 | `modern` | 15 (API 35) | 1080x2400 at 420 dpi | 4 GB | What newer versions of Android do differently |
 | `small` | 15 (API 35) | 720x1280 at 320 dpi, text at 1.3x | 2.5 GB | The accessibility squeeze: a 360 dp wide screen, the narrowest in common use, with large text |
 
@@ -816,6 +887,36 @@ when the file is wrong.
 - `PrivacyDashboardTest` (emulator) walks the card through never-scanned,
   scanning and each shape of result, and holds in place the sentence that
   says what a result does not mean.
+
+### Other screens
+
+The three emulators have three screens between them, and phones come in
+many more. `tools/shapes.sh` tells a running emulator to behave as a screen
+of another size and density, which apps cannot tell from the real thing,
+and runs every device test and a short tour of the real app on each:
+
+| Shape | Screen | Stands for |
+|---|---|---|
+| `tiny` | 480x854 at 240 dpi, 320 dp wide | The smallest screens Android Go phones have |
+| `budget` | 720x1600 at 320 dpi, 360 dp wide | A tall budget phone |
+| `dense` | 1080x2340 at 480 dpi, 360 dp wide | Full HD at the density many makers choose |
+| `roomy` | 1080x2400 at 360 dpi, 480 dp wide | Display size turned down to fit more on screen |
+| `flagship` | 1440x3120 at 560 dpi, 411 dp wide | A large high-resolution phone |
+| `sideways` | the emulator's own, turned | A phone turned on its side |
+| `unfolded` | 2208x1768 at 420 dpi | A folding phone, opened flat |
+
+The first run of this found what no test on one screen could: five dock
+apps did not fit on a 360 dp wide phone, which is most phones (see
+`HomeFitTest`), and sideways the drawer's search results were entirely
+behind the keyboard. The first is fixed by fitting icons to their slot.
+The second is why a phone's home screen now stays upright.
+
+`AccessibilityWalkTest` runs on every shape too, with a third rule for
+narrow screens: nothing that can be pressed is cut off at the side.
+
+On 12 November 2026 all seven shapes passed on both emulators, Android 11
+(`a30`) and Android 15 (`modern`): 120 device tests and the tour on each,
+fourteen runs in all.
 
 ### Device soak
 
@@ -1313,6 +1414,14 @@ Drive every screen and check each one really came up:
 
 ```bash
 tools/soak.sh a30
+```
+
+Run the device tests and a short tour on seven screen shapes, by making one
+emulator behave as each in turn (about half an hour):
+
+```bash
+tools/shapes.sh a30
+tools/shapes.sh modern
 ```
 
 Measure cold start and frame timing (see

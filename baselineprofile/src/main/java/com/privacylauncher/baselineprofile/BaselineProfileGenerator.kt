@@ -23,6 +23,9 @@ import org.junit.runner.RunWith
  *  - **Opening Settings.** Less common, but it pulls in a large slice of the
  *    Compose material layer that nothing else touches, so leaving it out
  *    would make the first visit to Settings the slowest screen in the app.
+ *  - **Searching, the quick controls panel and the privacy dashboard.** Each
+ *    is a first use that would otherwise be interpreted: the fuzzy matcher,
+ *    a second sliding panel, and the dashboard's own drawing.
  *
  * ## What this recording got wrong once, and how to tell
  *
@@ -80,6 +83,24 @@ class BaselineProfileGenerator {
         }
         closeDrawer()
 
+        // Twice more. Opening and closing the drawer is the one piece of
+        // motion nobody using the launcher can avoid, and once through is
+        // not always enough for every branch of it to be recorded.
+        repeat(2) {
+            openDrawer()
+            closeDrawer()
+        }
+
+        // Search: each letter typed re-ranks the whole list.
+        openDrawer()
+        searchFor("ca")
+        closeDrawer()
+
+        // The quick controls panel, which slides in from the side.
+        openQuickPanel()
+        device.pressBack()
+        device.waitForIdle()
+
         // Settings, and a scroll through it.
         openSettings()
         device.findObject(By.scrollable(true))?.let { list ->
@@ -87,6 +108,12 @@ class BaselineProfileGenerator {
             list.fling(Direction.DOWN)
             device.waitForIdle()
         }
+        // The privacy dashboard, reached from Settings: the score ring, the
+        // permission groups and the tracker card.
+        openPrivacyDashboard()
+        device.pressBack()
+        device.waitForIdle()
+
         device.pressBack()
         device.waitForIdle()
     }

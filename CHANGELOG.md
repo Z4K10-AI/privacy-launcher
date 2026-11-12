@@ -4,6 +4,53 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### For any phone, not one phone
+
+The launcher was always meant for any phone on Android 8.0 or later, and
+nothing in it checks the maker or model. But every test so far had run on
+the emulators' own screens, and "should work on other screens" is a claim,
+not a result. `tools/shapes.sh` now makes one emulator behave as seven
+screens in turn, from a 320 dp wide Android Go handset to a folding phone
+opened flat, and runs every device test and a tour of the real app on each.
+
+What the first runs found, each now fixed and held by a test:
+
+- **Five dock apps did not fit most phones.** At the default icon size they
+  need 340 dp, and a phone 360 dp wide, which is most phones, has 312 for
+  them. The first four icons took their full size and the fifth was crushed
+  to about half. With large icons it happened even on a 411 dp screen:
+  `HomeFitTest` measured the fifth at 43 dp against 80 for the others.
+  Every icon now gets an equal share of the dock and is drawn at the size
+  asked for or the largest that fits.
+- **The same rule everywhere icons sit side by side** (`fittedIconSize`):
+  the home grid, the drawer, folders and the preview in Settings. Six
+  columns of large icons no longer overlap on a narrow screen.
+- **Turned sideways, search results were entirely behind the keyboard.** A
+  phone's home screen now stays upright when the phone is turned, as every
+  mainstream launcher's does. A tablet or an opened folding phone still
+  turns freely. The soak tells Android the phone has been turned and
+  requires the launcher's screen to stay taller than wide.
+- **On Android 8, Settings promised a gesture the phone cannot do.**
+  Double-tap to lock needs Android 9. On 8.0 and 8.1 the sentence now
+  leaves it out and says why.
+
+Result: all seven shapes pass on emulator `a30` (Android 11) and on
+`modern` (Android 15), 120 device tests and the tour on each.
+
+Two of the failures along the way were the tests' own, and are worth a
+line because both would have come back. A test tapped "App info" by a
+fragment of its text, which on one screen size also matched a paragraph
+further down. And the accessibility walk measured a button on the *next*
+welcome page: a pager builds the next page before the swipe and holds it,
+unplaced, and it read as a 40 dp button in the corner. The walk now ignores
+what has not been placed, which is also what a screen reader is told.
+
+The README has a new section, *Which phones it runs on*, that says what the
+claim rests on and what has not been run: Android 8 to 10, 12 to 14 and 16;
+any maker's own version of Android; any real phone. It also says what the
+launcher does not do that others do. The largest of those for "any phone"
+is that **apps in a work profile are not shown**.
+
 ### Every screen walked for accessibility, and eight of twenty failed
 
 `AccessibilityWalkTest` puts each of twenty screens and dialogs on the
