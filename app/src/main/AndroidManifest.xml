@@ -117,5 +117,28 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+        <!--
+          START-UP HELPERS
+
+          AndroidX libraries register small start-up helpers by merging lines
+          into this provider. One of them, EmojiCompatInitializer, asks a
+          "font provider" app for a newer emoji font on every start. On a
+          phone with Google Play Services that provider is a Google app, and
+          it may fetch the font from the network on the launcher's behalf.
+
+          The launcher does not need it: without the helper, emoji are drawn
+          with the phone's own emoji font, as any other text is. So the line
+          is removed here, and PermissionPromiseTest checks the installed app
+          to make sure it stays removed.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                tools:node="remove" />
+        </provider>
     </application>
 </manifest>

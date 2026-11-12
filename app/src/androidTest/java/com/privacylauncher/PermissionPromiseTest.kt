@@ -1,5 +1,6 @@
 package com.privacylauncher
 
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -122,5 +123,32 @@ class PermissionPromiseTest {
                 base,
             )
         }
+    }
+
+    @Test
+    fun noStartUpHelperGoesLookingForAnEmojiFont() {
+        // AndroidX registers small start-up helpers by merging lines into
+        // the manifest, the same quiet route the extra permission took. One
+        // of them, for emoji, asks a "font provider" app for a newer emoji
+        // font. On a phone with Google Play Services that means this
+        // launcher would talk to a Google app on every start, and that app
+        // may fetch the font from the network on its behalf. The launcher
+        // has no need of it: the phone's own emoji font is used instead.
+        val provider = ComponentName(
+            context.packageName,
+            "androidx.startup.InitializationProvider",
+        )
+        val helpers = try {
+            context.packageManager
+                .getProviderInfo(provider, PackageManager.GET_META_DATA)
+                .metaData?.keySet().orEmpty()
+        } catch (e: PackageManager.NameNotFoundException) {
+            emptySet() // no start-up provider at all, so no helpers either
+        }
+        assertEquals(
+            "a start-up helper for emoji fonts is registered",
+            emptyList<String>(),
+            helpers.filter { it.contains("emoji", ignoreCase = true) },
+        )
     }
 }

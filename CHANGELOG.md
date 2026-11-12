@@ -4,6 +4,34 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### The signing key moved out of the project
+
+The release signing key and the file holding its passwords used to sit in
+the project folder, kept out of git only by `.gitignore`. They now live in
+`~/.privacy-launcher-signing/`, outside the project, and the build looks
+for them there (or wherever the `PL_KEYSTORE_PROPERTIES` environment
+variable points). If a key is ever found inside the project folder the
+build stops and says so. Checked: the release build is still signed with
+the same key (signature schemes v2 and v3), and a build with no key still
+succeeds, unsigned.
+
+It is still a **development key**. A real release needs a real one.
+
+### One less thing happening at start-up
+
+AndroidX had quietly registered a start-up helper that asks a "font
+provider" app for a newer emoji font. On a phone with Google Play Services
+that provider is a Google app, which may fetch the font over the network on
+the launcher's behalf. Our emulators have no such app, so this could not
+happen there, but the project's promise is not "only on our emulators".
+
+- New test, failing first: `PermissionPromiseTest.
+  noStartUpHelperGoesLookingForAnEmojiFont` found
+  `androidx.emoji2.text.EmojiCompatInitializer` in the installed app.
+- The helper is removed in the manifest; the test passes (emulator `a30`).
+- Emoji are drawn with the phone's own emoji font, as before on any phone
+  without a font provider.
+
 ### A measured baseline, at last
 
 `tools/bench.sh` measures cold start and frame timing with Macrobenchmark,
