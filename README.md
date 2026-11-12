@@ -132,6 +132,20 @@ aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
   App info.
 - The launcher lists itself. A privacy dashboard that leaves out the app
   showing it has answered the wrong question.
+- **Trackers inside apps.** A scan looks inside each app's code for the
+  advertising, analytics and profiling libraries that Exodus Privacy have
+  catalogued: 428 of them in the list that ships. It runs on the phone,
+  from a list inside the launcher, when you press the button and not
+  before. Apps are read one at a time and each answer is remembered until
+  the app is updated, so a second scan only reads what is new. Tap an app
+  to see which trackers and to reach its App info page.
+  - The card says what a result means. "Found" is the tracker's code being
+    inside the app, not proof it runs or what it sends. "Not found" is
+    nothing on the list being recognised: code can be disguised, and the
+    list is a snapshot with its date shown.
+  - An app that could not be read is counted as unread, never as clean.
+    That is usual for apps that came with a phone, whose code is often
+    stored where an ordinary app may not look.
 - Everything is computed on the phone, which the screen says in so many words.
 - What it deliberately does **not** do:
   - It does not ask for `QUERY_ALL_PACKAGES`, so it lists the apps it can see
@@ -720,6 +734,34 @@ build machine with no screen at all (`HomeDropTargetTest`,
 an app that is already where it is being carried to, and a target that
 vanished while the finger was down.
 
+### The tracker scan
+
+Reading another app's code is reading something written by someone who is
+not on the launcher's side, so most of these tests are about what happens
+when the file is wrong.
+
+- `DexClassesTest` (JVM) reads code files built by hand: good ones, one cut
+  off at every possible length, ones whose tables point outside the file or
+  claim two billion entries, and 5,000 copies of a good file with a few
+  bytes changed at random. Every bad file has to end in "could not be
+  read". None may crash, hang, or make the reader set memory aside for a
+  size the file only claims.
+- `TrackerListTest` (JVM) reads the list that ships and checks well-known
+  trackers are recognised and ordinary code is not, then pins down how a
+  name is matched: at the start of a part of the name, never in the middle
+  of a word.
+- `TrackerScanTest` (JVM) scans hand-made APKs: several code files, an app
+  delivered in pieces, one with no code, one half unreadable.
+- `TrackerScanDeviceTest` (emulator) is the check on all of the above,
+  against files the real Android tools built. The test app carries two
+  empty classes in packages named like trackers', and the scanner must find
+  both. Then it scans the launcher's own installed file, which must contain
+  **no known tracker**. Then every app on the emulator with an icon, to
+  show Android lets them be read and none breaks the scan.
+- `PrivacyDashboardTest` (emulator) walks the card through never-scanned,
+  scanning and each shape of result, and holds in place the sentence that
+  says what a result does not mean.
+
 ### Device soak
 
 `tools/soak.sh` walks home, drawer, search, settings, the About section and
@@ -733,7 +775,11 @@ purpose, turning the hidden-apps lock off must raise Android's "confirm it
 is you" screen, and backing out of that must leave the lock on. And search
 must list no Android settings until the switch for that is turned on. The
 PIN is removed again afterwards, and the emulator scripts clear it at boot
-in case a run was killed half way. That is 39 checks in all.
+in case a run was killed half way.
+
+The last part runs the tracker scan in the real app: opens the dashboard,
+presses the button, waits for an answer, leaves, comes back, and checks the
+answer is still there without a second scan. That is 42 checks in all.
 
 It clears the crash buffer before each step and checks it after, so a crash
 is attributed to the step that caused it rather than appearing as a wall of
@@ -791,10 +837,16 @@ which is precisely why it is easy to leave off a dependency list — and it is
 | Asset | Purpose | Licence |
 |---|---|---|
 | Inter — `app/src/main/res/font/inter_variable.ttf` | The default typeface, as a single variable font | SIL Open Font License 1.1 |
+| Exodus Privacy tracker list — `app/src/main/assets/trackers.tsv` | What the tracker scan looks for: 428 trackers, cut down to names and code signatures | Open Database License 1.0 |
 
-The full licence text is kept at
+The font's full licence text is kept at
 [`licenses/Inter-OFL.txt`](licenses/Inter-OFL.txt), with a note on what is
 bundled and where it came from in [`licenses/README.md`](licenses/README.md).
+The same note covers the tracker list: it is data under the Open Database
+License, which asks that its source is credited and that copies stay open.
+Both are done, and the note says how. That licence covers the list, not the
+launcher's code. I am not a lawyer; if this is ever shipped commercially,
+have one read it.
 
 Test-only, in the `:baselineprofile` module. These build a separate test APK
 and are never part of the launcher, so none of them reaches the shipped
@@ -839,14 +891,17 @@ privacy-launcher/
 │   ├── bench.sh               cold start and frame timing (Macrobenchmark)
 │   ├── devtest.sh             runs the on-device tests
 │   ├── soak.sh                drives every screen and checks it came up
-│   └── contrast.py            checks the palette against WCAG AA
+│   ├── contrast.py            checks the palette against WCAG AA
+│   └── trackers.py            makes the tracker list the app carries
 ├── docs/
 │   └── performance.md         the measured baseline, and what it is worth
+├── licenses/                  licences of the bundled font and tracker list
 └── app/
     ├── build.gradle.kts          the app module's build config
     ├── lint.xml                  one documented lint suppression
     └── src/main/
         ├── AndroidManifest.xml   HOME intent filter, permission removals
+        ├── assets/trackers.tsv   known trackers (Exodus Privacy, ODbL)
         ├── res/                  strings, window theme, launcher icon
         └── java/com/privacylauncher/
             ├── PrivacyLauncherApp.kt   app singleton (3 objects)
@@ -856,10 +911,16 @@ privacy-launcher/
             │   ├── AppRepository.kt      reads installed apps, launches them
             │   ├── IconLoader.kt         background icon decode + LRU cache
             │   ├── LauncherSettings.kt   every preference, one data class
-            │   └── SettingsRepository.kt local settings (DataStore)
+            │   ├── SettingsRepository.kt local settings (DataStore)
+            │   ├── HomeLayoutOps.kt      every home screen rearrangement
+            │   ├── PrivacyScanner.kt     who holds which permission
+            │   ├── TrackerList.kt        the tracker list and its matcher
+            │   ├── DexClasses.kt         reads class names out of app code
+            │   └── TrackerScanner.kt     scans apps one at a time, remembers
             └── ui/
                 ├── LauncherViewModel.kt state that survives rotation
-                ├── HomeScreen.kt        clock, app grid, drag-to-reorder
+                ├── HomeScreen.kt        clock, app grid, dock, drag and drop
+                ├── HomeDrop.kt          where a carried icon would land
                 ├── AppDrawer.kt         search + lazy grid
                 ├── settings/
                 │   ├── SettingsScreen.kt      all preferences

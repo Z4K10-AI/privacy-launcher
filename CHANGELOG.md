@@ -4,6 +4,58 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### A tracker scan, done on the phone
+
+The privacy dashboard can now look inside each app for known advertising,
+analytics and profiling code. This was the one feature on the list that did
+not exist at all.
+
+- **The list** is Exodus Privacy's: 428 trackers and 588 code signatures in
+  the snapshot of 12 November 2026. It is published under the Open Database
+  License 1.0, which asks for credit and that copies stay open; both are
+  done, and `licenses/README.md` says how. `tools/trackers.py` cuts their
+  half-megabyte file down to the 24 KB the app carries. Nothing is fetched
+  on the phone, and nothing could be.
+- **How it reads an app.** An app's code is in files inside its APK. The
+  scanner streams each one once through a small buffer, picks out the names
+  of the classes the app defines, and compares them with the list. The file
+  is never loaded whole.
+- **One app at a time, remembered.** Results are kept with the version they
+  describe, so a later scan only reads apps that are new or updated.
+- **Only when asked.** Opening the dashboard shows the last results. A scan
+  starts when the button is pressed, and can be stopped.
+- **Honest about what it shows.** The card says that "found" is not proof
+  the code runs, that "not found" is not proof an app is clean, and gives
+  the date of the list. An app that could not be read is counted as unread,
+  never as clean.
+- **It trusts nothing it reads.** A code file comes from the app being
+  scanned. Every count and position in it is checked before use.
+
+Checked two ways beyond the tests. The class names the reader finds were
+compared with those from Android's own `dexdump` tool on three real apps
+(Contacts, 3,542 classes; Settings, 7,718; this launcher's debug build,
+17,899 in 13 code files): identical every time. And on emulator `a30`
+(Android 11) a scan of the emulator's own 11 apps read all 11, took 26 ms
+and raised the launcher's memory by under 2 MB. That says the scan works
+and is light on an emulator. It says little about speed on a phone, where
+apps are many times larger and the processor several times slower.
+
+Limits, stated rather than hidden:
+
+- It sees apps with an icon, like the rest of the dashboard. Seeing the
+  rest would need `QUERY_ALL_PACKAGES`, which this launcher does not ask
+  for.
+- A signature is matched where a part of a class name starts. Exodus's own
+  tool also matches in the middle of a word, so on rare apps this reports
+  slightly less than their website does. That reading was chosen because
+  the looser one reports code that is not the tracker's.
+- An app whose code has been renamed to hide it will not be recognised.
+- Preinstalled apps on real phones often cannot be read at all. On the
+  emulator all of them could.
+
+Tests: 43 on the build machine, 18 on the emulator, and 3 checks in the
+soak that run the scan in the real app.
+
 ### The hidden-apps lock could be switched off without the PIN
 
 "Require unlock" puts the list of hidden apps behind the phone's own lock.

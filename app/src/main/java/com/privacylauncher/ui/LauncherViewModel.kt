@@ -55,6 +55,10 @@ import kotlinx.coroutines.launch
 import java.time.LocalTime
 import com.privacylauncher.data.rankSettingsTargets
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.privacylauncher.data.AppScan
+import com.privacylauncher.data.TrackerFinding
+import com.privacylauncher.data.TrackerReport
+import kotlinx.coroutines.NonCancellable
 
 /** Which full-screen panel is showing, if any. */
 enum class Panel {
@@ -76,6 +80,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val settingsRepository = launcherApp.settingsRepository
     private val contactRepository = launcherApp.contactRepository
     private val privacyScanner = launcherApp.privacyScanner
+    private val trackerScanner = launcherApp.trackerScanner
     private val quickControls = launcherApp.quickControls
 
     val iconLoader = launcherApp.iconLoader
@@ -164,6 +169,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     val privacyReport: StateFlow<PrivacyReport> = _privacyReport
 
     private var privacyScanJob: Job? = null
+
+    private val _trackerReport = MutableStateFlow(TrackerReport())
+
+    /** The dashboard's tracker card: what was found, or how far a scan has got. */
+    val trackerReport: StateFlow<TrackerReport> = _trackerReport
+    private var trackerScanJob: Job? = null
 
     /** Live state behind the quick controls panel. */
     private val _quickState = MutableStateFlow(QuickControlsState())
@@ -710,6 +721,102 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun openPrivacyDashboard() {
         panel = Panel.PRIVACY
         rescanPrivacy()
+        showRememberedTrackers()
+    }
+
+    /** The apps a tracker scan covers: each package once, under the name the drawer shows. */
+    private fun trackerTargets(): List<Pair<String, String>> =
+        allApps.value.distinctBy { it.packageName }.map { it.packageName to it.label }
+
+    private fun trackerReportOf(
+        targets: List<Pair<String, String>>,
+        scans: Map<String, AppScan>,
+    ): TrackerReport {
+        val list = trackerScanner.list()
+        return TrackerReport(
+            findings = targets.mapNotNull { (packageName, label) ->
+                val scan = scans[packageName] ?: return@mapNotNull null
+                TrackerFinding(
+                    packageName = packageName,
+                    label = label,
+                    status = scan.status,
+                    trackers = scan.trackerIds.mapNotNull(list::byId),
+                )
+            },
+            waiting = targets.count { it.first !in scans },
+            total = targets.size,
+            snapshot = list.snapshot,
+            listSize = list.trackers.size,
+        )
+    }
+
+    /**
+     * Shows what earlier scans found, without scanning anything.
+     *
+     * Opening the dashboard must stay cheap. A scan reads the code of every
+     * app on the phone, which is work the user should ask for; what it
+     * found last time is one small file.
+     */
+    private fun showRememberedTrackers() {
+        if (trackerScanJob?.isActive == true) return
+        viewModelScope.launch {
+            val targets = trackerTargets()
+            val scans = trackerScanner.remembered(targets.map { it.first })
+            if (trackerScanJob?.isActive == true) return@launch
+            _trackerReport.value = trackerReportOf(targets, scans)
+        }
+    }
+
+    /**
+     * Looks through the installed apps for known trackers, one at a time.
+     *
+     * With [fresh] every app is read again; otherwise only the ones that
+     * are new or updated since they were last read.
+     */
+    fun scanTrackers(fresh: Boolean) {
+        if (trackerScanJob?.isActive == true) return
+        trackerScanJob = viewModelScope.launch {
+            val targets = trackerTargets()
+            val labels = targets.toMap()
+            val scans = HashMap<String, AppScan>()
+            _trackerReport.value = _trackerReport.value.copy(
+                running = true,
+                done = 0,
+                total = targets.size,
+                current = "",
+            )
+            try {
+                trackerScanner.scan(
+                    packages = targets.map { it.first },
+                    fresh = fresh,
+                    onApp = { index, packageName ->
+                        _trackerReport.value = _trackerReport.value.copy(
+                            running = true,
+                            done = index,
+                            total = targets.size,
+                            current = labels[packageName].orEmpty(),
+                        )
+                    },
+                    onResult = { scan -> synchronized(scans) { scans[scan.packageName] = scan } },
+                )
+            } finally {
+                // Reached when the scan finishes and when it is stopped.
+                // Either way, show what there is.
+                val finished = synchronized(scans) { HashMap(scans) }
+                _trackerReport.value = withContext(NonCancellable + Dispatchers.Default) {
+                    val remembered = if (finished.size < targets.size) {
+                        trackerScanner.remembered(targets.map { it.first })
+                    } else {
+                        emptyMap()
+                    }
+                    trackerReportOf(targets, remembered + finished)
+                }
+            }
+        }
+    }
+
+    fun stopTrackerScan() {
+        trackerScanJob?.cancel()
     }
 
     /**

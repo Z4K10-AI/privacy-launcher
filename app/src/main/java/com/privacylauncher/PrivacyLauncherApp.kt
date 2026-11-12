@@ -5,6 +5,7 @@ import com.privacylauncher.data.AppRepository
 import com.privacylauncher.data.ContactRepository
 import com.privacylauncher.data.IconLoader
 import com.privacylauncher.data.PrivacyScanner
+import com.privacylauncher.data.TrackerScanner
 import com.privacylauncher.data.QuickControlsRepository
 import com.privacylauncher.data.SettingsRepository
 
@@ -27,6 +28,7 @@ class PrivacyLauncherApp : Application() {
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(this) }
     val contactRepository: ContactRepository by lazy { ContactRepository(this) }
     val privacyScanner: PrivacyScanner by lazy { PrivacyScanner(this) }
+    val trackerScanner: TrackerScanner by lazy { TrackerScanner(this) }
     val quickControls: QuickControlsRepository by lazy { QuickControlsRepository(this) }
 
     /**
@@ -43,6 +45,10 @@ class PrivacyLauncherApp : Application() {
         // Asking for iconLoader directly would build a cache in order to
         // empty it, which is the opposite of the point.
         if (iconLoaderLazy.isInitialized()) iconLoader.trim(level)
+        // The tracker list is read from the app's own files in a few
+        // milliseconds, so it is never worth keeping when memory is short.
+        // A scan in progress holds its own copy and is not disturbed.
+        trackerScanner.trim()
     }
 
     /**
@@ -53,5 +59,6 @@ class PrivacyLauncherApp : Application() {
     override fun onLowMemory() {
         super.onLowMemory()
         if (iconLoaderLazy.isInitialized()) iconLoader.clear()
+        trackerScanner.trim()
     }
 }

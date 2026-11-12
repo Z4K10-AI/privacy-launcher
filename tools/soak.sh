@@ -66,15 +66,24 @@ dump() {
 # Is $1 present as text or content-desc?
 present() { dump | grep -qi -- "$1"; }
 
+# Where on screen is the first thing whose text or description contains $1,
+# in any case? With "re:" in front, $1 is a pattern the whole text must
+# match instead: for a button like "Scan 11 apps", whose words also turn up
+# in the sentence above it.
 coords_of() {
   dump | python3 -c '
 import sys, re
 want = sys.argv[1].lower()
+pattern = re.compile(want[3:], re.I) if want.startswith("re:") else None
+def hit(text):
+    if not text:
+        return False
+    return bool(pattern.fullmatch(text)) if pattern else want in text.lower()
 for m in re.finditer(r"<node[^>]*>", sys.stdin.read()):
     tag = m.group(0)
     t = (re.search(r"text=\"([^\"]*)\"", tag) or [None,""])[1]
     d = (re.search(r"content-desc=\"([^\"]*)\"", tag) or [None,""])[1]
-    if want in t.lower() or (d and want in d.lower()):
+    if hit(t) or hit(d):
         b = re.search(r"bounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"", tag)
         if b:
             x1,y1,x2,y2 = map(int, b.groups())
@@ -359,6 +368,54 @@ run_search_optin() {
   home
 }
 
+# --- trackers inside apps -------------------------------------------------
+#
+# The scan in the real app, on whatever this emulator has installed: open
+# the dashboard, press the button, wait for an answer. It asserts that an
+# answer comes and that it is remembered, not what the answer is. What a
+# stock emulator's apps contain is not this project's to promise.
+open_dashboard() {
+  home; sleep 1
+  tap_on "Settings"; sleep 2
+  scroll_until "Privacy dashboard" 30 || return 1
+  tap_on "Privacy dashboard"; sleep 3
+  scroll_until "Trackers inside apps" 10
+}
+
+scan_for_trackers() {
+  local i
+  open_dashboard || return 1
+  # Down to the last line of the card, so the button above it is on screen.
+  # "List from Exodus" and not just "Exodus Privacy": the card's first
+  # paragraph names Exodus Privacy too, and a search for that stops at the
+  # top of the card with the button still below the edge of the screen.
+  scroll_until "List from Exodus" 6
+  if present "Read every app again"; then
+    tap_on "Read every app again"
+  else
+    tap_on 're:scan \d+ apps?'
+  fi
+  # Until the progress line has gone and the results are up. A minute and
+  # a half is far more than an emulator's couple of dozen apps need.
+  for i in $(seq 1 45); do
+    sleep 2
+    present_all "Read every app again+!Reading app" && return 0
+  done
+  return 1
+}
+
+run_trackers() {
+  echo "--- trackers inside apps ---"
+  check "the dashboard offers a scan"   "Trackers inside apps"                         open_dashboard
+  check "a scan finishes with an answer" "Read every app again+!Reading app+known tracker"  scan_for_trackers
+  home
+  check "the answer is remembered"      "Read every app again+known tracker"            open_dashboard_results
+  home
+}
+
+# The dashboard again, scrolled to where the results are.
+open_dashboard_results() { open_dashboard && scroll_until "List from Exodus" 6; }
+
 # A fresh install opens on the onboarding flow, not the home screen.
 #
 # Without this, every check below looks for home-screen text, finds a welcome
@@ -431,7 +488,7 @@ fi
 echo "onboarding cleared, home screen reached"
 echo
 
-# SOAK_ONLY=carry (or lock, search, or screens) runs one part. It is for working on
+# SOAK_ONLY=carry (or lock, search, trackers, or screens) runs one part. It is for working on
 # this script, not for calling the app tested: a full run has no SOAK_ONLY.
 ONLY="${SOAK_ONLY:-}"
 wanted() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
@@ -474,6 +531,12 @@ if wanted search; then
 echo
 echo "=== F. what search finds ==="
 run_search_optin
+fi
+
+if wanted trackers; then
+echo
+echo "=== G. the tracker scan ==="
+run_trackers
 fi
 
 [ -n "$ONLY" ] && echo && echo "(SOAK_ONLY=$ONLY: only part of the soak ran)"

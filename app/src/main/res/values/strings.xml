@@ -90,6 +90,44 @@
     <string name="privacy_usage_unavailable">Android on this phone is older than version 12, which is where the recent-use timeline was added. There is nothing to show and nothing to open.</string>
     <string name="privacy_usage_open">Open Android\'s privacy settings</string>
 
+    <!-- Trackers inside apps -->
+    <string name="tracker_title">Trackers inside apps</string>
+    <string name="tracker_intro">Many apps carry code from advertising and analytics companies. A scan looks inside each app for the ones Exodus Privacy has catalogued. It is done on this phone with a list that is built into the launcher. Nothing is sent anywhere.</string>
+    <string name="tracker_scan">Scan apps</string>
+    <plurals name="tracker_scan_apps">
+        <item quantity="one">Scan %d app</item>
+        <item quantity="other">Scan %d apps</item>
+    </plurals>
+    <string name="tracker_scanning">Reading app %1$d of %2$d</string>
+    <string name="tracker_stop">Stop</string>
+    <plurals name="tracker_found_in">
+        <item quantity="one">%1$d app of the %2$d read contains a known tracker.</item>
+        <item quantity="other">%1$d apps of the %2$d read contain a known tracker.</item>
+    </plurals>
+    <plurals name="tracker_none_found">
+        <item quantity="one">No known tracker in the %d app read.</item>
+        <item quantity="other">No known tracker in the %d apps read.</item>
+    </plurals>
+    <plurals name="tracker_count">
+        <item quantity="one">%d tracker</item>
+        <item quantity="other">%d trackers</item>
+    </plurals>
+    <plurals name="tracker_unread">
+        <item quantity="one">%d app could not be read. That is usual for an app that came with the phone: its code is kept where an ordinary app is not allowed to look.</item>
+        <item quantity="other">%d apps could not be read. That is usual for apps that came with the phone: their code is kept where an ordinary app is not allowed to look.</item>
+    </plurals>
+    <plurals name="tracker_waiting">
+        <item quantity="one">%d app is new or updated since it was last read.</item>
+        <item quantity="other">%d apps are new or updated since they were last read.</item>
+    </plurals>
+    <string name="tracker_scan_new">Read them now</string>
+    <string name="tracker_rescan">Read every app again</string>
+    <string name="tracker_show_list">Show its trackers</string>
+    <string name="tracker_hide_list">Hide its trackers</string>
+    <string name="tracker_partly">Part of this app could not be read, so there may be more.</string>
+    <string name="tracker_meaning">“Found” means the tracker\'s code is inside the app. It does not show that the code runs, or what it sends. “Not found” means nothing on the list was recognised: code can be disguised, and the list is a snapshot.</string>
+    <string name="tracker_credit">List from Exodus Privacy, %1$s: %2$d trackers. Open Database License.</string>
+
     <string name="perm_location">Location</string>
     <string name="perm_location_body">Where you are, to within a few metres.</string>
     <string name="perm_microphone">Microphone</string>

@@ -53,6 +53,14 @@ import com.privacylauncher.designsystem.cardSurface
 import com.privacylauncher.ui.components.LauncherIcons
 import com.privacylauncher.ui.components.PackageIconImage
 import com.privacylauncher.ui.settings.ScreenScaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextOverflow
+import com.privacylauncher.data.ScanStatus
+import com.privacylauncher.data.TrackerFinding
+import com.privacylauncher.data.TrackerReport
+import androidx.compose.foundation.layout.offset
 
 /**
  * The privacy dashboard.
@@ -70,6 +78,11 @@ fun PrivacyDashboardScreen(
     onBack: () -> Unit,
     onOpenPermissions: (String) -> Unit,
     onOpenSystemPrivacy: () -> Unit,
+    /** The tracker scan: what it found, or how far it has got. */
+    trackers: TrackerReport = TrackerReport(),
+    /** Start a scan. True means read every app again, not only the new ones. */
+    onScanTrackers: (fresh: Boolean) -> Unit = {},
+    onStopTrackerScan: () -> Unit = {},
 ) {
     ScreenScaffold(title = stringResource(R.string.privacy_title), onBack = onBack) {
         if (!report.ready) {
@@ -112,6 +125,15 @@ fun PrivacyDashboardScreen(
             }
             item("working") {
                 WorkingCard(report)
+            }
+            item("trackers") {
+                TrackersCard(
+                    report = trackers,
+                    iconLoader = iconLoader,
+                    onScan = onScanTrackers,
+                    onStop = onStopTrackerScan,
+                    onOpenApp = onOpenPermissions,
+                )
             }
             item("usage") {
                 RecentUseCard(onOpenSystemPrivacy)
@@ -289,8 +311,309 @@ private fun RecentUseCard(onOpenSystemPrivacy: () -> Unit) {
             TextButton(
                 onClick = onOpenSystemPrivacy,
                 contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs),
+                modifier = Modifier.alignWithText(),
             ) {
                 Text(stringResource(R.string.privacy_usage_open))
+            }
+        }
+    }
+}
+
+/**
+ * Lines a text button's words up with the text above it.
+ *
+ * A text button keeps a little space either side of its label so the
+ * pressed shape has room. Under a paragraph that leaves the label starting
+ * that much to the right of the paragraph, which reads as a mistake. This
+ * moves the button left by the same amount.
+ */
+private fun Modifier.alignWithText(): Modifier = offset(x = -Spacing.xs)
+
+/**
+ * Trackers found inside apps.
+ *
+ * Three states, each designed rather than left to fall out: nothing scanned
+ * yet, a scan in progress, and results. A scan is only ever started by the
+ * button. It reads the code of every app on the phone, which is not
+ * something to do behind the user's back because they opened a screen.
+ *
+ * The last paragraph on the card is the important one. A scanner like this
+ * invites two wrong conclusions -- "found, so it is spying on me" and "not
+ * found, so it is clean" -- and the card says plainly that it shows neither.
+ */
+@Composable
+private fun TrackersCard(
+    report: TrackerReport,
+    iconLoader: IconLoader,
+    onScan: (fresh: Boolean) -> Unit,
+    onStop: () -> Unit,
+    onOpenApp: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radii.card))
+            .cardSurface(level = 1)
+            .animateContentSize(animationSpec = Motion.medium())
+            .padding(vertical = Spacing.lg),
+    ) {
+        Text(
+            text = stringResource(R.string.tracker_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = Spacing.lg),
+        )
+        Spacer(Modifier.height(Spacing.xs))
+
+        when {
+            report.running -> TrackerProgress(report, onStop)
+            !report.hasResults -> {
+                Text(
+                    text = stringResource(R.string.tracker_intro),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.lg),
+                )
+                Spacer(Modifier.height(Spacing.md))
+                Button(
+                    onClick = { onScan(false) },
+                    enabled = report.total > 0,
+                    modifier = Modifier.padding(horizontal = Spacing.lg),
+                ) {
+                    Text(
+                        if (report.total > 0) {
+                            pluralStringResource(
+                                R.plurals.tracker_scan_apps, report.total, report.total,
+                            )
+                        } else {
+                            stringResource(R.string.tracker_scan)
+                        },
+                    )
+                }
+            }
+            else -> TrackerResults(report, iconLoader, onScan, onOpenApp)
+        }
+
+        Spacer(Modifier.height(Spacing.md))
+        Text(
+            text = stringResource(R.string.tracker_meaning),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Spacing.lg),
+        )
+        if (report.listSize > 0) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = stringResource(
+                    R.string.tracker_credit, report.snapshot, report.listSize,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.lg),
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrackerProgress(report: TrackerReport, onStop: () -> Unit) {
+    val total = report.total.coerceAtLeast(1)
+    val progressLabel = stringResource(
+        R.string.tracker_scanning, (report.done + 1).coerceAtMost(total), total,
+    )
+    Column(Modifier.padding(horizontal = Spacing.lg)) {
+        Text(
+            text = progressLabel,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        // Always takes its line, named or not, so the bar under it does not
+        // jump up and down as apps go by.
+        Text(
+            text = report.current.ifEmpty { " " },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        LinearProgressIndicator(
+            progress = { report.done / total.toFloat() },
+            modifier = Modifier
+                .fillMaxWidth()
+                // The text above already says how far it has got. Announcing
+                // every step of the bar as well would bury it.
+                .clearAndSetSemantics { },
+        )
+        Spacer(Modifier.height(Spacing.xs))
+        TextButton(
+            onClick = onStop,
+            contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs),
+            modifier = Modifier.alignWithText(),
+        ) {
+            Text(stringResource(R.string.tracker_stop))
+        }
+    }
+}
+
+@Composable
+private fun TrackerResults(
+    report: TrackerReport,
+    iconLoader: IconLoader,
+    onScan: (fresh: Boolean) -> Unit,
+    onOpenApp: (String) -> Unit,
+) {
+    val found = report.withTrackers
+    Text(
+        text = if (found.isEmpty()) {
+            pluralStringResource(R.plurals.tracker_none_found, report.read, report.read)
+        } else {
+            pluralStringResource(
+                R.plurals.tracker_found_in, found.size, found.size, report.read,
+            )
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.padding(horizontal = Spacing.lg),
+    )
+    if (found.isNotEmpty()) {
+        Spacer(Modifier.height(Spacing.xs))
+        found.forEach { finding ->
+            TrackerAppRow(finding, iconLoader, onOpenApp)
+        }
+    }
+    if (report.unread > 0) {
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            text = pluralStringResource(R.plurals.tracker_unread, report.unread, report.unread),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Spacing.lg),
+        )
+    }
+    if (report.waiting > 0) {
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            text = pluralStringResource(R.plurals.tracker_waiting, report.waiting, report.waiting),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = Spacing.lg),
+        )
+    }
+    Spacer(Modifier.height(Spacing.xs))
+    Row(Modifier.padding(horizontal = Spacing.md)) {
+        if (report.waiting > 0) {
+            TextButton(
+                onClick = { onScan(false) },
+                contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs),
+            ) {
+                Text(stringResource(R.string.tracker_scan_new))
+            }
+            Spacer(Modifier.width(Spacing.sm))
+        }
+        TextButton(
+            onClick = { onScan(true) },
+            contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs),
+        ) {
+            Text(stringResource(R.string.tracker_rescan))
+        }
+    }
+}
+
+/** One app that contains trackers. Tap to see which, and to reach App info. */
+@Composable
+private fun TrackerAppRow(
+    finding: TrackerFinding,
+    iconLoader: IconLoader,
+    onOpenApp: (String) -> Unit,
+) {
+    var expanded by rememberSaveable(finding.packageName) { mutableStateOf(false) }
+    val chevron by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = Motion.short(),
+        label = "trackerChevron",
+    )
+    val count = pluralStringResource(
+        R.plurals.tracker_count, finding.trackers.size, finding.trackers.size,
+    )
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClickLabel = stringResource(
+                        if (expanded) R.string.tracker_hide_list else R.string.tracker_show_list,
+                    ),
+                ) { expanded = !expanded }
+                .defaultMinSize(minHeight = Spacing.touchTarget)
+                .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PackageIconImage(
+                packageName = finding.packageName,
+                loader = iconLoader,
+                size = 36.dp,
+            )
+            Spacer(Modifier.width(Spacing.md))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = finding.label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = count,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = LauncherIcons.ChevronDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.rotate(chevron),
+            )
+        }
+        if (expanded) {
+            Column(
+                modifier = Modifier.padding(
+                    // Lined up under the app's name, past its icon.
+                    start = Spacing.lg + 36.dp + Spacing.md,
+                    end = Spacing.lg,
+                    bottom = Spacing.xs,
+                ),
+            ) {
+                finding.trackers.forEach { tracker ->
+                    Text(
+                        text = tracker.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    if (tracker.categories.isNotEmpty()) {
+                        Text(
+                            text = tracker.categories.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.height(Spacing.xs))
+                }
+                if (finding.status == ScanStatus.PARTLY) {
+                    Text(
+                        text = stringResource(R.string.tracker_partly),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(
+                    onClick = { onOpenApp(finding.packageName) },
+                    contentPadding = PaddingValues(horizontal = Spacing.xs, vertical = Spacing.xs),
+                    modifier = Modifier.alignWithText(),
+                ) {
+                    Text(stringResource(R.string.privacy_change))
+                }
             }
         }
     }

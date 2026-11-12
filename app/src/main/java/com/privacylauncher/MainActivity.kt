@@ -169,6 +169,7 @@ private fun LauncherRoot(
     val drawerList by viewModel.drawerList.collectAsStateWithLifecycle()
     val extraRows by viewModel.extraRows.collectAsStateWithLifecycle()
     val privacyReport by viewModel.privacyReport.collectAsStateWithLifecycle()
+    val trackerReport by viewModel.trackerReport.collectAsStateWithLifecycle()
     val quickState by viewModel.quickState.collectAsStateWithLifecycle()
     val homeTiles by viewModel.homeTiles.collectAsStateWithLifecycle()
     val dock by viewModel.dockApps.collectAsStateWithLifecycle()
@@ -641,6 +642,9 @@ private fun LauncherRoot(
                 onBack = viewModel::closePanel,
                 onOpenPermissions = viewModel::openAppPermissions,
                 onOpenSystemPrivacy = viewModel::openSystemPrivacy,
+                trackers = trackerReport,
+                onScanTrackers = viewModel::scanTrackers,
+                onStopTrackerScan = viewModel::stopTrackerScan,
             )
         }
 
