@@ -4,6 +4,40 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### A measured baseline, at last
+
+`tools/bench.sh` measures cold start and frame timing with Macrobenchmark,
+and `docs/performance.md` records the first baseline. All of it is from the
+`a30` emulator (Android 11, 1080x2340 at 420 dpi, 4 GB RAM) on a MacBook
+Air M4, 12 November 2026. **Emulator figures, not a phone's.**
+
+| | Drawing in software | Drawing on the Mac's GPU |
+|---|---|---|
+| Cold start, median of 10 | 212 ms uncompiled, 240 ms with the baseline profile | 134 ms and 132 ms |
+| Drawer animation, frames over 16.7 ms | 95.6% and 95.8% | 1.2% and 0.7% |
+| Settings scroll, frames over 16.7 ms | 97.1% and 96.7% | 0.7% and none |
+
+What that says, plainly:
+
+- Cold start is inside the 500 ms budget on the emulator, on a processor
+  several times faster than the phone's. It says nothing about the phone.
+- In software nearly every frame is late. That is the emulator painting
+  on the processor: the same build with a GPU takes 4 to 6 ms a frame.
+- **The "no dropped frames" budget is not met**, even with the GPU. A few
+  frames in each drawer run take 17 to 25 ms. Not yet investigated.
+- The baseline profile makes no measurable difference to the typical start
+  here. It makes starts more consistent and removes most of the slow
+  frames after the first few rounds.
+
+**The cold-start benchmark now proves which screen it timed.** After each
+start it checks the home screen is up. This project once timed the welcome
+page and reported it as the launcher, twice. With the welcome page left in
+place the check fails with "The cold start that was just timed did not draw
+the home screen", and with it cleared the run passes.
+
+The README's old startup figures (2097 ms and 2306 ms, both of the welcome
+page) are gone, replaced by a pointer to the baseline.
+
 ### Three emulators, each asked for by name
 
 `tools/emulators.sh` makes the emulators this project is tested on, the

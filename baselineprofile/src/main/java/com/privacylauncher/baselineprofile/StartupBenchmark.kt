@@ -6,6 +6,8 @@ import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -74,6 +76,16 @@ class StartupBenchmark {
         // The same explicit HOME intent the profile generator uses, and for
         // the same reason: this app has no launcher intent to look up.
         startActivityAndWait(homeIntent())
+
+        // Prove that what was just timed was the home screen. The timing
+        // itself is read from the system's own record of the launch, which
+        // ends at the first frame, so waiting here costs it nothing -- and
+        // without this a run that timed the welcome page looks exactly
+        // like one that timed the launcher.
+        check(device.wait(Until.hasObject(By.desc(DRAWER_DESC)), TIMEOUT_MS)) {
+            "The cold start that was just timed did not draw the home " +
+                "screen: no \"$DRAWER_DESC\" on it. Is onboarding showing?"
+        }
     }
 
     private companion object {

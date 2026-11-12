@@ -787,9 +787,12 @@ privacy-launcher/
 │   ├── device.sh              picks the emulator the other scripts use
 │   ├── install.sh             builds and installs on an emulator
 │   ├── check.sh               every test in one command, with a summary
+│   ├── bench.sh               cold start and frame timing (Macrobenchmark)
 │   ├── devtest.sh             runs the on-device tests
 │   ├── soak.sh                drives every screen and checks it came up
 │   └── contrast.py            checks the palette against WCAG AA
+├── docs/
+│   └── performance.md         the measured baseline, and what it is worth
 └── app/
     ├── build.gradle.kts          the app module's build config
     ├── lint.xml                  one documented lint suppression
@@ -840,37 +843,41 @@ single item is the bundled Inter typeface at 880 KB — 42% of the APK. That
 is the obvious thing to cut if size ever matters more than it does now:
 dropping to the system font would roughly halve it.
 
-### Measured startup, and why the numbers are weak
+### Measured startup and frame timing
 
-`:baselineprofile` is a Macrobenchmark module. It records the baseline
-profile and measures cold start in two conditions that differ only in how
-the app was compiled.
+`tools/bench.sh` measures cold start and frame timing with Macrobenchmark.
+[docs/performance.md](docs/performance.md) keeps the baseline, how it was
+taken, and what it can and cannot tell you. In short, on the `a30` emulator
+(Android 11, 1080x2340, 4 GB RAM), measured on 12 November 2026:
 
-**There is no trustworthy startup number for this app yet, and the ones
-this file used to quote were wrong.** Both facts are worth recording,
-because a plausible-looking number is more damaging than a missing one.
+| | Drawing in software | Drawing on the Mac's GPU |
+|---|---|---|
+| Cold start, median | 212 to 240 ms | 132 to 134 ms |
+| Drawer animation frames over 16.7 ms | 96% | 0.7% to 1.2% |
 
-An earlier pass reported 2097 ms uncompiled against 2306 ms with the
-profile and called the difference noise. It was worse than noise: the
-benchmark installed the app fresh each time, a fresh install has an empty
-DataStore, and an empty DataStore means the first thing `MainActivity`
-draws is the four-page welcome flow. Every one of those figures was the
-time to draw onboarding. `StartupBenchmark` now walks past it in `@Before`
-and force-stops the app, so the first measured iteration is a genuine cold
-start of the home screen — but the corrected run has not produced usable
-numbers either (see "Still open" below).
+**These are emulator figures.** This Mac's processor is several times
+faster than a Galaxy A30's, so they are for comparing one build with the
+next and say nothing reliable about the phone. The 96% is the emulator
+painting every pixel on the processor, not the launcher being slow, which
+is why the same build is measured both ways. The budget is no dropped
+frames at all, and even on the Mac's GPU that is **not met yet**: a few
+frames in each drawer run take 17 to 25 ms.
 
-Two reasons to distrust anything this emulator reports, independent of that
-bug. It renders in software through SwiftShader on the machine that is also
-running the build, and Macrobenchmark refuses to run on an emulator at all
-unless passed `suppressErrors=EMULATOR`, which silences the objection
-without answering it. An attempt with plain `adb shell am start -W` was
-worse still: twelve runs of one build ranged from 233 ms to 2912 ms.
+Earlier versions of this file quoted 2097 ms and 2306 ms for cold start,
+and those were worse than noise. The benchmark installed the app fresh, a
+fresh install opens on the four-page welcome flow, and every one of those
+figures was the time to draw the welcome page. The benchmark now walks past
+it first, and after every start it times it checks that the home screen is
+what came up. That check was watched failing with the welcome flow left in
+place:
 
-So the honest position is: **the profile is recorded, verified to be in the
-APK, and unmeasured.** Confirming it is worth having needs a run on the
-4 GB Samsung, which has not happened yet. What *can* be confirmed from here
-is that the profile is real and reaches the shipped APK — see below.
+    The cold start that was just timed did not draw the home screen:
+    no "Open app drawer" on it. Is onboarding showing?
+
+On this emulator the baseline profile does not make the typical start
+faster. What it changes here is consistency, and a handful of slow frames
+early in the drawer animation. Whether it is worth more on a slow phone,
+where running uncompiled code costs far more, can only be measured on one.
 
 ### The profile is a committed file, and tasks delete it
 
@@ -892,6 +899,10 @@ git status --short app/src/release/generated/baselineProfiles/
 If it shows `D`, the file was deleted rather than regenerated. Put it back
 with `git restore` on that path; only accept the deletion if a fresh
 recording has genuinely replaced it.
+
+`tools/bench.sh` makes that check itself after every run and restores the
+file if it has gone. The eight benchmark runs of 12 November 2026 all left
+it alone, so it may be only the recording task that removes it.
 
 ### Checking the profile actually ships
 
@@ -1098,6 +1109,13 @@ Drive every screen and check each one really came up:
 
 ```bash
 tools/soak.sh a30
+```
+
+Measure cold start and frame timing (see
+[docs/performance.md](docs/performance.md) before reading the numbers):
+
+```bash
+tools/bench.sh a30
 ```
 
 Check every colour pair in the palette against WCAG AA (no device needed):
