@@ -464,14 +464,18 @@ scan_for_trackers() {
 run_trackers() {
   echo "--- trackers inside apps ---"
   check "the dashboard offers a scan"   "Trackers inside apps"                         open_dashboard
-  check "a scan finishes with an answer" "Read every app again+!Reading app+known tracker"  scan_for_trackers
+  # Two looks, because the answer's first line and the button under it are
+  # not always on screen together: on a short screen with large text the
+  # card is taller than what is left of the screen. The scan having ended
+  # is checked here; what it said is checked on the way back in.
+  check "a scan runs to the end"        "Read every app again+!Reading app"            scan_for_trackers
   home
-  check "the answer is remembered"      "Read every app again+known tracker"            open_dashboard_results
+  check "its answer is shown, and remembered" "known tracker"                          open_dashboard_answer
   home
 }
 
-# The dashboard again, scrolled to where the results are.
-open_dashboard_results() { open_dashboard && scroll_until "List from Exodus" 6; }
+# The dashboard again, scrolled to the first line of the answer.
+open_dashboard_answer() { open_dashboard && scroll_until "known tracker" 6; }
 
 # --- short of memory, and killed -------------------------------------------
 #
@@ -579,6 +583,14 @@ lockdown_cleanup() {
   fi
 }
 
+# The quick panel, with the Lock down tile on screen. It is the first tile,
+# so this is normally no scrolling at all; the scroll is for a screen so
+# short that even the first row is below the brightness card.
+open_quick_at_lockdown() {
+  retry_until "Quick controls" left || return 1
+  scroll_until "Locks until your PIN" 4
+}
+
 run_lockdown() {
   echo "--- lock down ---"
   if ! give_pin; then
@@ -598,7 +610,7 @@ run_lockdown() {
   fi
 
   home; sleep 1
-  check "the tile says it is ready"   "Locks until your PIN"   retry_until "Quick controls" left
+  check "the tile says it is ready"   "Locks until your PIN"   open_quick_at_lockdown
   local before; before="$(auth_flags)"
   tap_on "Lock down" >/dev/null 2>&1; sleep 4
   report "it locks the phone"                    asleep

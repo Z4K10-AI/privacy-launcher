@@ -18,14 +18,18 @@ enum class QuickTile(
     @param:StringRes val labelRes: Int,
     val opensSettings: Boolean,
 ) {
+    // The order here is the order on the panel, and the two that act come
+    // first. Lock down used to be last of the eight, which on a short
+    // screen with large text put it below the bottom edge: the one tile a
+    // person reaches for in a hurry was the one they had to scroll to.
+    LOCKDOWN(R.string.quick_lockdown, opensSettings = false),
+    FLASHLIGHT(R.string.quick_flashlight, opensSettings = false),
     WIFI(R.string.quick_wifi, opensSettings = true),
     BLUETOOTH(R.string.quick_bluetooth, opensSettings = true),
-    FLASHLIGHT(R.string.quick_flashlight, opensSettings = false),
     LOCATION(R.string.quick_location, opensSettings = true),
     DND(R.string.quick_dnd, opensSettings = true),
     ROTATION(R.string.quick_rotation, opensSettings = true),
     PRIVATE_DNS(R.string.quick_private_dns, opensSettings = true),
-    LOCKDOWN(R.string.quick_lockdown, opensSettings = false),
     ;
 
     fun toggle(state: QuickControlsState): Toggle = when (this) {

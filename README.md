@@ -584,11 +584,12 @@ quietly reporting a clean run over a smaller set than you think.
 
 ```bash
 tools/check.sh                     # all four below on the a30 emulator, with a summary
-tools/check.sh all                 # the same on all three emulators (15 minutes)
-./gradlew :app:testDebugUnitTest   # 142 JVM unit tests, no device needed
-tools/devtest.sh a30               # 53 device tests, on the a30 emulator
+tools/check.sh all                 # the same on all three emulators (about an hour)
+./gradlew :app:testDebugUnitTest   # 259 JVM unit tests, no device needed
+tools/devtest.sh a30               # 120 device tests, on the a30 emulator
 python3 tools/contrast.py          # every colour pair against WCAG AA
-tools/soak.sh a30                  # drive every screen on the a30 emulator
+tools/soak.sh a30                  # 58 checks in the real app, on the a30 emulator
+tools/shapes.sh a30                # the device tests and a tour on seven screen shapes
 ```
 
 ### Unit tests
@@ -604,6 +605,11 @@ that code was written that way so it could be tested at all:
 | `SearchAndLayoutTest` | Drawer search ranking, section letters, the home layout codec |
 | `PruneGuardTest` | That a failed "what is installed?" cannot delete the home screen |
 | `IconCachePolicyTest` | How much of the icon cache survives each memory-pressure level |
+| `HomeLayoutOpsTest`, `HomeDropOpsTest`, `HomeReorderTest` | Every rearrangement of the home screen and dock, by id and never by position |
+| `HomeDropTargetTest` | Where a carried icon would land, on a made-up screen of round numbers |
+| `FittedIconSizeTest` | That icons fit their slot at every common phone width |
+| `DexClassesTest`, `TrackerListTest`, `TrackerScanTest` | The tracker scan, mostly against files it should not trust |
+| `HiddenAppsLockTest`, `LockDownTest`, `OrientationTest`, `GestureSummaryTest` | Small rules with consequences: what the hidden-apps lock guards, when Lock down is ready, when the screen may turn, what an old Android is promised |
 
 Two of them are exhaustive rather than example-based: one walks all 1,440
 minutes of the day across five window shapes to assert the focus timer can
@@ -745,8 +751,8 @@ runs:
 | Privacy dashboard | older `getInstalledPackages` overload | reads all 36 packages, no crash |
 
 Those three were checked by hand on the earlier Android 11 emulator, and
-none of them depends on screen size. On `a30` itself the soak passes 27 of
-27 and all 53 device tests pass.
+none of them depends on screen size. On `a30` itself, as of 12 November
+2026, all 58 soak checks and all 120 device tests pass.
 
 ### Why a narrow screen has its own profile
 
@@ -966,7 +972,7 @@ word "Battery" in the line under the clock, and that line reads "Charging
 always is. So on a fresh boot the script could not recognise a home screen
 it was looking straight at, and stopped. Run unchanged on the `a30`
 emulator it aborted; with the new marker, on the same emulator in the same
-state, it passes 27 of 27.
+state, it passed all 27 of the checks it had at the time.
 
 ### What is not tested
 
