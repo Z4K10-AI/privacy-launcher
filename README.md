@@ -901,7 +901,7 @@ with `git restore` on that path; only accept the deletion if a fresh
 recording has genuinely replaced it.
 
 `tools/bench.sh` makes that check itself after every run and restores the
-file if it has gone. The eight benchmark runs of 12 November 2026 all left
+file if it has gone. The five benchmark runs of 12 November 2026 all left
 it alone, so it may be only the recording task that removes it.
 
 ### Checking the profile actually ships
