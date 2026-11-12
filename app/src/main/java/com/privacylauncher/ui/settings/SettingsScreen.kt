@@ -42,6 +42,7 @@ import com.privacylauncher.ui.components.SettingsSwitchRow
 import com.privacylauncher.ui.components.SwatchRow
 import com.privacylauncher.system.Guarded
 import com.privacylauncher.system.LockDownState
+import com.privacylauncher.designsystem.nameRes
 
 /**
  * Every launcher preference, in six sections.
@@ -241,10 +242,12 @@ fun SettingsScreen(
                     onCheckedChange = onDynamicColor,
                 )
 
+                val accentNames = AccentColor.entries.associate { it.name to stringResource(it.nameRes()) }
                 SwatchRow(
                     title = stringResource(R.string.settings_accent),
                     swatches = AccentColor.entries.map { it.name to it.swatch(dark) },
                     selectedLabel = settings.accent.name,
+                    spokenName = { accentNames[it] ?: it },
                     // Material You supplies its own colours, so the manual
                     // accent has nothing to do while it is on. Greyed rather
                     // than hidden, so the setting does not seem to vanish.

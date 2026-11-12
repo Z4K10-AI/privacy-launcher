@@ -3,6 +3,8 @@ package com.privacylauncher.designsystem
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.lerp
 import com.privacylauncher.data.AccentColor
+import androidx.annotation.StringRes
+import com.privacylauncher.R
 
 /**
  * Neutrals.
@@ -108,6 +110,17 @@ internal object Signal {
     val FairDark = Color(0xFFE0C182)
     val AttentionLight = Color(0xFF9A3B3B)
     val AttentionDark = Color(0xFFE2A1A1)
+}
+
+/** What the colour is called, for the picker's screen-reader labels. */
+@StringRes
+internal fun AccentColor.nameRes(): Int = when (this) {
+    AccentColor.TEAL -> R.string.accent_teal
+    AccentColor.BLUE -> R.string.accent_blue
+    AccentColor.VIOLET -> R.string.accent_violet
+    AccentColor.AMBER -> R.string.accent_amber
+    AccentColor.ROSE -> R.string.accent_rose
+    AccentColor.SLATE -> R.string.accent_slate
 }
 
 /** The swatch shown in the picker, for the theme currently active. */

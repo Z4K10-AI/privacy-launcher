@@ -28,6 +28,8 @@ import com.privacylauncher.data.IconLoader
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.ui.components.AppIconImage
 import com.privacylauncher.ui.settings.ScreenScaffold
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /**
  * Picks the apps that stay visible while focus mode is on.
@@ -68,7 +70,15 @@ fun FocusAppsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onToggle(entry, !isAllowed) }
+                        // The whole row is the switch. With a second, live
+                        // switch inside it a screen reader found two things
+                        // per app: a row with a name and no state, and a
+                        // switch with a state and no name.
+                        .toggleable(
+                            value = isAllowed,
+                            role = Role.Switch,
+                            onValueChange = { onToggle(entry, it) },
+                        )
                         .padding(horizontal = Spacing.lg, vertical = Spacing.xs)
                         .defaultMinSize(minHeight = Spacing.touchTarget),
                     verticalAlignment = Alignment.CenterVertically,
@@ -89,10 +99,7 @@ fun FocusAppsScreen(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    Switch(
-                        checked = isAllowed,
-                        onCheckedChange = { onToggle(entry, it) },
-                    )
+                    Switch(checked = isAllowed, onCheckedChange = null)
                 }
             }
         }

@@ -4,6 +4,30 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Every screen walked for accessibility, and eight of twenty failed
+
+`AccessibilityWalkTest` puts each of twenty screens and dialogs on the
+emulator and checks two rules against what the screen tells Android's
+accessibility services: everything that can be pressed has a name, and is
+at least 48 by 48 dp. The first run failed on eight screens. Fixed:
+
+- The six accent-colour swatches were unnamed buttons (Settings and the
+  welcome pages). Each now says its colour and whether it is chosen.
+- The brightness slider had no name and was 44 dp tall. Now "Brightness",
+  and 48 dp.
+- Hidden apps and focus apps announced every app twice: a row with a name
+  and no state, then a switch with a state and no name. Each is now one
+  switch.
+- The search box lost its only name with the first letter typed.
+- The folder sheet: its name field had no name; the dimmed area round it
+  had an action but no name; and the sheet itself claimed to be a button
+  that did nothing.
+
+All twenty pass now (emulator `a30`). The test reads the same information
+TalkBack acts on, but it is not TalkBack: it cannot judge whether a name is
+a good one or the reading order makes sense. TalkBack is not on these
+emulator images, so nobody has listened to the launcher with it yet.
+
 ### Killed, and back as it was
 
 The performance budget says the launcher must hand memory back when asked

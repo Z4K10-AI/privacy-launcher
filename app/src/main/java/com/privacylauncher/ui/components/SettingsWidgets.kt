@@ -36,6 +36,8 @@ import com.privacylauncher.designsystem.Motion
 import com.privacylauncher.designsystem.Radii
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.designsystem.rememberHaptics
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.contentDescription
 
 /** A titled block of settings rows. */
 @Composable
@@ -287,6 +289,12 @@ fun SwatchRow(
     swatches: List<Pair<String, Color>>,
     selectedLabel: String,
     enabled: Boolean = true,
+    /**
+     * What a screen reader calls each swatch, by its label. A dot of colour
+     * says nothing by itself: without this every swatch was an unnamed
+     * button, and choosing an accent without seeing the screen was a guess.
+     */
+    spokenName: (String) -> String = { it },
     onSelect: (String) -> Unit,
 ) {
     val haptics = rememberHaptics()
@@ -325,10 +333,17 @@ fun SwatchRow(
                         // can stay small without the target being too small.
                         .size(Spacing.touchTarget)
                         .clip(CircleShape)
-                        .clickable(enabled = enabled, role = Role.RadioButton) {
+                        // selectable, not clickable: one of several, and a
+                        // screen reader should say which one is chosen.
+                        .selectable(
+                            selected = isSelected,
+                            enabled = enabled,
+                            role = Role.RadioButton,
+                        ) {
                             haptics.tick()
                             onSelect(label)
-                        },
+                        }
+                        .semantics { contentDescription = spokenName(label) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(

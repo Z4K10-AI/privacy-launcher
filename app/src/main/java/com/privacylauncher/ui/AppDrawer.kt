@@ -240,6 +240,7 @@ fun AppDrawer(
             )
         }
 
+        val searchLabel = stringResource(R.string.drawer_search_hint)
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
@@ -247,7 +248,12 @@ fun AppDrawer(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.md, vertical = Spacing.xs)
-                .focusRequester(searchFocus),
+                .focusRequester(searchFocus)
+                // The hint inside the box is its only name, and it goes
+                // away with the first letter typed. After that a screen
+                // reader announced a box containing "c" and no word on
+                // what it was for.
+                .semantics { contentDescription = searchLabel },
             placeholder = { Text(stringResource(R.string.drawer_search_hint)) },
             leadingIcon = { Icon(LauncherIcons.Search, contentDescription = null) },
             trailingIcon = {

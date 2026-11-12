@@ -39,6 +39,10 @@ import com.privacylauncher.designsystem.Radii
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.designsystem.cardSurface
 import com.privacylauncher.ui.components.AppCell
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 
 /**
  * An open folder, as a rounded sheet over a blurred home screen.
@@ -73,6 +77,10 @@ fun FolderSheet(
                 onClickLabel = dismissLabel,
                 onClick = onDismiss,
             )
+            // Said as its name too. With only the action labelled, a screen
+            // reader lands on something it cannot name before it can say
+            // what a double-tap would do.
+            .semantics { contentDescription = dismissLabel }
             .safeDrawingPadding()
             .padding(Spacing.lg),
         contentAlignment = Alignment.Center,
@@ -83,11 +91,10 @@ fun FolderSheet(
                 .clip(RoundedCornerShape(Radii.sheet))
                 .cardSurface(level = 1)
                 // Swallow taps so they do not reach the dismissing scrim.
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                )
+                // A raw touch handler, not `clickable`: that also told
+                // accessibility services the sheet was a button, one with
+                // no name that did nothing when pressed.
+                .pointerInput(Unit) { detectTapGestures { } }
                 .padding(Spacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -127,6 +134,7 @@ fun FolderSheet(
 private fun FolderNameField(name: String, onRename: (String) -> Unit) {
     // Local copy so typing stays responsive; the store is updated as we go.
     var text by remember(name) { mutableStateOf(name) }
+    val nameLabel = stringResource(R.string.folder_name_hint)
 
     BasicTextField(
         value = text,
@@ -144,7 +152,10 @@ private fun FolderNameField(name: String, onRename: (String) -> Unit) {
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.xs),
+            .padding(vertical = Spacing.xs)
+            // A bare text field has no name. Its hint is one only while it
+            // is empty, and a folder's name field almost never is.
+            .semantics { contentDescription = nameLabel },
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.Center) {
                 if (text.isEmpty()) {

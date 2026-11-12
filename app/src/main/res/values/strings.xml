@@ -14,6 +14,12 @@
     <string name="glance_alarm">Alarm %1$s</string>
     <string name="glance_battery">Battery %1$d%%</string>
     <string name="glance_battery_charging">Charging %1$d%%</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_violet">Violet</string>
+    <string name="accent_amber">Amber</string>
+    <string name="accent_rose">Rose</string>
+    <string name="accent_slate">Slate</string>
     <string name="folder_name_hint">Folder name</string>
     <string name="folder_remove_app">Take out of folder</string>
     <string name="folder_close">Close folder</string>

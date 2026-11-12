@@ -435,6 +435,43 @@ one `toggleable` row with `Role.Switch`), the 20 dp remove badge, the four
 unlabelled onboarding page dots (now one spoken "Page 3 of 4"), and the
 empty-state text on the minimal home that carried no shadow.
 
+### Every screen, walked by a test
+
+The audits above were done by reading the code, and reading the code is how
+things get missed. `AccessibilityWalkTest` puts each of twenty screens and
+dialogs on the emulator and reads what it tells Android's accessibility
+services about itself, which is what TalkBack and Switch Access act on. It
+holds every screen to two rules: **everything that can be pressed has a
+name**, and **everything that can be pressed is at least 48 by 48 dp**. Long
+screens are checked a screenful at a time.
+
+The first run failed on eight of the twenty. All are fixed, and the test now
+passes:
+
+- **The six accent colours** were six unnamed buttons, in Settings and on
+  the welcome pages. Choosing a colour without seeing the screen was a
+  guess. Each now says its colour and whether it is the one chosen.
+- **The brightness slider** had no name, only a percentage, and was 44 dp
+  tall. It is now "Brightness", and 48 dp.
+- **Hidden apps and focus apps** had the fault the Settings rows were cured
+  of earlier: each app was two things to a screen reader, a row with a name
+  and no state and a switch with a state and no name. Each is one switch
+  now.
+- **The search box** was named only by the hint inside it, which goes away
+  with the first letter typed.
+- **The folder sheet** had three: its name field had no name, the dimmed
+  area round it said what a double-tap would do but not what it was, and the
+  sheet itself claimed to be a button that did nothing.
+
+Found the same way, earlier in this phase: home screen icons could be named
+by a screen reader but not opened, dock icons could not be named at all, and
+a drag went the wrong way in right-to-left languages.
+
+**What this does not tell you.** It cannot judge whether a name is a good
+one, or whether a screen is read out in a sensible order. That takes a
+person listening. TalkBack is not installed on the emulator images this
+project uses, so **nobody has yet listened to this launcher with TalkBack**.
+
 ### Colour contrast
 
 Every text-on-surface pair in the palette is checked against WCAG 2.1 AA by
@@ -466,8 +503,11 @@ quietly reporting a clean run over a smaller set than you think.
 
 ### Still open
 
-**Layout by eye at large font and display sizes, on a real screen**, and the
-wallpaper-backed text above. Those are what the 4 GB Samsung is for.
+- **Listening with TalkBack.** Not done: see above.
+- **Layout by eye at large font and display sizes, on a real screen**, and
+  the wallpaper-backed text above. The emulators run every test at 1.3 times
+  font size on a narrow screen and the soak at up to 1.5 times, which shows
+  nothing crashes or goes missing, not that it looks right.
 
 ## Tests
 

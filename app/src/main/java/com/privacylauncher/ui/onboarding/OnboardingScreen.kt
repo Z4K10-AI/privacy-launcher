@@ -50,6 +50,7 @@ import com.privacylauncher.ui.components.ChoiceRow
 import com.privacylauncher.ui.components.SwatchRow
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.launch
+import com.privacylauncher.designsystem.nameRes
 
 private const val PAGE_COUNT = 4
 
@@ -296,10 +297,12 @@ private fun ThemePage(
         },
         onSelect = onThemeMode,
     )
+    val accentNames = AccentColor.entries.associate { it.name to stringResource(it.nameRes()) }
     SwatchRow(
         title = stringResource(R.string.settings_accent),
         swatches = AccentColor.entries.map { it.name to it.swatch(dark) },
         selectedLabel = settings.accent.name,
+        spokenName = { accentNames[it] ?: it },
         onSelect = { name ->
             AccentColor.entries.firstOrNull { it.name == name }?.let(onAccent)
         },

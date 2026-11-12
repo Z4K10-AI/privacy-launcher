@@ -26,6 +26,8 @@ import com.privacylauncher.data.AppEntry
 import com.privacylauncher.data.IconLoader
 import com.privacylauncher.ui.components.AppIconImage
 import com.privacylauncher.designsystem.Spacing
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /**
  * Lists every installed app with a switch to keep it out of the drawer.
@@ -56,7 +58,15 @@ fun HiddenAppsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onToggle(entry, !isHidden) }
+                        // The whole row is the switch. With a second, live
+                        // switch inside it a screen reader found two things
+                        // per app: a row with a name and no state, and a
+                        // switch with a state and no name.
+                        .toggleable(
+                            value = isHidden,
+                            role = Role.Switch,
+                            onValueChange = { onToggle(entry, it) },
+                        )
                         .padding(horizontal = Spacing.lg, vertical = Spacing.xs)
                         .defaultMinSize(minHeight = Spacing.touchTarget),
                     verticalAlignment = Alignment.CenterVertically,
@@ -85,10 +95,7 @@ fun HiddenAppsScreen(
                             )
                         }
                     }
-                    Switch(
-                        checked = isHidden,
-                        onCheckedChange = { onToggle(entry, it) },
-                    )
+                    Switch(checked = isHidden, onCheckedChange = null)
                 }
             }
         }

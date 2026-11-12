@@ -54,6 +54,13 @@ import com.privacylauncher.ui.components.LauncherIcons
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import com.privacylauncher.system.LockDownState
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.unit.DpSize
 
 /** How much of the brightness bar a step has to cover to earn a tick. */
 private const val HAPTIC_STEP = 0.05f
@@ -163,6 +170,10 @@ fun QuickPanel(
     }
 }
 
+// The slider's "thumb" slot is still marked experimental in Material 3,
+// though it has been there unchanged since 1.3. It is the only way to say
+// how tall the thumb is.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BrightnessCard(
     state: QuickControlsState,
@@ -204,9 +215,27 @@ private fun BrightnessCard(
             )
         }
 
+        val brightnessLabel = stringResource(R.string.quick_brightness)
+        val sliderInteraction = remember { MutableInteractionSource() }
         Slider(
             value = shown,
             enabled = state.canWriteSettings,
+            // A slider says its position by itself ("60 percent") but not
+            // what it is a slider of.
+            modifier = Modifier.semantics { contentDescription = brightnessLabel },
+            interactionSource = sliderInteraction,
+            // Material's thumb is 44 dp tall and the slider is as tall as
+            // its thumb, which left the whole control four short of the
+            // 48 dp this project holds every touch target to. Asking for a
+            // taller slider from outside changes the space around it, not
+            // the part that takes the touch; the thumb is what sets that.
+            thumb = {
+                SliderDefaults.Thumb(
+                    interactionSource = sliderInteraction,
+                    enabled = state.canWriteSettings,
+                    thumbSize = DpSize(4.dp, Spacing.touchTarget),
+                )
+            },
             onValueChange = { value ->
                 dragging = value
                 // A tick every twentieth of the bar. Per-pixel feedback on a
