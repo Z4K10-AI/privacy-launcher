@@ -60,10 +60,42 @@ internal const val FIRST_SETTINGS_ROW = "Theme"
  * category mismatch.
  */
 internal fun MacrobenchmarkScope.goHome() {
+    useSystemHome()
     pressHome()
     startActivityAndWait(homeIntent())
     device.waitForIdle()
     dismissOnboarding()
+}
+
+/**
+ * Makes Android's own launcher the home app, so that pressing Home goes
+ * somewhere definite.
+ *
+ * The app under test is a launcher. Installing it gives the phone two, and
+ * with two and no choice made, every press of Home raises Android's "which
+ * home app?" chooser. The launcher is then started by name underneath it,
+ * and what gets recorded as "the activity that launched" is sometimes the
+ * chooser: the run fails, now and then, saying the app is not running.
+ *
+ * This has to be done here, after the app is installed. Done beforehand,
+ * the install itself throws the choice away again.
+ *
+ * It must be the *system's* launcher that is chosen, not this one. A cold
+ * start is measured by killing the app and starting it, and Android
+ * restarts the home app by itself the moment it dies; if this launcher
+ * were the home app, the start being timed would already be under way.
+ */
+internal fun useSystemHome() {
+    val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    val listed = device.executeShellCommand(
+        "cmd package query-activities --brief " +
+            "-a android.intent.action.MAIN -c android.intent.category.HOME"
+    )
+    val system = listed.lineSequence()
+        .map { it.trim() }
+        .firstOrNull { '/' in it && !it.startsWith(PACKAGE) && "FallbackHome" !in it }
+        ?: error("Found no launcher but this one to be the home app:\n$listed")
+    device.executeShellCommand("cmd package set-home-activity $system")
 }
 
 /** The explicit CATEGORY_HOME intent, for the reason given on [goHome]. */
@@ -90,6 +122,7 @@ internal fun homeIntent(): Intent = Intent(Intent.ACTION_MAIN).apply {
  */
 internal fun ensureOnboarded() {
     val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    useSystemHome()
     device.pressHome()
     device.executeShellCommand(
         "am start -W -a android.intent.action.MAIN -c android.intent.category.HOME " +

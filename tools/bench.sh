@@ -47,6 +47,7 @@ echo "(this takes a while; Gradle's output goes to build/bench.log)"
 # installed, so the app behind each launch is Android's own home screen and
 # not a second copy of this one drawing in the background.
 adb uninstall com.privacylauncher.debug >/dev/null 2>&1
+use_system_home
 
 mkdir -p build
 rm -rf baselineprofile/build/outputs/connected_android_test_additional_output

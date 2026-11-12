@@ -65,3 +65,27 @@ describe_device() {
   fi
   echo "emulator $avd: Android $rel (API $sdk), $size at $dens dpi, $mem GB RAM, $render"
 }
+
+# Makes Android's own launcher the home app again.
+#
+# The benchmarks and the profile recording install the release build as a
+# second launcher and start it by name. Before that they remove the debug
+# build, which is usually the home app at that moment, and removing the
+# home app leaves Android with two candidates and no choice made: the next
+# press of Home raises its "which home app?" chooser, the launcher under
+# test never comes to the front, and the run fails saying the app "is not
+# running". Giving the role back to the system's launcher first means Home
+# goes somewhere definite.
+use_system_home() {
+  local system_home
+  system_home="$(adb shell cmd package query-activities --brief \
+      -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null \
+    | tr -d '\r' | grep '/' | grep -v 'privacylauncher' | grep -v 'FallbackHome' \
+    | head -1 | tr -d ' ')"
+  if [ -z "$system_home" ]; then
+    echo "note: found no launcher other than this one to hand the home role to" >&2
+    return 1
+  fi
+  adb shell cmd package set-home-activity "$system_home" >/dev/null 2>&1
+  adb shell input keyevent KEYCODE_HOME >/dev/null 2>&1
+}
