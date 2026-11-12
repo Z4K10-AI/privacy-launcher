@@ -1066,6 +1066,8 @@ privacy-launcher/
 │   ├── install.sh             builds and installs on an emulator
 │   ├── check.sh               every test in one command, with a summary
 │   ├── bench.sh               cold start and frame timing (Macrobenchmark)
+│   ├── profile.sh             records the start-up profile again
+│   ├── shapes.sh              the device tests on seven screen shapes
 │   ├── devtest.sh             runs the on-device tests
 │   ├── soak.sh                drives every screen and checks it came up
 │   ├── contrast.py            checks the palette against WCAG AA
@@ -1435,6 +1437,14 @@ Measure cold start and frame timing (see
 
 ```bash
 tools/bench.sh a30
+```
+
+Record the start-up profile again, after changing what the launcher does at
+start-up or on its main screens. It checks the recording went through the
+screens it should have before telling you to commit it:
+
+```bash
+tools/profile.sh a30
 ```
 
 Check every colour pair in the palette against WCAG AA (no device needed):

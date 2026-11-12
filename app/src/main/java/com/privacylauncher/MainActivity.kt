@@ -92,6 +92,12 @@ import com.privacylauncher.ui.settings.LockDownDialog
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import com.privacylauncher.system.Orientation
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 
 /**
  * The launcher's one and only Activity.
@@ -271,6 +277,26 @@ private fun LauncherRoot(
     // flips, so a drag does not recompose the whole tree 60 times a second.
     val drawerVisible by remember(drawerSwipe) {
         derivedStateOf { drawerSwipe.progress.value > 0.001f }
+    }
+
+    // Whether the drawer is kept built while it is closed; see where it is
+    // composed, below. Built a moment after the home screen has drawn, so
+    // the first opening is as smooth as the rest without making the start
+    // any slower, and let go when the launcher leaves the screen: its
+    // cells hold their icons, and a launcher in the background is asked to
+    // give those back (see IconCachePolicy).
+    var drawerKept by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                delay(DRAWER_WARM_UP_MS)
+                drawerKept = true
+                awaitCancellation()
+            } finally {
+                drawerKept = false
+            }
+        }
     }
 
     // The quick controls panel, on the same machinery but horizontal.
@@ -489,18 +515,32 @@ private fun LauncherRoot(
             )
         }
 
-        // Composed whenever any part of it is on screen, and positioned by a
-        // graphicsLayer rather than an animation, so it tracks the finger.
-        // No alpha here on purpose: a translucent full-screen layer forces an
-        // offscreen buffer every frame, which is exactly the cost a 4 GB phone
-        // cannot absorb mid-drag. The sheet is opaque and simply slides.
-        if (drawerOpen || drawerVisible) {
+        // Positioned by a graphicsLayer rather than an animation, so it
+        // tracks the finger. No alpha here on purpose: a translucent
+        // full-screen layer forces an offscreen buffer every frame, which
+        // is exactly the cost a 4 GB phone cannot absorb mid-drag. The
+        // sheet is opaque and simply slides.
+        //
+        // It is kept built while the launcher is in front, parked below
+        // the bottom of the screen, and not only while part of it shows.
+        // It used to be thrown away each time it closed and built again
+        // from nothing when the next swipe began, and the frame timings
+        // said exactly that: in every measured round the slow frames were
+        // the first two or three of each opening, 17 to 25 ms on a Mac,
+        // and nowhere else. Kept, an opening is a slide and nothing more.
+        //
+        // While it is parked nothing is told to accessibility services
+        // about it. A screen reader should not find a search box that is
+        // not on the screen.
+        val drawerShowing = drawerOpen || drawerVisible
+        if (drawerShowing || drawerKept) {
             Box(
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         translationY = (1f - drawerSwipe.progress.value) * size.height
-                    },
+                    }
+                    .then(if (drawerShowing) Modifier else Modifier.clearAndSetSemantics { }),
             ) {
                 AppDrawer(
                     list = drawerList,
@@ -737,6 +777,14 @@ private fun LauncherRoot(
     // comment for why finishing a home Activity is wrong.
     BackHandler(enabled = true) { viewModel.onBack() }
 }
+
+/**
+ * How long after the home screen appears the drawer is built in advance.
+ *
+ * Long enough that it never competes with drawing the home screen itself,
+ * short enough to be done before a hand can reach the screen.
+ */
+private const val DRAWER_WARM_UP_MS = 400L
 
 /** Wider than this the panel stops reading as a sheet and starts as a screen. */
 private val QUICK_PANEL_MAX_WIDTH = 380.dp

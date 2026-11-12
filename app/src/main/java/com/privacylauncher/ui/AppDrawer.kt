@@ -94,6 +94,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import com.privacylauncher.designsystem.fittedIconSize
+import androidx.compose.ui.platform.LocalFocusManager
 
 /** Below this many sections the letter bar is clutter rather than a shortcut. */
 private const val MIN_SECTIONS_FOR_LETTER_BAR = 4
@@ -169,11 +170,29 @@ fun AppDrawer(
     // Tied to isOpen rather than to this composable entering the tree: the
     // drawer is composed as soon as a drag starts lifting it, and popping the
     // keyboard up while the sheet is still halfway would be awful.
+    val focusManager = LocalFocusManager.current
     LaunchedEffect(isOpen, autoKeyboard) {
         if (isOpen && autoKeyboard) {
             searchFocus.requestFocus()
         } else if (!isOpen) {
             keyboard?.hide()
+        }
+    }
+
+    // The drawer is kept built while it is closed, so closing it no longer
+    // resets it for free. Each of these used to happen because the whole
+    // thing was thrown away:
+    //  - the search box gives up the cursor. Left with it, the box would
+    //    go on blinking a cursor nobody can see, which is a redraw twice a
+    //    second for as long as the home screen is up;
+    //  - an app's menu left open does not stay floating over the home
+    //    screen;
+    //  - the list goes back to the top, where a drawer is expected to open.
+    LaunchedEffect(isOpen) {
+        if (!isOpen) {
+            focusManager.clearFocus()
+            menuFor = null
+            gridState.scrollToItem(0)
         }
     }
 

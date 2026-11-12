@@ -262,6 +262,40 @@ run_carry() {
   check "taken off again"        "$HOME_MARK+!Calendar"        take_calendar_off_home
 }
 
+# --- nothing to do, nothing done ---------------------------------------------
+#
+# A home screen spends nearly all its life with nothing happening on it.
+# In that time it should draw nothing: every frame drawn is the processor
+# woken up, and on a phone that is battery. Android counts the frames each
+# app has drawn, so "nothing drawn in six seconds" can simply be read off.
+#
+# It is checked twice: as the launcher starts, and again after the drawer
+# has been opened and closed. The drawer is kept built while it is closed,
+# to make opening it smooth, and a search box left holding the cursor would
+# blink it, off screen, twice a second for ever.
+frames_drawn() {
+  $ADB shell dumpsys gfxinfo "$PKG" 2>/dev/null | grep -m1 'Total frames rendered' | tr -dc '0-9'
+}
+
+draws_nothing_for_six_seconds() {
+  local before after
+  sleep 3
+  before="$(frames_drawn)"
+  sleep 6
+  after="$(frames_drawn)"
+  [ -n "$before" ] && [ "$before" = "$after" ]
+}
+
+run_idle() {
+  echo "--- nothing to do, nothing done ---"
+  home; sleep 2
+  report "the idle home screen draws nothing"              draws_nothing_for_six_seconds
+  retry_until "Search apps" up >/dev/null 2>&1
+  home; sleep 2
+  report "nor after the drawer has been opened and closed" draws_nothing_for_six_seconds
+  check  "and the closed drawer is not on screen"   "$HOME_MARK+!Close app drawer+!Search apps"   home
+}
+
 # --- turned on its side ----------------------------------------------------
 #
 # A phone's home screen stays upright when the phone is turned. Android is
@@ -711,6 +745,7 @@ echo "=== one pass, on a ${W}x${H} screen (font $FONT_BEFORE) ==="
 run_suite "as set"
 run_carry
 run_upright
+run_idle
 fi
 
 if wanted screens; then
@@ -745,6 +780,12 @@ if wanted upright; then
 echo
 echo "=== turned on its side ==="
 run_upright
+fi
+
+if wanted idle; then
+echo
+echo "=== nothing to do, nothing done ==="
+run_idle
 fi
 
 if wanted lock; then

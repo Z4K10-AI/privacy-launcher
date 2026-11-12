@@ -5,6 +5,7 @@
 #   tools/bench.sh modern        both, on another profile
 #   tools/bench.sh a30 startup   only cold start    (about 2 minutes)
 #   tools/bench.sh a30 frames    only frame timing  (about 17 minutes)
+#   tools/bench.sh a30 drawer    only the drawer's frames (about 8 minutes)
 #
 # It measures the release build, compiled two ways: with nothing compiled
 # ahead of time (what a fresh install is like for its first day or so) and
@@ -34,8 +35,9 @@ PKG=com.privacylauncher.baselineprofile
 case "${1:-all}" in
   startup) CLASSES="$PKG.StartupBenchmark" ;;
   frames)  CLASSES="$PKG.FrameTimingBenchmark" ;;
+  drawer)  CLASSES="$PKG.FrameTimingBenchmark#drawerAnimationBaselineProfile,$PKG.FrameTimingBenchmark#drawerAnimationNoCompilation" ;;
   all)     CLASSES="$PKG.StartupBenchmark,$PKG.FrameTimingBenchmark" ;;
-  *) echo "say startup, frames, or nothing for both" >&2; exit 2 ;;
+  *) echo "say startup, frames, drawer, or nothing for startup and frames" >&2; exit 2 ;;
 esac
 
 pick_device "$PROFILE" || exit 2
