@@ -4,6 +4,42 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Three emulators, each asked for by name
+
+`tools/emulators.sh` makes the emulators this project is tested on, the
+same way every time, and every test script now takes one of their names:
+
+- `a30`: Android 11, 1080x2340, 4 GB RAM. The shape of a Galaxy A30.
+- `modern`: Android 15, 1080x2400, 4 GB RAM.
+- `small`: Android 15, 720x1280 (360 dp wide), 2 GB RAM, text at 1.3x.
+
+`tools/devtest.sh a30`, `tools/soak.sh modern` and `tools/install.sh small`
+boot the emulator they name if it is not already up. One runs at a time.
+
+**The old "A30" emulator was the wrong shape.** This file and the README
+said a Galaxy A30's screen is 720x1560. It is 1080x2340. The emulator built
+to the wrong figure had under half the pixels of the phone, so it was an
+easier target than the one it stood in for. Everything is re-run on the
+corrected profile.
+
+**The soak script could not find the home screen on a fresh boot.** It
+recognised the home screen by the word "Battery" under the clock. On power
+that line reads "Charging 100%", and a freshly booted emulator is always on
+power, so the script stopped with "could not reach the home screen" while
+looking at it. It now looks for the label on the drawer handle, which is on
+the home screen and nowhere else. That is also a stricter check: the
+battery line stays in the screen's contents underneath the quick panel, so
+"back to home" after the panel could have passed with the panel still open.
+
+Proof, on `a30` (emulator: Android 11, 1080x2340 at 420 dpi, 4 GB RAM,
+software rendering) with the battery left as the emulator boots it: the
+unchanged script aborted, and the fixed one reports 27 ok, 0 problems. The
+53 device tests pass there too.
+
+The scripts now refuse anything that is not an emulator, so a phone left
+plugged in cannot have a test build installed on it by accident.
+`tools/emulator.sh`, which made the single old emulator, is gone.
+
 ### Dragging the icon you meant
 
 Three faults in rearranging the home screen. None crashed, and each one

@@ -1,17 +1,29 @@
-#!/bin/sh
-# Runs the on-device tests and prints one line per test.
+#!/bin/bash
+# Runs the on-device tests and prints one line per failure.
 #
-#   tools/devtest.sh                 everything
-#   tools/devtest.sh HomeGridDragTest   one class (name, or package.Name)
+#   tools/devtest.sh                        every test, on the running emulator
+#   tools/devtest.sh a30                    every test, on that profile
+#   tools/devtest.sh a30 HomeGridDragTest   one class (name, or package.Name)
+#   tools/devtest.sh HomeGridDragTest       one class, on the running emulator
+#
+# The profiles are the ones in tools/emulators.sh. A named one is booted if
+# it is not already up.
 #
 # Gradle's own output for a failing device test is a link to an HTML report
 # and nothing else, which is no use from a terminal. This reads the same
-# results file the report is built from.
+# results file the report is built from. Gradle's full output is kept in
+# build/devtest.log for when the build itself is what failed.
 cd "$(dirname "$0")/.."
 . tools/env.sh
+. tools/device.sh
+
+PROFILE=""
+if is_profile "${1:-}"; then PROFILE="$1"; shift; fi
+pick_device "$PROFILE" || exit 2
+echo "device tests on $(describe_device)"
 
 ARG=""
-if [ -n "$1" ]; then
+if [ -n "${1:-}" ]; then
     case "$1" in
         *.*) CLASS="$1" ;;
         *)   CLASS="$(grep -rl "^class $1\b" app/src/androidTest/java | head -1 \
@@ -21,15 +33,18 @@ if [ -n "$1" ]; then
     ARG="-Pandroid.testInstrumentationRunnerArguments.class=$CLASS"
 fi
 
+mkdir -p build
 rm -rf app/build/outputs/androidTest-results
-./gradlew connectedDebugAndroidTest $ARG -q > /dev/null 2>&1
+# shellcheck disable=SC2086
+./gradlew connectedDebugAndroidTest $ARG -q > build/devtest.log 2>&1
 STATUS=$?
 
 python3 - <<'PY'
 import re, glob, html, sys
 files = glob.glob('app/build/outputs/androidTest-results/connected/debug/*.xml')
 if not files:
-    print("no results: the build failed before any test ran"); sys.exit(1)
+    print("no results: the build failed before any test ran (see build/devtest.log)")
+    sys.exit(1)
 total = failed = 0
 for f in files:
     s = open(f).read()

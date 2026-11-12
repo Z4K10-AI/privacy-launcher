@@ -1,34 +1,34 @@
-#!/bin/sh
-# Builds the debug APK and installs it on whatever single device adb sees:
-# a phone over USB, or the emulator.
+#!/bin/bash
+# Builds the debug APK and installs it on an emulator.
 #
-#   tools/install.sh           build + install
-#   tools/install.sh --home    also make it the home app (emulator only;
-#                              on a real phone use the in-app button)
+#   tools/install.sh              on the one emulator that is running
+#   tools/install.sh a30          on that profile, booted if it is not up
+#   tools/install.sh a30 --home   and make it the emulator's home app
+#
+# Emulators only, for now. A phone that happens to be plugged in is refused
+# (see tools/device.sh): this project is not being installed on real phones
+# yet, and when that changes it should be changed there, on purpose.
 
 set -e
 cd "$(dirname "$0")/.."
 . tools/env.sh
+. tools/device.sh
+
+PROFILE=""
+if is_profile "${1:-}"; then PROFILE="$1"; shift; fi
+pick_device "$PROFILE" || exit 1
 
 APP_ID=com.privacylauncher.debug
 ACTIVITY="$APP_ID/com.privacylauncher.MainActivity"
 
-COUNT=$(adb devices | grep -cw device || true)
-if [ "$COUNT" -eq 0 ]; then
-    echo "No device. Plug in a phone with USB debugging on, or run tools/emulator.sh" >&2
-    exit 1
-fi
+echo "installing on $(describe_device)"
 
-echo "Device: $(adb shell getprop ro.product.model | tr -d '\r') \
-(Android $(adb shell getprop ro.build.version.release | tr -d '\r'))"
-
-gradle assembleDebug
+./gradlew assembleDebug -q
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
-if [ "$1" = "--home" ]; then
-    # Only works where the shell user may set it, i.e. an emulator or a
-    # rooted/debug build. On a normal phone, use the in-app button, which
-    # opens Android's own picker.
+if [ "${1:-}" = "--home" ]; then
+    # The shell user may set this on an emulator. On a retail phone it may
+    # not, which is what the in-app button and Android's own picker are for.
     adb shell cmd package set-home-activity "$ACTIVITY"
     adb shell input keyevent KEYCODE_HOME
 else

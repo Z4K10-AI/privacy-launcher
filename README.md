@@ -426,10 +426,10 @@ wallpaper-backed text above. Those are what the 4 GB Samsung is for.
 ## Tests
 
 ```bash
-gradle :app:testDebugUnitTest          # 142 JVM unit tests, no device needed
-tools/devtest.sh                       # 53 device tests, needs an emulator
-python3 tools/contrast.py              # every colour pair against WCAG AA
-tools/soak.sh com.privacylauncher.debug  # drive every screen on a device
+./gradlew :app:testDebugUnitTest   # 142 JVM unit tests, no device needed
+tools/devtest.sh a30               # 53 device tests, on the a30 emulator
+python3 tools/contrast.py          # every colour pair against WCAG AA
+tools/soak.sh a30                  # drive every screen on the a30 emulator
 ```
 
 ### Unit tests
@@ -531,51 +531,83 @@ printing failures that belong to it rather than the app. The quick-panel
 check also asserted nothing at all, so it passed while the eight checks
 around it failed; it names a string on the panel now.
 
-### Testing at the target phone's Android version
+### The emulators
 
-The phone this is aimed at is a Galaxy A30: Android 11, 4 GB of RAM,
-720x1560. Everything was developed against Android 15, which is five
-releases of behaviour changes away, so there is a second AVD matching the
-phone:
+Everything here is tested on emulators, and on three of them, each there
+for a reason. `tools/emulators.sh` makes them, the same way every time:
+
+| Profile | Android | Screen | RAM | Why it exists |
+|---|---|---|---|---|
+| `a30` | 11 (API 30) | 1080x2340 at 420 dpi | 4 GB | The screen, memory and Android version of a Samsung Galaxy A30: the low-end phone this has to feel good on |
+| `modern` | 15 (API 35) | 1080x2400 at 420 dpi | 4 GB | What newer versions of Android do differently |
+| `small` | 15 (API 35) | 720x1280 at 320 dpi, text at 1.3x | 2 GB | The accessibility squeeze: a 360 dp wide screen, the narrowest in common use, with large text |
 
 ```bash
-sdkmanager "system-images;android-30;default;arm64-v8a"
-avdmanager create avd -n a30_api30 -k "system-images;android-30;default;arm64-v8a" -d pixel_3a
-# then set hw.lcd.width=720, hw.lcd.height=1560, hw.lcd.density=320,
-# hw.ramSize=4096 in ~/.android/avd/a30_api30.avd/config.ini
+tools/emulators.sh create      # make all three; safe to repeat
+tools/emulators.sh list        # what exists and what is running
+tools/emulators.sh start a30   # boot one; add --window to watch it
+tools/emulators.sh stop        # shut down
 ```
 
-Three code paths differ below Android 12 and none of them had ever run.
-All three were checked on that AVD:
+Every test script takes a profile name and boots that emulator if it is
+not already up: `tools/devtest.sh a30`, `tools/soak.sh modern`,
+`tools/install.sh small --home`. Only one runs at a time, and starting
+another stops the first: two 4 GB emulators and a build do not fit in this
+Mac's 16 GB, and a Mac that is swapping makes every timing meaningless.
 
-| Path | On Android 11 | Verified |
+All three use the plain AOSP system image for Apple Silicon, not the
+Google one. It has no Play Services, which is what the launcher will find
+on the de-Googled OS it is being built for.
+
+**An earlier version of this file said a Galaxy A30's screen is 720x1560
+at 320 dpi. That was wrong.** It is 1080x2340, and the emulator built to
+the wrong description (`a30_api30`) was a smaller and easier target than
+the phone. The `a30` profile replaces it. The 420 dpi figure is the usual
+one for a screen of this size and is the one part of the profile that has
+not been checked against a real A30.
+
+**What an emulator is not.** It copies a phone's screen size, memory and
+Android version. It does not copy its processor, its graphics chip or its
+storage: this Mac is several times faster than an A30, and by default the
+emulator draws the screen in software. A pass here means "works on this
+version of Android at this size". It does not mean "fast enough on the
+phone", and every speed figure in this repository is an emulator figure.
+It also runs plain Android rather than Samsung's One UI, which differs in
+icon shapes, in where the home-app picker lives and in how gestures are
+handled.
+
+Three code paths differ below Android 12, which is what the `a30` profile
+runs:
+
+| Path | On Android 11 | Checked |
 |---|---|---|
 | Material You | unavailable | row reads "Needs Android 12 or newer" |
 | Window blur | unavailable | quick panel falls back to an opaque surface |
 | Privacy dashboard | older `getInstalledPackages` overload | reads all 36 packages, no crash |
 
-The soak passes 27 of 27 there, across three font scales and dark mode, and
-monkey runs without a crash.
+Those three were checked by hand on the earlier Android 11 emulator, and
+none of them depends on screen size. On `a30` itself the soak passes 27 of
+27 and all 53 device tests pass.
 
-### Testing at the target phone's size
+### Why a narrow screen has its own profile
 
-Every emulator here is 1080x2400 at 420dpi, which is 411dp wide. A Galaxy
-A30 -- the phone this is actually for -- is 720x1560 at 320dpi, which is
-**360dp**. Fifty-one dp is enough to break a layout, and it did: the sixth
-accent swatch was cut off at the screen edge, invisible on the test device
-and invisible in every screenshot taken on it.
+A 1080-pixel screen at 420 dpi is 411 dp wide. A great many phones are
+**360 dp** wide instead. Fifty-one dp is enough to break a layout, and it
+did: the sixth accent swatch was cut off at the screen edge, invisible on
+the test device and in every screenshot taken on it. The `small` profile
+is the standing check for that width.
 
-Reproduce a narrower phone without a second emulator image:
+To try another size without making another emulator:
 
 ```bash
-adb shell wm size 720x1560 && adb shell wm density 320   # Galaxy A30
+adb shell wm size 720x1560 && adb shell wm density 320
 adb shell wm size reset && adb shell wm density reset    # back to normal
 ```
 
-`tools/soak.sh` derives its gestures from `wm size`, so it works at either.
-It did not at first, and a swipe starting below the bottom of a shorter
-screen made nine checks fail for the harness's reasons rather than the
-app's.
+`tools/soak.sh` derives its gestures from `wm size`, so it works at any
+size. It did not at first, and a swipe starting below the bottom of a
+shorter screen made nine checks fail for the harness's reasons rather than
+the app's.
 
 ### Compose UI tests
 
@@ -659,6 +691,15 @@ finishes: an earlier version only checked "no crash, still running", which
 passes just as happily when a tap misses and the app sits on the home
 screen for twenty steps. On this emulator taps do miss, so that mattered.
 
+It knows it is on the home screen by the label on the handle that opens
+the drawer, which is on that screen and no other. It used to look for the
+word "Battery" in the line under the clock, and that line reads "Charging
+100%" whenever the device is on power -- which a freshly booted emulator
+always is. So on a fresh boot the script could not recognise a home screen
+it was looking straight at, and stopped. Run unchanged on the `a30`
+emulator it aborted; with the new marker, on the same emulator in the same
+state, it passes 27 of 27.
+
 ### What is not tested
 
 Layout at large font and display sizes has been checked by eye on the
@@ -740,8 +781,12 @@ privacy-launcher/
 ├── gradle/libs.versions.toml     every dependency version in one place
 ├── tools/
 │   ├── env.sh                 puts the JDK, SDK and Gradle on PATH
-│   ├── emulator.sh            creates and boots the test emulator
-│   └── install.sh             builds and installs on phone or emulator
+│   ├── emulators.sh           makes, starts and stops the three emulators
+│   ├── device.sh              picks the emulator the other scripts use
+│   ├── install.sh             builds and installs on an emulator
+│   ├── devtest.sh             runs the on-device tests
+│   ├── soak.sh                drives every screen and checks it came up
+│   └── contrast.py            checks the palette against WCAG AA
 └── app/
     ├── build.gradle.kts          the app module's build config
     ├── lint.xml                  one documented lint suppression
@@ -1013,23 +1058,36 @@ To build and install in one step:
 
 ## Helper scripts
 
-Boot the test emulator (creates it on first run, ~2.5 GB download that once):
+All of these work on emulators only, for now. A phone that happens to be
+plugged in is refused rather than installed on (`tools/device.sh` is where
+that is decided), because this project is not being tested on real phones
+yet.
+
+Make and boot the emulators (see "The emulators" above for what they are):
 
 ```bash
-tools/emulator.sh
+tools/emulators.sh create
+tools/emulators.sh start a30
 ```
 
-Add `--window` to watch it. It runs headless otherwise, which is faster and
-still screenshots fine. Stop it with `adb emu kill`.
-
-Build and install on whatever adb can see, phone or emulator:
+Build the app and install it on one, and make it the home app there:
 
 ```bash
-tools/install.sh
+tools/install.sh a30 --home
 ```
 
-On the emulator only, `tools/install.sh --home` also sets the launcher as the
-home app, skipping the picker. On a real phone use the in-app button.
+Run the on-device tests, and see which failed and why:
+
+```bash
+tools/devtest.sh a30
+tools/devtest.sh a30 HomeGridDragTest   # one class
+```
+
+Drive every screen and check each one really came up:
+
+```bash
+tools/soak.sh a30
+```
 
 Check every colour pair in the palette against WCAG AA (no device needed):
 
@@ -1042,15 +1100,6 @@ Take a screenshot of whatever is on screen:
 ```bash
 adb exec-out screencap -p > shot.png
 ```
-
-### Why an AOSP emulator image
-
-The scripts use `system-images;android-35;default;arm64-v8a`, not the
-`google_apis` variant. It is smaller, it runs ARM natively on Apple Silicon,
-and it ships without Google Play Services — which makes it a closer match to
-the de-Googled ROM this launcher is eventually for. It is not a substitute for
-testing on the Samsung: One UI differs in icon shapes, where the home-app
-picker lives, and gesture handling.
 
 ## Make it the home screen
 
