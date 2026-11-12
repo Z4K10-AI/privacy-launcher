@@ -262,6 +262,50 @@ run_carry() {
   check "taken off again"        "$HOME_MARK+!Calendar"        take_calendar_off_home
 }
 
+# --- turned on its side ----------------------------------------------------
+#
+# A phone's home screen stays upright when the phone is turned. Android is
+# told the user has turned it (rotation locked sideways, which is what the
+# rotate button does), and the launcher's screen has to stay taller than it
+# is wide all the same. A tablet or an opened folding phone is different:
+# there the launcher is allowed to turn, so there is nothing to hold it to.
+DENSITY="$($ADB shell wm density | tail -1 | sed 's/.*: *//' | tr -d '\r')"
+case "$DENSITY" in ''|*[!0-9]*) DENSITY=420 ;; esac
+SHORT_SIDE=$W; [ "$H" -lt "$W" ] && SHORT_SIDE=$H
+SMALLEST_DP=$(( SHORT_SIDE * 160 / DENSITY ))
+
+screen_is_upright() {
+  dump | python3 -c '
+import sys, re
+m = re.search(r"bounds=\"\[0,0\]\[(\d+),(\d+)\]\"", sys.stdin.read())
+sys.exit(0 if m and int(m.group(2)) > int(m.group(1)) else 1)
+'
+}
+
+run_upright() {
+  echo "--- turned on its side ---"
+  if [ "$SMALLEST_DP" -ge 600 ]; then
+    echo "  note    a large screen ($SMALLEST_DP dp across): the launcher may turn here, so nothing to check"
+    return
+  fi
+  local auto turned
+  auto="$($ADB shell settings get system accelerometer_rotation | tr -d '\r')"
+  turned="$($ADB shell settings get system user_rotation | tr -d '\r')"
+  $ADB shell settings put system accelerometer_rotation 0 >/dev/null
+  $ADB shell settings put system user_rotation 1 >/dev/null
+  sleep 3
+  check  "on its side, the home screen is there"   "$HOME_MARK"    home
+  report "and it is upright"                        screen_is_upright
+  check  "the drawer opens"                         "Search apps"   retry_until "Search apps" up
+  report "and it is upright too"                    screen_is_upright
+  home
+  case "$auto" in 0|1) ;; *) auto=0 ;; esac
+  case "$turned" in 0|1|2|3) ;; *) turned=0 ;; esac
+  $ADB shell settings put system user_rotation "$turned" >/dev/null
+  $ADB shell settings put system accelerometer_rotation "$auto" >/dev/null
+  sleep 2
+}
+
 # --- the hidden-apps lock ------------------------------------------------
 #
 # "Require unlock" puts the list of hidden apps behind the phone's own PIN.
@@ -643,10 +687,19 @@ echo "onboarding cleared, home screen reached"
 echo
 
 # SOAK_ONLY=carry (or lock, search, trackers, memory, lockdown, or screens)
-# runs one part. It is for working on
+# runs one part. SOAK_ONLY=tour is one quick pass through the screens and
+# one carried icon, at whatever size and font the emulator is set to; it is
+# what tools/shapes.sh runs at each screen shape. It is for working on
 # this script, not for calling the app tested: a full run has no SOAK_ONLY.
 ONLY="${SOAK_ONLY:-}"
 wanted() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
+
+if [ "$ONLY" = "tour" ]; then
+echo "=== one pass, on a ${W}x${H} screen (font $FONT_BEFORE) ==="
+run_suite "as set"
+run_carry
+run_upright
+fi
 
 if wanted screens; then
 echo "=== A. as the emulator is set (font $FONT_BEFORE) ==="
@@ -674,6 +727,12 @@ if wanted carry; then
 echo
 echo "=== D. a finger carrying an icon (font $FONT_BEFORE) ==="
 run_carry
+fi
+
+if wanted upright; then
+echo
+echo "=== turned on its side ==="
+run_upright
 fi
 
 if wanted lock; then

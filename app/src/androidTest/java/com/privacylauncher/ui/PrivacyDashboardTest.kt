@@ -28,6 +28,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import androidx.compose.ui.test.performScrollTo
 
 /**
  * The privacy dashboard, as someone using it meets it.
@@ -72,10 +73,17 @@ class PrivacyDashboardTest {
         compose.waitForIdle()
     }
 
-    /** Scrolls the page until [text] is on screen, then returns it. */
-    private fun find(text: String) = compose.run {
-        onNode(hasScrollAction()).performScrollToNode(hasText(text, substring = true))
-        onNodeWithText(text, substring = true)
+    /**
+     * Scrolls the page until [text] is on screen, then returns it.
+     *
+     * Two scrolls, because the first only promises that the card holding
+     * the text is somewhere in view. A tall card on a short screen can be
+     * in view with its last button still below the edge, and a tap aimed
+     * there lands on nothing. The second brings the text itself up.
+     */
+    private fun find(text: String, whole: Boolean = false) = compose.run {
+        onNode(hasScrollAction()).performScrollToNode(hasText(text, substring = !whole))
+        onNodeWithText(text, substring = !whole).performScrollTo()
     }
 
     private val analytics = Tracker(1, "Acme Analytics", listOf("Analytics"))
@@ -138,7 +146,10 @@ class PrivacyDashboardTest {
         find("Banner Ads").assertIsDisplayed()
         find("Advertisement · Profiling").assertIsDisplayed()
         // The way to do something about it: Android's page for that app.
-        find("App info").performClick()
+        // The whole text, because the words "App info" are also in the
+        // paragraph further down that explains what tapping an app does,
+        // and on some screen sizes both are on screen at once.
+        find("App info", whole = true).performClick()
 
         assertEquals(listOf("p.games"), opened)
     }

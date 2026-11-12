@@ -95,6 +95,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.sin
+import com.privacylauncher.designsystem.fittedIconSize
 
 /**
  * The home screen: clock, an optional glance line, a grid of apps and
@@ -400,6 +401,11 @@ internal fun HomeGrid(
         },
     ) {
         val cellWidth = maxWidth / columns
+        // The size asked for, or the largest that fits a cell this wide.
+        // The name is reused on purpose: nothing below should draw at the
+        // size that was asked for without knowing whether it fits.
+        @Suppress("NAME_SHADOWING")
+        val iconSize = fittedIconSize(iconSize, cellWidth)
         // Label space follows the user's font size setting. At a fixed
         // height, a two-line name at 1.3x font scale is clipped.
         val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 1.6f)
@@ -411,8 +417,10 @@ internal fun HomeGrid(
         val cellWpx by rememberUpdatedState(with(density) { cellWidth.toPx() })
         val cellHpx by rememberUpdatedState(with(density) { cellHeight.toPx() })
 
+        val iconPx = with(density) { iconSize.toPx() }
         SideEffect {
             val g = drag.geometry
+            g.iconPx = iconPx
             g.cellW = cellWpx
             g.cellH = cellHpx
             g.columns = columns
@@ -682,6 +690,9 @@ internal fun HomeGrid(
     }
 }
 
+/** Below this an icon is a smudge. See `fittedIconSize`, which draws the same line. */
+private val SMALLEST_DOCK_ICON = 24.dp
+
 /** The outline that says "the icon will go here". */
 @Composable
 private fun DropOutline() {
@@ -730,6 +741,12 @@ internal fun HomeDragLayer(
     val width = drag.geometry.cellW.takeIf { it > 1f }
         ?.let { with(density) { it.toDp() } }
         ?: (iconSize + Spacing.xl)
+    // At the size the grid is drawing its icons, which on a narrow screen
+    // can be smaller than the size in Settings.
+    @Suppress("NAME_SHADOWING")
+    val iconSize = drag.geometry.iconPx.takeIf { it > 1f }
+        ?.let { with(density) { it.toDp() } }
+        ?: iconSize
     Box(
         modifier
             .fillMaxSize()
@@ -896,8 +913,28 @@ private fun Dock(
     val shape = RoundedCornerShape(Radii.sheet)
     val removeLabel = stringResource(R.string.remove_from_dock)
 
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+    // Every icon gets the same share of the bar, and is drawn at the size
+    // asked for or the largest that fits its share. Five apps at the
+    // default size are wider than most phones: without this the first four
+    // took their full size and the fifth was crushed into the remainder.
+    //
+    // Worked out in whole pixels, not dp. A screen is made of pixels, and
+    // 54.4 dp at this density is 81.6 of them: rounded up for each of the
+    // first four icons, that left the fifth two pixels short, which is the
+    // same fault again at a smaller size. Dividing whole pixels cannot
+    // hand out more than there are.
+    @Suppress("NAME_SHADOWING")
+    val iconSize = with(LocalDensity.current) {
+        val pad = Spacing.xs.roundToPx()
+        val slot = (maxWidth.roundToPx() - pad * 2) / entries.size.coerceAtLeast(1)
+        minOf(iconSize.roundToPx(), slot - pad * 2)
+            .coerceAtLeast(SMALLEST_DOCK_ICON.roundToPx())
+            .toDp()
+    }
+
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .onGloballyPositioned { c ->
                 val p = c.positionInRoot()
@@ -1027,6 +1064,7 @@ private fun Dock(
                 }
             }
         }
+    }
     }
 }
 

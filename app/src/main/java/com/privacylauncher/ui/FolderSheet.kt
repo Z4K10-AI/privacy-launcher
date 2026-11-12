@@ -43,6 +43,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.privacylauncher.designsystem.fittedIconSize
 
 /**
  * An open folder, as a rounded sheet over a blurred home screen.
@@ -101,6 +103,13 @@ fun FolderSheet(
             FolderNameField(name = name, onRename = onRename)
             Spacer(Modifier.height(Spacing.sm))
 
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // Four across, at the size asked for or the largest that fits
+            // a quarter of the sheet.
+            @Suppress("NAME_SHADOWING")
+            val iconSize = fittedIconSize(iconSize, maxWidth / 4)
+            Column {
+
             // Four across is enough: a folder is a small set by definition,
             // and this keeps the sheet from becoming a second app drawer.
             entries.chunked(4).forEach { row ->
@@ -125,6 +134,8 @@ fun FolderSheet(
                     }
                     repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
+            }
+            }
             }
         }
     }

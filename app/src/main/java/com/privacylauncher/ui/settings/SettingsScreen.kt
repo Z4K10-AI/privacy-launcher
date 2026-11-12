@@ -43,6 +43,7 @@ import com.privacylauncher.ui.components.SwatchRow
 import com.privacylauncher.system.Guarded
 import com.privacylauncher.system.LockDownState
 import com.privacylauncher.designsystem.nameRes
+import com.privacylauncher.system.LauncherAccessibilityService
 
 /**
  * Every launcher preference, in six sections.
@@ -434,11 +435,7 @@ fun SettingsScreen(
                 )
                 Text(
                     text = stringResource(
-                        if (gestureServiceEnabled) {
-                            R.string.settings_gestures_on
-                        } else {
-                            R.string.settings_gestures_off
-                        }
+                        LauncherAccessibilityService.summary(gestureServiceEnabled),
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (gestureServiceEnabled) {

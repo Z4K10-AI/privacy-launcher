@@ -45,5 +45,27 @@ fun adaptiveColumns(preferred: Int): Int {
     return if (wide) (preferred * 2).coerceAtMost(MAX_COLUMNS) else preferred
 }
 
+/**
+ * The size to draw an icon at so that it fits a slot [slotWidth] wide.
+ *
+ * Icon size is the user's choice, and so are the number of columns and how
+ * many apps sit in the dock. On a wide phone any combination fits. On a
+ * narrow one they can ask for more than the screen has: five dock apps at
+ * the default size need 340 dp and most phones offer 312; six columns of
+ * large icons need 384 dp and an Android Go phone is 320 dp wide in all.
+ *
+ * Left alone, a row deals with that by giving the first icons their full
+ * size and crushing the last one into what remains, and a grid lets icons
+ * spill over their neighbours. So every place that draws icons side by
+ * side asks this first. The user's size is used whenever it fits, and
+ * otherwise the largest size that does, with [breathing] left around it.
+ *
+ * Never smaller than 24 dp: below that an icon is a smudge, and a screen
+ * too narrow for that is not one a launcher can do anything about.
+ */
+fun fittedIconSize(wanted: Dp, slotWidth: Dp, breathing: Dp = Spacing.xs): Dp =
+    minOf(wanted, slotWidth - breathing).coerceAtLeast(SMALLEST_ICON)
+
+private val SMALLEST_ICON: Dp = Dp(24f)
 private val SHORT_WINDOW_HEIGHT: Dp = Dp(480f)
 private const val MAX_COLUMNS = 8

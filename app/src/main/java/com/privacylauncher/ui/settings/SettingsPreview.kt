@@ -25,6 +25,8 @@ import com.privacylauncher.designsystem.Motion
 import com.privacylauncher.designsystem.Spacing
 import com.privacylauncher.designsystem.cardSurface
 import com.privacylauncher.ui.components.AppIconImage
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.privacylauncher.designsystem.fittedIconSize
 
 /**
  * A small live sample of the home grid, shown next to the controls that
@@ -86,8 +88,12 @@ fun GridPreview(
         // One row of exactly `columns` cells, which is what makes the column
         // count legible: the cells narrow as the count rises, the same way
         // they will on the real grid.
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Spacing.xs)) {
+        // The same rule the real grids use, so the preview does not show
+        // icons at a size the screen will not actually give them.
+        val fitted = fittedIconSize(size, maxWidth / columns)
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = Spacing.xs),
+            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             val shown = entries.take(columns)
@@ -96,7 +102,7 @@ fun GridPreview(
                     modifier = Modifier.weight(1f).padding(horizontal = Spacing.xxs),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    AppIconImage(entry = entry, loader = iconLoader, size = size)
+                    AppIconImage(entry = entry, loader = iconLoader, size = fitted)
                     Text(
                         text = entry.label,
                         style = MaterialTheme.typography.labelSmall,
@@ -115,6 +121,7 @@ fun GridPreview(
             repeat(columns - shown.size) {
                 Spacer(Modifier.weight(1f))
             }
+        }
         }
     }
 }

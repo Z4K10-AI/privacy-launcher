@@ -66,6 +66,12 @@ import org.junit.runner.RunWith
  * guidance, and this project's own rule, is 48 by 48 dp. Smaller targets
  * are missed by anyone with a tremor, large fingers, or a moving bus.
  *
+ * **Nothing that can be pressed hangs off the side of the screen.** This
+ * one is about small phones. A row laid out for a wide screen does not wrap
+ * by itself on a narrow one: it runs off the edge, and the last button on
+ * it is simply not there. `tools/shapes.sh` runs these tests on screens
+ * from 320 dp wide upwards for that reason.
+ *
  * This reads what each screen tells Android's accessibility services about
  * itself, which is exactly what TalkBack and Switch Access act on. It is
  * not the same as listening to TalkBack: it cannot tell a good name from a
@@ -117,10 +123,26 @@ class AccessibilityWalkTest {
     /** What is wrong with what is on screen right now, and how many pressable things were looked at. */
     private fun look(problems: MutableSet<String>, seen: MutableSet<String>) {
         val smallest = 48 * density - 1f // a pixel for rounding
+        var screenWidth = 0
         fun walk(node: SemanticsNode) {
             if (pressable(node)) {
                 val name = describe(node)
                 val drawn = node.boundsInRoot
+                // Where it was laid out, not what is left of it after
+                // clipping: something off the edge is clipped to nothing,
+                // which would hide exactly the fault being looked for.
+                val left = node.positionInRoot.x
+                val right = left + node.size.width
+                // Cut by an edge, that is: partly on screen and partly not.
+                // Something wholly off screen is a different thing, and a
+                // legitimate one: the welcome pages sit side by side, and
+                // the ones not being shown are a screen-width away.
+                val partlyOn = right > 1f && left < screenWidth - 1f
+                if (partlyOn && (left < -1f || right > screenWidth + 1f)) {
+                    problems += "\"${name.take(40)}\" hangs off the side of the screen " +
+                        "(${(left / density).toInt()} to ${(right / density).toInt()} dp " +
+                        "of ${(screenWidth / density).toInt()})"
+                }
                 // Only what is wholly on screen can be measured: something
                 // half scrolled away is cut off, not small.
                 val whole = drawn.width >= node.size.width - 1 && drawn.height >= node.size.height - 1
@@ -138,7 +160,10 @@ class AccessibilityWalkTest {
             }
             node.children.forEach(::walk)
         }
-        compose.onAllNodes(isRoot()).fetchSemanticsNodes().forEach(::walk)
+        compose.onAllNodes(isRoot()).fetchSemanticsNodes().forEach { root ->
+            screenWidth = root.size.width
+            walk(root)
+        }
     }
 
     /**

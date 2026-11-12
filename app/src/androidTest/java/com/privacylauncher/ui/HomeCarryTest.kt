@@ -277,17 +277,24 @@ class HomeCarryTest {
         show(listOf(app("A"), app("B"), app("C"), app("D")), dockApps = listOf("P", "Q"), editing = false)
         val start = gridCell("A").center
         var aim = Offset.Zero
+        var grabbedAt = Offset.Zero
 
         carry(from = start, to = Offset.Zero, lift = false) {
             assertTrue("the long-press should have started editing", editMode)
+            // Where the icon is drawn relative to the finger at the moment
+            // it is picked up. On a short screen the row can be half
+            // scrolled out of view, the finger lands on the visible half,
+            // and the icon is rightly not centred under it. What matters is
+            // that whatever this distance is, it stays the same.
+            grabbedAt = drag.position - start
             val p = dockIcon("P")
             Offset(p.left - p.width * 0.4f, p.center.y).also { aim = it }
         }
 
         val shown = drag.position
         assertTrue(
-            "the icon is drawn at $shown but the finger is at $aim",
-            (shown - aim).getDistance() < 3f,
+            "the icon was picked up $grabbedAt from the finger and is now ${shown - aim} from it",
+            (shown - aim - grabbedAt).getDistance() < 3f,
         )
         compose.onNodeWithTag(ROOT).performTouchInput { release() }
         compose.waitForIdle()

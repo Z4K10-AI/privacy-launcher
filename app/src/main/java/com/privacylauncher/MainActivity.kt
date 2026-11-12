@@ -89,6 +89,9 @@ import com.privacylauncher.system.Guarded
 import com.privacylauncher.system.guard
 import com.privacylauncher.system.moveLockSwitch
 import com.privacylauncher.ui.settings.LockDownDialog
+import android.annotation.SuppressLint
+import android.content.res.Configuration
+import com.privacylauncher.system.Orientation
 
 /**
  * The launcher's one and only Activity.
@@ -117,6 +120,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        applyOrientation(resources.configuration)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Stops Android painting its own translucent scrim behind the
             // gesture/nav bar, which showed as a grey band under the drawer.
@@ -148,6 +152,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * A folding phone changes size while the launcher is running. This
+     * activity is not restarted for that, so it is told here instead, and
+     * decides again whether it may turn.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyOrientation(newConfig)
+    }
+
+    // Lint advises against fixing an activity's orientation, and for most
+    // apps it is right. A home screen on a phone is the exception; see
+    // Orientation for why, and for where it is left free.
+    @SuppressLint("SourceLockedOrientationActivity")
+    private fun applyOrientation(configuration: Configuration) {
+        val wanted = Orientation.forScreen(configuration.smallestScreenWidthDp)
+        if (requestedOrientation != wanted) requestedOrientation = wanted
     }
 
     override fun onNewIntent(intent: Intent) {

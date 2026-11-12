@@ -143,6 +143,9 @@ internal class HomeGeometry {
     var cellH: Float = 1f
     var columns: Int = 1
 
+    /** The size the grid is drawing its icons at, which can be less than the setting. */
+    var iconPx: Float = 0f
+
     /** The ids of the icons on the grid, in the order they are drawn. */
     var tileIds: List<String> = emptyList()
 

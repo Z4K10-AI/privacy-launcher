@@ -1,6 +1,8 @@
 package com.privacylauncher.system
 
 import android.accessibilityservice.AccessibilityService
+import androidx.annotation.StringRes
+import com.privacylauncher.R
 import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 
@@ -76,5 +78,21 @@ class LauncherAccessibilityService : AccessibilityService() {
 
         val lockScreenSupported: Boolean
             get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+
+        /**
+         * Which sentence in Settings describes the service right now.
+         *
+         * Android 8.0 and 8.1 have no way for this service to lock the
+         * screen: that arrived in Android 9. On those phones the service
+         * still opens the notification shade, but "double-tap to lock"
+         * would be a promise it cannot keep, so the sentence there leaves
+         * it out and says why.
+         */
+        @StringRes
+        fun summary(enabled: Boolean, canLock: Boolean = lockScreenSupported): Int = when {
+            !enabled -> R.string.settings_gestures_off
+            canLock -> R.string.settings_gestures_on
+            else -> R.string.settings_gestures_on_no_lock
+        }
     }
 }

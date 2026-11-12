@@ -93,6 +93,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
+import com.privacylauncher.designsystem.fittedIconSize
 
 /** Below this many sections the letter bar is clutter rather than a shortcut. */
 private const val MIN_SECTIONS_FOR_LETTER_BAR = 4
@@ -308,7 +309,16 @@ fun AppDrawer(
             }
         } else {
             val showLetterBar = list.letters.size >= MIN_SECTIONS_FOR_LETTER_BAR
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                // Icons at the size asked for, or the largest that fits a
+                // column this wide. Six columns of large icons are wider
+                // than a small phone, and a grid does not shrink them by
+                // itself: it lets them overlap.
+                val cellWidth = (
+                    maxWidth - Spacing.sm - (if (showLetterBar) Spacing.xl else Spacing.sm)
+                    ) / columns
+                @Suppress("NAME_SHADOWING")
+                val iconSize = fittedIconSize(iconSize, cellWidth)
                 LazyVerticalGrid(
                     state = gridState,
                     columns = GridCells.Fixed(columns),
