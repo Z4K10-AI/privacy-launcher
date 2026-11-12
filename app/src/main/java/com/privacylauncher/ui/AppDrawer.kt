@@ -80,6 +80,19 @@ import com.privacylauncher.designsystem.rememberHaptics
 import com.privacylauncher.ui.components.AppCell
 import com.privacylauncher.ui.components.LauncherIcons
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
 
 /** Below this many sections the letter bar is clutter rather than a shortcut. */
 private const val MIN_SECTIONS_FOR_LETTER_BAR = 4
@@ -134,6 +147,12 @@ fun AppDrawer(
     onEndFocus: () -> Unit,
     onOpenFocus: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * An app was long-pressed and then dragged: it is being carried out of
+     * the drawer to the home screen. Null where that is not possible, and
+     * then a long-press only opens the menu.
+     */
+    onDragOut: ((AppEntry) -> Unit)? = null,
 ) {
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
@@ -310,16 +329,13 @@ fun AppDrawer(
                             is DrawerRow.Header -> SectionHeader(row.letter)
                             DrawerRow.MostUsedHeader ->
                                 SectionHeader(stringResource(R.string.drawer_most_used))
-                            is DrawerRow.App -> AppCell(
+                            is DrawerRow.App -> DrawerAppCell(
                                 entry = row.entry,
                                 iconLoader = iconLoader,
                                 iconSize = iconSize,
-                                labelColor = MaterialTheme.colorScheme.onBackground,
-                                onClick = { onLaunch(row.entry) },
-                                onLongClick = {
-                                    haptics.longPress()
-                                    menuFor = row.entry
-                                },
+                                onLaunch = onLaunch,
+                                onMenu = { menuFor = it },
+                                onDragOut = onDragOut,
                             )
                             DrawerRow.SettingsSearchHeader ->
                                 SectionHeader(stringResource(R.string.drawer_settings_results))
@@ -390,6 +406,123 @@ fun AppDrawer(
             onAddToDock = { menuFor = null; onAddToDock(entry) },
             onRemoveFromDock = { menuFor = null; onRemoveFromDock(entry) },
             onHide = { menuFor = null; onHide(entry) },
+        )
+    }
+}
+
+/**
+ * One app in the drawer: tap to open it, long-press for its menu, or
+ * long-press and drag to carry it to the home screen.
+ *
+ * The menu opens when the finger lifts, not the moment the long-press is
+ * recognised. That is what leaves room for the drag: a finger that holds
+ * and then moves is carrying the icon away, and a menu that had already
+ * opened under it would have to flash up and vanish again. The buzz at the
+ * long-press and the icon lifting slightly say the hold has registered.
+ *
+ * "Moves" means further than the distance Android itself treats as a
+ * deliberate movement. A resting finger is never perfectly still, and
+ * without that margin most long-presses would turn into a drag of a few
+ * pixels and the menu would rarely open.
+ *
+ * The gestures are raw touch handlers, which tell accessibility services
+ * nothing, so the two things they do are declared again as actions a
+ * screen reader can offer: open, and show the menu.
+ */
+@Composable
+internal fun DrawerAppCell(
+    entry: AppEntry,
+    iconLoader: IconLoader,
+    iconSize: Dp,
+    onLaunch: (AppEntry) -> Unit,
+    onMenu: (AppEntry) -> Unit,
+    onDragOut: ((AppEntry) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberHaptics()
+    val interaction = remember { MutableInteractionSource() }
+    val currentOnLaunch by rememberUpdatedState(onLaunch)
+    val currentOnMenu by rememberUpdatedState(onMenu)
+    val currentOnDragOut by rememberUpdatedState(onDragOut)
+    var lifted by remember { mutableStateOf(false) }
+    val menuLabel = stringResource(R.string.drawer_app_options)
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(Radii.card))
+            .indication(interaction, LocalIndication.current)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                onClick {
+                    currentOnLaunch(entry)
+                    true
+                }
+                onLongClick(label = menuLabel) {
+                    currentOnMenu(entry)
+                    true
+                }
+            }
+            .pointerInput(entry.key) {
+                detectTapGestures(
+                    // The pressed look that `clickable` would have given.
+                    onPress = { at ->
+                        val press = PressInteraction.Press(at)
+                        interaction.emit(press)
+                        interaction.emit(
+                            if (tryAwaitRelease()) {
+                                PressInteraction.Release(press)
+                            } else {
+                                PressInteraction.Cancel(press)
+                            }
+                        )
+                    },
+                    onTap = { currentOnLaunch(entry) },
+                )
+            }
+            .pointerInput(entry.key) {
+                var travelled = Offset.Zero
+                var handedOver = false
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        haptics.longPress()
+                        lifted = true
+                        travelled = Offset.Zero
+                        handedOver = false
+                    },
+                    onDrag = { change, delta ->
+                        change.consume()
+                        travelled += delta
+                        val carry = currentOnDragOut
+                        if (!handedOver && carry != null &&
+                            travelled.getDistance() > viewConfiguration.touchSlop
+                        ) {
+                            // From here the launcher's outermost box follows
+                            // the finger. This cell is about to leave the
+                            // screen with the rest of the drawer.
+                            handedOver = true
+                            lifted = false
+                            carry(entry)
+                        }
+                    },
+                    onDragEnd = {
+                        lifted = false
+                        if (!handedOver) currentOnMenu(entry)
+                    },
+                    onDragCancel = { lifted = false },
+                )
+            }
+            .graphicsLayer {
+                val scale = if (lifted) 1.08f else 1f
+                scaleX = scale
+                scaleY = scale
+            },
+    ) {
+        AppCell(
+            entry = entry,
+            iconLoader = iconLoader,
+            iconSize = iconSize,
+            labelColor = MaterialTheme.colorScheme.onBackground,
+            interactive = false,
         )
     }
 }

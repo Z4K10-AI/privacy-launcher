@@ -74,6 +74,17 @@ import com.privacylauncher.ui.privacy.PrivacyDashboardScreen
 import com.privacylauncher.ui.quick.QuickPanel
 import com.privacylauncher.ui.settings.HiddenAppsScreen
 import com.privacylauncher.ui.settings.SettingsScreen
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import com.privacylauncher.ui.DragSource
+import com.privacylauncher.ui.HomeDragLayer
+import com.privacylauncher.ui.HomeDragState
+import com.privacylauncher.ui.HomeDrop
+import com.privacylauncher.ui.followCarry
 
 /**
  * The launcher's one and only Activity.
@@ -239,6 +250,15 @@ private fun LauncherRoot(
         quickSwipe.extentPx = with(density) { quickPanelWidth.toPx() }
     }
     val glance = rememberGlance(enabled = settings.showGlance)
+
+    // The icon in the air, if there is one. Shared by the grid, the dock,
+    // the drawer and the layer at the bottom of this function that draws
+    // it; see HomeDragState.
+    val homeDrag = remember { HomeDragState() }
+    var rootOrigin by remember { mutableStateOf(Offset.Zero) }
+    val onCarryDrop by rememberUpdatedState<(HomeDrop) -> Unit> { drop ->
+        viewModel.onHomeDrop(drop, fromDock = false)
+    }
     val openFolder = viewModel.openFolderId?.let { id ->
         homeTiles.filterIsInstance<HomeTile.Folder>().firstOrNull { it.id == id }
     }
@@ -298,7 +318,13 @@ private fun LauncherRoot(
             .fillMaxSize()
             // The drag works in pixels and the sheet's position is a fraction,
             // so the swipe state needs to know how tall the window is.
-            .onSizeChanged { drawerSwipe.extentPx = it.height.toFloat().coerceAtLeast(1f) },
+            .onSizeChanged { drawerSwipe.extentPx = it.height.toFloat().coerceAtLeast(1f) }
+            .onGloballyPositioned { rootOrigin = it.positionInRoot() }
+            // An icon dragged out of the drawer is followed from here, the
+            // one place that outlives the drawer closing under it.
+            .pointerInput(homeDrag) {
+                followCarry(homeDrag, origin = { rootOrigin }) { onCarryDrop(it) }
+            },
     ) {
         Box(
             Modifier
@@ -375,6 +401,10 @@ private fun LauncherRoot(
                     onRemoveTile = viewModel::removeHomeTile,
                     onMove = viewModel::moveHomeItem,
                     onCombine = viewModel::combineHomeItems,
+                    onMoveToDock = viewModel::moveHomeItemToDock,
+                    onDockDrop = { viewModel.onHomeDrop(it, fromDock = true) },
+                    onRemoveFromDock = viewModel::removeFromDock,
+                    drag = homeDrag,
                     onOpenDrawer = viewModel::openDrawer,
                     onOpenSettings = viewModel::openSettings,
                     onOpenClock = { viewModel.openClock() },
@@ -462,6 +492,18 @@ private fun LauncherRoot(
                     onAddToDock = viewModel::addToDock,
                     onRemoveFromDock = viewModel::removeFromDock,
                     onHide = { viewModel.setAppHidden(it, true) },
+                    // Minimal mode has no grid and no dock to carry an
+                    // icon to, so there the long-press is only the menu.
+                    onDragOut = if (settings.minimalMode) {
+                        null
+                    } else {
+                        { entry ->
+                            homeDrag.pickUp(
+                                HomeTile.App(entry), DragSource.DRAWER, homeDrag.finger,
+                            )
+                            viewModel.closePanel()
+                        }
+                    },
                     onOpenSettingsScreen = viewModel::openSettingsScreen,
                     onOpenContact = viewModel::openContact,
                     onEnableContacts = askForContacts,
@@ -603,6 +645,15 @@ private fun LauncherRoot(
 
         PanelTransition(panel == Panel.DESIGN_PREVIEW) {
             DesignPreviewScreen(onBack = viewModel::closePanel)
+        }
+
+        // Last, so it is drawn over everything: the icon in the air.
+        if (!settings.minimalMode) {
+            HomeDragLayer(
+                drag = homeDrag,
+                iconSize = iconSize,
+                iconLoader = viewModel.iconLoader,
+            )
         }
 
         if (viewModel.showGestureExplainer) {

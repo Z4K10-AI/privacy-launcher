@@ -71,7 +71,10 @@ aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
   drag: rearrange by dropping near an edge, or make a folder by dropping onto
   the centre of another icon. Folders open as a rounded sheet over a blurred
   home screen.
-- A dock of up to five apps.
+- A dock of up to five apps. Carry a grid icon down onto it to keep the app
+  there, or long-press a dock icon to slide it along the dock or carry it up
+  onto the grid. While you are editing, each dock icon has the same ✕ as the
+  grid's. An icon moves: it is never left in both places by a drag.
 - An optional "at a glance" line under the clock: next alarm and battery,
   both read from the phone with no network and no permission. No weather,
   deliberately — it would need both.
@@ -94,9 +97,12 @@ aapt2 dump permissions app/build/outputs/apk/release/app-release.apk
 - An optional **most used** row at the top, counted on the phone, stored only
   there, and erasable from Settings.
 - Drag the handle at the top to pull the drawer back down.
-- Long-press an app for: add to / remove from home screen, add to dock, hide
-  from drawer, **App info** (Android's own page, where you revoke
-  permissions), uninstall.
+- Hold an app and let go for its menu: add to / remove from home screen, add
+  to dock, hide from drawer, **App info** (Android's own page, where you
+  revoke permissions), uninstall.
+- Hold an app and drag to carry it out of the drawer. The drawer closes and
+  the icon stays under your finger: drop it on the grid, onto another icon
+  to make a folder, or in the dock.
 
 **Quick controls** (swipe right-to-left on the home screen)
 - A side sheet of eight tiles over a blurred home screen, following the finger
@@ -681,10 +687,35 @@ It also holds the promises the backup screens make: a running focus session
 is not carried across, the usage record never reaches the file, restoring
 does not wipe that record, and a file that is not a backup changes nothing.
 
+### An icon carried across an edge
+
+`HomeCarryTest` puts the real home screen on the emulator, clock, grid, dock
+and bottom bar, and carries icons across its edges: grid to dock, dock to
+grid, along the dock, and out of a drawer cell onto either. Those drags can
+go wrong in ways one inside the grid cannot. The icon can be cut off at an
+edge, land somewhere nothing was highlighted, or be left hanging when the
+cell it came from disappears, which is exactly what happens when the drawer
+closes under a finger that is still carrying. One test takes the gesture
+away mid-carry, as a phone call would, and checks nothing is put down.
+
+Every place a finger is sent in that test is read from what the screen
+reports to accessibility services, not from the numbers the code keeps for
+itself. Aiming with the code's own numbers would miss in the same direction
+as the code and pass.
+
+Where the icon would land is plain arithmetic, so it is also tested on the
+build machine with no screen at all (`HomeDropTargetTest`,
+`HomeDropOpsTest`): 47 cases, including a right-to-left layout, a full dock,
+an app that is already where it is being carried to, and a target that
+vanished while the finger was down.
+
 ### Device soak
 
 `tools/soak.sh` walks home, drawer, search, settings, the About section and
-the quick panel, at three font scales and in dark mode.
+the quick panel, at three font scales and in dark mode. Then, once, it
+carries an icon: it holds Calendar in the real drawer, drags it onto the
+home screen, checks it is there, and takes it off again through the
+long-press menu. That is 31 checks in all.
 
 It clears the crash buffer before each step and checks it after, so a crash
 is attributed to the step that caused it rather than appearing as a wall of

@@ -905,6 +905,36 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         settingsRepository.removeFromDock(entry.key)
     }
 
+    /** A home screen icon was dropped on the dock. */
+    fun moveHomeItemToDock(itemId: String, beforeKey: String?) = edit {
+        settingsRepository.moveHomeItemToDock(itemId, beforeKey)
+    }
+
+    /**
+     * An icon carried in from the drawer or the dock was let go.
+     *
+     * From the dock the icon moves: it leaves the dock for wherever it was
+     * put. From the drawer nothing is left behind, because the drawer always
+     * lists every app.
+     */
+    internal fun onHomeDrop(drop: HomeDrop, fromDock: Boolean) = edit {
+        when (drop) {
+            is HomeDrop.Place ->
+                if (fromDock) {
+                    settingsRepository.moveDockAppToHome(drop.key, drop.beforeId)
+                } else {
+                    settingsRepository.placeOnHome(drop.key, drop.beforeId)
+                }
+            is HomeDrop.Onto ->
+                if (fromDock) {
+                    settingsRepository.dropDockAppOntoHomeItem(drop.key, drop.ontoId)
+                } else {
+                    settingsRepository.dropOntoHomeItem(drop.key, drop.ontoId)
+                }
+            is HomeDrop.Dock -> settingsRepository.placeInDock(drop.key, drop.beforeKey)
+        }
+    }
+
     fun setShowGlance(v: Boolean) = edit { settingsRepository.setShowGlance(v) }
 
     fun setAutoKeyboard(v: Boolean) = edit { settingsRepository.setAutoKeyboard(v) }

@@ -84,6 +84,23 @@ for m in re.finditer(r"<node[^>]*>", sys.stdin.read()):
 
 crashed() { $ADB logcat -b crash -d 2>/dev/null | grep -q "$PKG"; }
 
+# Is everything in $1 on screen? $1 is one or more strings joined by "+",
+# and a string starting with "!" must NOT be there. One look at the screen
+# answers the lot, so "on the home screen and showing Calendar" is a single
+# statement about a single moment.
+present_all() {
+  local xml part ok=0
+  xml="$(dump)" || return 1
+  while IFS= read -r part; do
+    [ -z "$part" ] && continue
+    case "$part" in
+      '!'*) printf '%s' "$xml" | grep -qi -- "${part#!}" && ok=1 ;;
+      *)    printf '%s' "$xml" | grep -qi -- "$part" || ok=1 ;;
+    esac
+  done <<< "$(printf '%s' "$1" | tr '+' '\n')"
+  return $ok
+}
+
 # check <label> <expected-on-screen> <command...>
 check() {
   local label="$1" expect="$2"; shift 2
@@ -98,7 +115,7 @@ check() {
   if [ -z "$($ADB shell pidof "$PKG" 2>/dev/null | tr -d '\r')" ]; then
     echo "  GONE    $label"; FAIL=$((FAIL+1)); return
   fi
-  if [ -n "$expect" ] && ! present "$expect"; then
+  if [ -n "$expect" ] && ! present_all "$expect"; then
     echo "  WRONG   $label  (expected \"$expect\" on screen)"
     FAIL=$((FAIL+1)); return
   fi
@@ -107,6 +124,9 @@ check() {
 }
 
 tap_on() { local c; c=$(coords_of "$1"); [ -z "$c" ] && return 1; $ADB shell input tap $c; }
+
+# Press and hold on $1, then let go without moving.
+hold_on() { local c; c=$(coords_of "$1"); [ -z "$c" ] && return 1; $ADB shell input swipe $c $c 900; }
 
 # Swipe up to $2 times until $1 appears. A single swipe does not reach the
 # bottom of a six-section Settings list, and asserting that it does makes the
@@ -164,6 +184,66 @@ run_suite() {
   # also does not crash.
   check "quick panel"        "Quick controls"    retry_until "Quick controls" left
   check "back to home"       "$HOME_MARK"        home
+}
+
+# --- carrying an icon ---------------------------------------------------
+#
+# Everything above is taps and swipes. This is the one gesture that is
+# neither: press, hold, and carry. `input draganddrop` holds for Android's
+# own long-press time before it moves, which a plain swipe does not.
+#
+# It uses Calendar, which every one of these emulators has, and leaves the
+# home screen as it found it only if Calendar was not on it to begin with:
+# if it was, it is taken off first so there is something to prove, and it
+# stays off afterwards. These are test emulators; that is said out loud
+# rather than done quietly.
+
+# The drawer, open, searched down to Calendar.
+#
+# The search is for "calen", not the whole word. coords_of takes the first
+# thing on screen whose text contains what it is given, in any case, and
+# with "calendar" typed in the search box the first such thing is the
+# search box. The finger then holds the search box, nothing is carried, and
+# the check fails for a reason that has nothing to do with the app.
+drawer_showing_calendar() {
+  home; sleep 1
+  retry_until "Search apps" up || return 1
+  $ADB shell input text "calen"; sleep 2
+}
+
+# Carry Calendar out of the drawer and let go over the clock: on the home
+# screen, but not on any icon, which means "add it at the end".
+carry_calendar_home() {
+  local c
+  drawer_showing_calendar || return 1
+  c=$(coords_of "Calendar"); [ -z "$c" ] && return 1
+  $ADB shell input draganddrop $c $MIDX $((H * 15 / 100)) 1500
+}
+
+# Calendar's menu in the drawer, opened by holding it and letting go.
+calendar_menu() {
+  drawer_showing_calendar || return 1
+  hold_on "Calendar"; sleep 2
+}
+
+take_calendar_off_home() {
+  calendar_menu || return 1
+  tap_on "Remove from home screen"; sleep 1
+  home
+}
+
+run_carry() {
+  echo "--- carrying an icon ---"
+  calendar_menu >/dev/null 2>&1
+  if present "Remove from home screen"; then
+    echo "  note    Calendar was already on the home screen; taking it off first"
+    tap_on "Remove from home screen" >/dev/null 2>&1; sleep 1
+  fi
+  home; sleep 1
+  check "calendar not on home"   "$HOME_MARK+!Calendar"        home
+  check "carry it out of drawer" "$HOME_MARK+Calendar"         carry_calendar_home
+  check "hold opens its menu"    "Remove from home screen"     calendar_menu
+  check "taken off again"        "$HOME_MARK+!Calendar"        take_calendar_off_home
 }
 
 # A fresh install opens on the onboarding flow, not the home screen.
@@ -256,6 +336,12 @@ echo
 echo "=== restore device settings ==="
 $ADB shell settings put system font_scale "$FONT_BEFORE" >/dev/null
 $ADB shell "cmd uimode night $NIGHT_BEFORE" >/dev/null 2>&1
+
+
+echo
+echo "=== D. a finger carrying an icon (font $FONT_BEFORE) ==="
+sleep 3
+run_carry
 
 echo
 echo "=== result: $PASS ok, $FAIL problems ==="

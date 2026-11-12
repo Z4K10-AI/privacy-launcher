@@ -409,6 +409,73 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    // --- icons carried between the drawer, the dock and the home screen ---
+
+    /**
+     * One edit that may change the home screen, the dock, or both.
+     *
+     * A drag from the dock to the home screen changes both. As two edits, a
+     * launcher killed between them would leave the app in both places or in
+     * neither; as one, the file on disk only ever holds the layout before
+     * the drop or the layout after it.
+     */
+    private suspend fun editLayout(transform: (HomeAndDock) -> HomeAndDock) {
+        context.dataStore.edit { prefs ->
+            val before = HomeAndDock(
+                home = readHomeItems(prefs),
+                dock = prefs[KEY_DOCK_APPS]?.decodeList().orEmpty(),
+            )
+            val after = transform(before)
+            if (after.home != before.home) {
+                prefs[KEY_HOME_ITEMS] = HomeLayoutCodec.encode(after.home)
+                prefs.remove(KEY_HOME_APPS_LEGACY)
+            }
+            if (after.dock != before.dock) prefs[KEY_DOCK_APPS] = after.dock.encodeList()
+        }
+    }
+
+    private fun newFolderId() = "f:${UUID.randomUUID()}"
+
+    /** An app from the drawer put down on the home screen. */
+    suspend fun placeOnHome(key: String, beforeId: String?) = editLayout {
+        it.copy(home = HomeLayoutOps.placeApp(it.home, key, beforeId))
+    }
+
+    /** An app from the drawer put down on a home screen icon. */
+    suspend fun dropOntoHomeItem(key: String, ontoId: String) = editLayout {
+        it.copy(
+            home = HomeLayoutOps.dropAppOnto(
+                it.home, key, ontoId, newFolderId(), HomeLayoutCodec.DEFAULT_FOLDER_NAME,
+            ),
+        )
+    }
+
+    /** An app put down in the dock, or a dock icon moved along it. */
+    suspend fun placeInDock(key: String, beforeKey: String?) = editLayout {
+        it.copy(
+            dock = HomeLayoutOps.placeInDock(
+                it.dock, key, beforeKey, LauncherSettings.MAX_DOCK_APPS,
+            ),
+        )
+    }
+
+    /** A home screen icon carried to the dock. */
+    suspend fun moveHomeItemToDock(itemId: String, beforeKey: String?) = editLayout {
+        HomeLayoutOps.homeToDock(it, itemId, beforeKey, LauncherSettings.MAX_DOCK_APPS)
+    }
+
+    /** A dock icon carried to the home screen. */
+    suspend fun moveDockAppToHome(key: String, beforeId: String?) = editLayout {
+        HomeLayoutOps.dockToHome(it, key, beforeId)
+    }
+
+    /** A dock icon put down on a home screen icon. */
+    suspend fun dropDockAppOntoHomeItem(key: String, ontoId: String) = editLayout {
+        HomeLayoutOps.dockOntoHome(
+            it, key, ontoId, newFolderId(), HomeLayoutCodec.DEFAULT_FOLDER_NAME,
+        )
+    }
+
     // --- housekeeping -----------------------------------------------------
 
     /** Drops anything referring to an app that is no longer installed. */

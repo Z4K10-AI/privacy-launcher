@@ -23,6 +23,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performSemanticsAction
 
 /**
  * A finger dragging an icon across the real home grid.
@@ -60,29 +67,45 @@ class HomeGridDragTest {
     private var editMode by mutableStateOf(false)
     private var columns = 4
 
+    /** A right-to-left language: the first column is drawn on the right. */
+    private var rtl = false
+
     private val moves = mutableListOf<Pair<String, String>>()
     private val combines = mutableListOf<Pair<String, String>>()
+    private val launched = mutableListOf<String>()
+    private val opened = mutableListOf<String>()
 
-    private fun show(initial: List<HomeTile>, columns: Int = 4, iconSize: Dp = 48.dp) {
+    private fun show(
+        initial: List<HomeTile>,
+        columns: Int = 4,
+        iconSize: Dp = 48.dp,
+        rtl: Boolean = false,
+    ) {
         tiles = initial
         this.columns = columns
         this.iconSize = iconSize
+        this.rtl = rtl
         compose.setContent {
             LauncherTheme(settings = LauncherSettings()) {
+                CompositionLocalProvider(
+                    LocalLayoutDirection provides
+                        if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
+                ) {
                 HomeGrid(
                     tiles = tiles,
                     columns = columns,
                     iconSize = this.iconSize,
                     iconLoader = IconLoader(context),
                     editMode = editMode,
-                    onLaunch = {},
-                    onOpenFolder = {},
+                    onLaunch = { launched += it.label },
+                    onOpenFolder = { opened += it },
                     onEnterEditMode = { editMode = true },
                     onRemoveTile = {},
                     onMove = { from, to -> moves += from to to },
                     onCombine = { from, onto -> combines += from to onto },
                     modifier = Modifier.fillMaxWidth().testTag(GRID),
                 )
+                }
             }
         }
         compose.waitForIdle()
@@ -111,10 +134,14 @@ class HomeGridDragTest {
         fun TouchInjectionScope.fingerAt(step: Int): Offset {
             val cellW = width.toFloat() / cols
             val cellH = cellHeightDp.toPx()
-            fun centre(index: Int) = Offset(
-                x = (index % cols) * cellW + cellW / 2,
-                y = (index / cols) * cellH + cellH / 2,
-            )
+            fun centre(index: Int): Offset {
+                val column = index % cols
+                val drawnColumn = if (rtl) cols - 1 - column else column
+                return Offset(
+                    x = drawnColumn * cellW + cellW / 2,
+                    y = (index / cols) * cellH + cellH / 2,
+                )
+            }
             val start = centre(from)
             val end = centre(to) + if (edge) Offset(cellW * 0.38f, 0f) else Offset.Zero
             return start + (end - start) * (step / steps.toFloat())
@@ -279,6 +306,61 @@ class HomeGridDragTest {
 
         assertEquals(emptyList<Pair<String, String>>(), moves)
         assertEquals(emptyList<Pair<String, String>>(), combines)
+    }
+
+    @Test
+    fun aDropOnEmptySpaceAfterTheLastIconNeverMakesAFolder() {
+        // Five icons in four columns: the second row is one icon and three
+        // empty cells. A is dropped on the middle of an empty one, two
+        // cells to the right of E. That is "put it at the end". The grid
+        // used to judge "is the finger on the middle of something?" against
+        // the empty cell, then apply the answer to the last icon, so the
+        // drop made a folder out of A and E -- an icon the finger was
+        // never near.
+        show(listOf(app("A"), app("B"), app("C"), app("D"), app("E")))
+
+        drag(from = 0, to = 6, edge = false)
+
+        assertEquals(
+            "made a folder with an icon the finger was nowhere near",
+            emptyList<Pair<String, String>>(),
+            combines,
+        )
+        assertEquals(listOf("a:p.A/A" to "a:p.E/A"), moves)
+    }
+
+    @Test
+    fun inARightToLeftLanguageADragGoesWhereTheFingerGoes() {
+        // In Arabic, Hebrew, Persian or Urdu the first icon is drawn on the
+        // right and the row runs leftwards. The grid used to work out the
+        // column under the finger as if the row always ran left to right,
+        // so the finger went one way and the answer went the other: this
+        // drag, two cells to the left, was read as two cells off the right
+        // edge and reported nothing at all.
+        show(listOf(app("A"), app("B"), app("C"), app("D")), rtl = true)
+
+        drag(from = 0, to = 2, edge = true)
+
+        assertEquals(listOf("a:p.A/A" to "a:p.C/A"), moves)
+        assertEquals(emptyList<Pair<String, String>>(), combines)
+    }
+
+    @Test
+    fun anIconCanBeOpenedWithoutTouchingTheScreen() {
+        // TalkBack, Switch Access and a keyboard do not touch the screen:
+        // they ask an item to perform its "click" action. The grid's taps
+        // are raw touch handlers, which offer no such action, so an icon
+        // had a name a screen reader could read out and no way to open it.
+        show(listOf(app("A"), folder("f1", "X", "Y")))
+
+        compose.onNode(hasText("A") and hasClickAction())
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNode(hasText("f1") and hasClickAction())
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+
+        assertEquals(listOf("A"), launched)
+        assertEquals(listOf("f1"), opened)
     }
 
     private companion object {

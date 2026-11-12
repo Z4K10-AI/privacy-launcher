@@ -163,7 +163,10 @@ fun MinimalHome(
 
                 if (entries.isEmpty()) {
                     Text(
-                        text = stringResource(R.string.home_empty),
+                        // Its own wording, not the grid's. The grid says
+                        // "drag it here", and there is no dragging in
+                        // minimal mode: the drawer's menu is the way in.
+                        text = stringResource(R.string.minimal_home_empty),
                         style = MaterialTheme.typography.bodyMedium
                             .copy(shadow = WallpaperShadow),
                         color = Color.White.copy(alpha = 0.9f),

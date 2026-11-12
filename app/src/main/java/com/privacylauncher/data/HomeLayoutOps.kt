@@ -205,4 +205,162 @@ internal object HomeLayoutOps {
      */
     fun addToDock(dock: List<String>, key: String, max: Int): List<String> =
         if (key in dock || dock.size >= max) dock else dock + key
+
+    // --- icons that arrive from somewhere else ------------------------------
+    //
+    // Everything above rearranges icons that are already on the home screen.
+    // These are for an icon carried in from the drawer or the dock, and for
+    // one carried out to the dock. They name things by id or key for the
+    // same reason [moveById] does: what is drawn can be shorter than what
+    // is stored.
+
+    /**
+     * The home screen after the app [key] is put where [beforeId] is, or at
+     * the end when [beforeId] is null or no longer there.
+     *
+     * An app is on the home screen once. If it already has an icon of its
+     * own this is an ordinary reorder. If it was inside a folder it comes
+     * out of it, and a folder left with one app collapses as usual.
+     */
+    fun placeApp(items: List<HomeItem>, key: String, beforeId: String?): List<HomeItem> {
+        val own = HomeItem.App(key).id
+        if (beforeId == own) return items
+
+        val ownIndex = items.indexOfFirst { it.id == own }
+        if (ownIndex >= 0) {
+            return if (beforeId == null || items.none { it.id == beforeId }) {
+                move(items, ownIndex, items.lastIndex)
+            } else {
+                moveById(items, own, beforeId)
+            }
+        }
+
+        // Folder ids are still intact here, so [beforeId] can be found even
+        // when it names the folder the app is leaving.
+        val out = stripFromFolders(items, key).toMutableList()
+        val at = beforeId?.let { id -> out.indexOfFirst { it.id == id } }
+            ?.takeIf { it >= 0 } ?: out.size
+        out.add(at, HomeItem.App(key))
+        return dissolveThinFolders(out)
+    }
+
+    /**
+     * The home screen after the app [key] is dropped onto [ontoId]: onto an
+     * app makes a folder of the two, onto a folder adds it.
+     *
+     * Unchanged when [ontoId] is not there, so a stale drop costs nothing.
+     */
+    fun dropAppOnto(
+        items: List<HomeItem>,
+        key: String,
+        ontoId: String,
+        newFolderId: String,
+        folderName: String,
+    ): List<HomeItem> {
+        val own = HomeItem.App(key).id
+        if (ontoId == own) return items
+        if (items.none { it.id == ontoId }) return items
+        if (items.any { it.id == own }) {
+            return combineById(items, own, ontoId, newFolderId, folderName)
+        }
+        return dissolveThinFolders(
+            stripFromFolders(items, key).map { item ->
+                if (item.id != ontoId) {
+                    item
+                } else {
+                    when (item) {
+                        is HomeItem.App -> HomeItem.Folder(
+                            id = newFolderId,
+                            name = folderName,
+                            appKeys = listOf(item.key, key),
+                        )
+                        is HomeItem.Folder -> item.copy(appKeys = item.appKeys + key)
+                    }
+                }
+            }
+        )
+    }
+
+    /** [items] with [key] taken out of every folder. Thin folders are left for the caller. */
+    private fun stripFromFolders(items: List<HomeItem>, key: String): List<HomeItem> =
+        items.map { item ->
+            if (item is HomeItem.Folder && key in item.appKeys) {
+                item.copy(appKeys = item.appKeys.filterNot { it == key })
+            } else {
+                item
+            }
+        }
+
+    /**
+     * The dock after [key] is put where [beforeKey] is, or at the end when
+     * [beforeKey] is null or not in the dock.
+     *
+     * Works for an icon already in the dock (a reorder) and for a new one.
+     * A new one is refused when the dock is full: the dock comes back as it
+     * was.
+     */
+    fun placeInDock(
+        dock: List<String>,
+        key: String,
+        beforeKey: String?,
+        max: Int,
+    ): List<String> {
+        if (beforeKey == key) return dock
+        if (key !in dock && dock.size >= max) return dock
+        val out = dock.filterNot { it == key }.toMutableList()
+        val at = beforeKey?.let { out.indexOf(it) }?.takeIf { it >= 0 } ?: out.size
+        out.add(at, key)
+        return out
+    }
+
+    /**
+     * A home screen icon carried to the dock: it leaves the home screen and
+     * joins the dock.
+     *
+     * Only a single app can make the trip. A folder has no place in the
+     * dock, an app already there would simply vanish from the home screen,
+     * and a full dock has no room; in each case nothing changes.
+     */
+    fun homeToDock(
+        layout: HomeAndDock,
+        itemId: String,
+        beforeKey: String?,
+        max: Int,
+    ): HomeAndDock {
+        val item = layout.home.firstOrNull { it.id == itemId } as? HomeItem.App
+            ?: return layout
+        if (item.key in layout.dock || layout.dock.size >= max) return layout
+        return HomeAndDock(
+            home = layout.home.filterNot { it.id == itemId },
+            dock = placeInDock(layout.dock, item.key, beforeKey, max),
+        )
+    }
+
+    /** A dock icon carried to the home screen: it leaves the dock. See [placeApp]. */
+    fun dockToHome(layout: HomeAndDock, key: String, beforeId: String?): HomeAndDock {
+        if (key !in layout.dock) return layout
+        return HomeAndDock(
+            home = placeApp(layout.home, key, beforeId),
+            dock = layout.dock.filterNot { it == key },
+        )
+    }
+
+    /** A dock icon dropped onto a home screen icon. See [dropAppOnto]. */
+    fun dockOntoHome(
+        layout: HomeAndDock,
+        key: String,
+        ontoId: String,
+        newFolderId: String,
+        folderName: String,
+    ): HomeAndDock {
+        if (key !in layout.dock) return layout
+        if (layout.home.none { it.id == ontoId }) return layout
+        return HomeAndDock(
+            home = dropAppOnto(layout.home, key, ontoId, newFolderId, folderName),
+            dock = layout.dock.filterNot { it == key },
+        )
+    }
 }
+
+/** The stored home screen and dock together, for a drag that changes both. */
+internal data class HomeAndDock(val home: List<HomeItem>, val dock: List<String>)

@@ -4,6 +4,61 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Icons can be carried between the grid, the dock and the drawer
+
+Drag and drop used to stop at the edge of the home grid. Now:
+
+- **Grid to dock.** Carry a home icon down onto the dock and it moves there.
+- **Dock to grid, and along the dock.** Long-press a dock icon to reorder
+  it, or carry it up onto the grid or onto another icon to make a folder.
+  While editing, each dock icon has a ✕.
+- **Out of the drawer.** Hold an app and drag: the drawer closes and the icon
+  stays under the finger until it is dropped on the grid, on another icon,
+  or in the dock.
+
+An icon moves; a drag never leaves it in both places. A full dock (five
+apps) refuses a new icon and says so by not lighting up.
+
+One change in behaviour to know about: **the drawer's long-press menu now
+opens when the finger lifts**, not while it is still held. That is what
+leaves room for the drag. The buzz and a slight lift of the icon say the
+hold has registered.
+
+Three faults turned up on the way, each with a test that failed first
+(emulator `a30`, Android 11):
+
+- **A drop on empty space could make a folder.** Dropping an icon on the
+  middle of an empty cell after the last icon made a folder with the last
+  icon, which the finger was nowhere near.
+  `HomeGridDragTest.aDropOnEmptySpaceAfterTheLastIconNeverMakesAFolder`.
+- **In a right-to-left language a drag went the wrong way.** The grid
+  assumed the first column was on the left. In Arabic, Hebrew, Persian or
+  Urdu it is on the right, so the finger went one way and the icon the
+  other. `…inARightToLeftLanguageADragGoesWhereTheFingerGoes`.
+- **A screen reader could name a home icon but not open it**, and could not
+  name a dock icon at all. `…anIconCanBeOpenedWithoutTouchingTheScreen`,
+  `HomeCarryTest.aDockIconHasANameAndCanBeOpenedWithoutTouchingTheScreen`.
+
+Also fixed in passing, because the new drawing layer made it free: starting
+a drag turns on edit mode, which adds a line to the bottom bar and moves the
+grid up under the finger. The carried icon used to move with the grid. It
+now stays with the finger
+(`HomeCarryTest.theIconStaysUnderTheFingerWhenStartingADragMovesTheGrid`).
+
+Tests added: 47 on the build machine, 22 on the emulator (19 in the new
+`HomeCarryTest`, 3 in `HomeGridDragTest`), and 4 checks in `tools/soak.sh`
+that do the drawer drag in the real app with a real long-press.
+
+Known limits, not hidden:
+
+- The dock is not drawn when it is empty, so the first app has to be pinned
+  from the drawer's menu. After that, dragging works.
+- The grid does not scroll by itself while an icon is carried, so on a home
+  screen taller than the display an icon cannot be dragged to a row that is
+  off screen.
+- Minimal mode has no grid or dock, so there a long-press in the drawer is
+  only the menu.
+
 ### The signing key moved out of the project
 
 The release signing key and the file holding its passwords used to sit in
