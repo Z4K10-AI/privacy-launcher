@@ -4,6 +4,34 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Ready for strangers: licence, README, guides
+
+- **Licence: Apache 2.0.** `LICENSE` is the official text, byte for byte.
+  `NOTICE` credits the material under other licences: the Inter typeface
+  (SIL OFL 1.1), the Exodus Privacy tracker list (ODbL 1.0), Material
+  Design icon shapes (Apache 2.0) and the one library that is not Apache
+  2.0, Google's protocol buffers runtime inside AndroidX DataStore
+  (BSD-3-Clause). `tools/licences.py` lists all 115 libraries built into the
+  app with their licences (`docs/dependencies.md`) and fails on any licence
+  nobody has looked at.
+- **A README for someone who has never seen the project**: what it is, four
+  screenshots, "tested on emulators only" at the top, the privacy promise,
+  how to install the APK and check it, how to build it, and the licence. It
+  went from 1,528 lines to 252.
+- **Nothing was thrown away.** The rest moved, word for word, into
+  `docs/`: features, privacy, compatibility, design, accessibility, testing,
+  building, and the low-memory notes into performance. A check found every
+  old line in the new files except the ones changed on purpose.
+  `tools/checklinks.py` checks that every link in the Markdown files goes
+  somewhere.
+- **`CONTRIBUTING.md`, `SECURITY.md` and `CODE_OF_CONDUCT.md`**, in plain
+  English. Private reports go through GitHub's private reporting form, so
+  no email address is published.
+- **`tools/env.sh` works on other machines.** It used to set `JAVA_HOME` and
+  `ANDROID_HOME` to folders on this project's own Mac, overriding anyone
+  else's. It now uses those folders only where they exist, and otherwise
+  keeps what the machine already has.
+
 ### Screenshots, an icon and an F-Droid listing
 
 - `tools/screenshots.sh` takes the pictures for the README and the F-Droid

@@ -8,6 +8,35 @@ are good for one thing: comparing one build with the next, to catch a
 change that made the launcher slower. They do not say what a phone will do,
 and nothing here has been measured on real hardware yet.
 
+## How it stays light
+
+- The drawer uses `LazyVerticalGrid`, so only the cells on screen exist.
+- Icons are decoded on a background thread, scaled to 128×128 (~64 KB each) and
+  held in an `LruCache` capped at 160 entries — about 10 MB at worst.
+- The clock wakes once a minute, on the minute, not once a second.
+- An idle home screen draws nothing at all. The soak reads Android's own
+  frame counter to check it.
+- The drawer is built once, a moment after the home screen appears, and
+  kept while the launcher is in front, so opening it is a slide and not a
+  rebuild. It is let go when the launcher leaves the screen.
+- Release builds run R8 with resource shrinking.
+- `buildConfig` is off and no test or tooling libraries are in the build.
+- Every state class that crosses into composition is `@Immutable`. They all
+  hold a `List` or a `Set`, which Compose treats as unstable by default, and
+  an unstable parameter means the composable taking it can never skip — so
+  changing the battery percentage in the glance line would recompose the
+  whole home grid. The annotation is a promise the code keeps: all of them
+  are `val`s holding primitives, enums, strings, or lists built once and
+  never mutated.
+
+### APK size
+
+The signed release APK is **2.3 MB** (2,293,610 bytes), against a 10 MB
+target. Its largest single item is the bundled Inter typeface at 880 KB,
+well over a third of the APK. That
+is the obvious thing to cut if size ever matters more than it does now:
+dropping to the system font would roughly halve it.
+
 ## The budget, and where it stands
 
 As of 13 November 2026, at the end of Phase 2. The figures behind each line
@@ -245,6 +274,58 @@ On `a30` (Android 11) a scan of the emulator's 11 apps took 26 ms and
 raised the launcher's memory by under 2 MB. On `modern` (Android 15) 12
 apps took 86 ms and under 5 MB. All 23 could be read. These are small
 system apps on a fast processor; a phone's apps are many times larger.
+
+## The baseline profile is a committed file, and tasks delete it
+
+The recorded profile lives at
+`app/src/release/generated/baselineProfiles/baseline-prof.txt` and is
+committed. It is inside `src/`, not `build/`, precisely so that building
+the release does not require a device.
+
+**Benchmark and profile tasks delete it as a matter of course**, and a
+`git add -A` straight afterwards will quietly commit its removal — taking
+the whole of this work with it, because nothing else in the repository
+contains those 15,268 rules. Before committing after any `:baselineprofile`
+run:
+
+```bash
+git status --short app/src/release/generated/baselineProfiles/
+```
+
+If it shows `D`, the file was deleted rather than regenerated. Put it back
+with `git restore` on that path; only accept the deletion if a fresh
+recording has genuinely replaced it.
+
+`tools/bench.sh` makes that check itself after every run and restores the
+file if it has gone. The five benchmark runs of 12 November 2026 all left
+it alone, so it may be only the recording task that removes it.
+
+### Checking the profile actually ships
+
+Worth doing, because a baseline profile that silently fails to apply looks
+exactly like one that applies and does nothing:
+
+```bash
+unzip -p app/build/outputs/apk/release/app-release.apk assets/dexopt/baseline.prof | wc -c
+```
+
+Following it through the build shows the rules surviving R8:
+
+| Stage | Rules | Naming `com/privacylauncher` |
+|---|---|---|
+| Recorded | 15,268 | 564 |
+| Merged with library profiles | 22,023 | 564 |
+| After wildcard expansion | 46,533 | 564 |
+| After R8 | 11,635 | 17 |
+
+That last row looks alarming and is not. R8 renames our classes, so a rule
+for `LauncherViewModel` comes out as `Lsk0;`; the 17 are the few that keep
+their original names because the manifest refers to them. You can see our
+code in the profile under its new names — `SPLjm;-><init>(Lcom/privacylauncher/MainActivity;)V`
+is one of ours. The overall drop from 46,533 is R8 removing library code
+that the app never calls, and dropping the now-pointless rules with it.
+
+---
 
 ## Measuring again
 
