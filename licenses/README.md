@@ -61,3 +61,22 @@ the app.
 
 Only the path data for four glyphs (search, close, settings, arrow back) is
 used, transcribed into Compose `ImageVector`s. No library dependency.
+
+## Protocol Buffers runtime (library)
+
+- What: Google's protocol buffers runtime, repackaged inside AndroidX
+  DataStore as `androidx.datastore:datastore-preferences-external-protobuf`.
+  DataStore uses it to write the settings file.
+- Licence: BSD 3-Clause, the text in `protobuf-BSD-3-Clause.txt`, copied from
+  the library itself.
+
+It is the one library in the app that is not under Apache 2.0. BSD 3-Clause
+asks that its notice go along with any copy of the program, in source or
+built form. The built app already carries it (Android's build keeps the
+library's own `META-INF/.../LICENSE.txt` in the APK), and this folder
+carries it with the source.
+
+`tools/licences.py` checks every library in the release build against the
+licences known to be fine, and fails on any other. The full list is in
+`docs/dependencies.md`.
+

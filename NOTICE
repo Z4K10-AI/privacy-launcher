@@ -1,0 +1,27 @@
+Privacy Launcher
+Copyright 2026 Mohammed Zaki and the Privacy Launcher contributors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes material from others, under their own licences:
+
+  Inter typeface, by Rasmus Andersson and contributors
+    app/src/main/res/font/inter_variable.ttf
+    SIL Open Font License 1.1, see licenses/Inter-OFL.txt
+
+  Tracker signatures from Exodus Privacy, https://exodus-privacy.eu.org
+    app/src/main/assets/trackers.tsv (a cut-down copy)
+    Open Database License 1.0, https://opendatacommons.org/licenses/odbl/1-0/
+
+  Icon path data from Material Design Icons, by Google
+    app/src/main/java/com/privacylauncher/ui/components/LauncherIcons.kt
+    Apache License 2.0
+
+  Protocol Buffers runtime, by Google, as repackaged by AndroidX DataStore
+    (androidx.datastore:datastore-preferences-external-protobuf)
+    BSD 3-Clause License, see licenses/protobuf-BSD-3-Clause.txt
+
+The other 114 libraries built into the app are under the Apache License
+2.0; docs/dependencies.md lists every one.
+
+licenses/README.md says where each came from and how its licence is met.
