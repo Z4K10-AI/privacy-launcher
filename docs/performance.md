@@ -31,7 +31,7 @@ and nothing here has been measured on real hardware yet.
 
 ### APK size
 
-The signed release APK is **2.3 MB** (2,293,610 bytes), against a 10 MB
+The signed release APK is **2.3 MB** (2,289,518 bytes), against a 10 MB
 target. Its largest single item is the bundled Inter typeface at 880 KB,
 well over a third of the APK. That
 is the obvious thing to cut if size ever matters more than it does now:
@@ -47,7 +47,7 @@ are in the dated sections further down.
 | Cold start | under 500 ms | 176 to 188 ms drawing in software, 138 to 145 ms drawing on the Mac's GPU | Met on the emulator. Unknown on a phone. |
 | Frames in the drawer animation | none dropped | The launcher's own work on a frame never took more than 12 ms, and usually under 1 ms. Whether a frame then reached the screen in time depended on how busy the Mac's graphics chip was | **Cannot be settled on an emulator.** The launcher's part is inside the budget. One real cause of slow frames was found and removed. See "What the frame numbers say now". |
 | Frames while scrolling Settings | none dropped | With the baseline profile, 2 and 16 frames in about 2,600 ran past 16.7 ms in two runs, in clusters | The same: not provable either way here. |
-| Release APK | under 10 MB | 2.3 MB (2,293,610 bytes) | Met. A file is the same size everywhere, so this one is not an emulator figure. |
+| Release APK | under 10 MB | 2.3 MB (2,289,518 bytes) | Met. A file is the same size everywhere, so this one is not an emulator figure. |
 | Memory pressure | handles `onTrimMemory` | `IconCachePolicyTest`, `IconCacheTrimTest`, and the soak sends Android's own "running critical" signal to the real app | Met on the emulator. |
 | Killed and restarted | state comes back | The soak ends the launcher's process with no warning and requires the home screen back as it was, on all three emulators | Met on the emulator. |
 | Idle | (not in the budget, but it is battery) | 0 frames drawn in 6 seconds on the home screen, before and after the drawer is used | Met on the emulator. |

@@ -330,3 +330,91 @@ privacy-launcher/
                 ├── components/          icons, cells, settings widgets
                 └── theme/               colours, accents, typography
 ```
+
+## Continuous integration
+
+Three workflows in `.github/workflows/`. Every outside action they use is
+pinned to an exact commit, with its version in a comment beside it, so what
+runs cannot change unless the file does.
+
+| Workflow | When | What |
+|---|---|---|
+| `ci.yml` | every push and pull request | build debug and release, lint, the JVM tests, `tools/apkcheck.sh` on the release APK, the colour-contrast check, the licence check, the link check |
+| `emulator-tests.yml` | Mondays, and on demand from the Actions tab | every device test, on emulators running Android 11 and Android 15 |
+| `release.yml` | a tag named `launcher-v…` | builds, signs and publishes the APK; see below |
+
+`tools/apkcheck.sh` checks the promises that can be read straight off an
+APK: exactly the expected permissions, no emoji-font start-up helper, no
+dependency-information block (an encrypted list of libraries the Android
+build adds for Google Play, which F-Droid rejects), and the size budget.
+
+## Releasing
+
+A release is built by GitHub from a tag, never on someone's own machine, so
+anyone can see exactly what went into it. The signing key exists in two
+places only: in four repository secrets, and in a backup that the project's
+owner keeps somewhere safe and offline. It is never in the repository.
+
+**Before the first release, once:**
+
+1. Make the release key. Not the development key described above: a new
+   one, made only for releases.
+
+   ```bash
+   keytool -genkeypair -v -keystore ~/.privacy-launcher-signing/release.p12 -storetype PKCS12 -alias privacy-launcher -keyalg RSA -keysize 4096 -validity 10000
+   ```
+
+2. Back it up, with its password, somewhere safe and offline. **If this key
+   is lost, no update can ever be installed over an existing copy of the
+   app**: Android refuses an update signed with a different key.
+
+3. Put it in the repository's secrets (Settings, Secrets and variables,
+   Actions), or with the GitHub command-line tool. `gh secret set` without
+   a value asks for it without showing it, so the passwords stay out of the
+   shell's history:
+
+   ```bash
+   base64 -i ~/.privacy-launcher-signing/release.p12 | gh secret set PL_KEYSTORE_BASE64
+   gh secret set PL_KEYSTORE_PASSWORD
+   gh secret set PL_KEY_ALIAS --body privacy-launcher
+   gh secret set PL_KEY_PASSWORD
+   ```
+
+   For a `.p12` key, the key password is the same as the store password.
+
+4. In the repository's Settings, under Code security, turn on **Private
+   vulnerability reporting**. `SECURITY.md` and `CODE_OF_CONDUCT.md` send
+   private reports there.
+
+**For each release:**
+
+1. Set `versionName` in `app/build.gradle.kts` to the new version and raise
+   `versionCode` by one.
+2. Write `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, at
+   most 500 characters: it becomes the release notes and F-Droid's.
+3. Tag and push:
+
+   ```bash
+   git tag launcher-v1.1
+   git push origin launcher-v1.1
+   ```
+
+The workflow then:
+
+- stops if any of the four secrets is missing, or if the tag does not match
+  `versionName`;
+- writes the key to a temporary folder outside the project and points the
+  build at it with `PL_KEYSTORE_PROPERTIES`;
+- builds the release from scratch, with nothing reused from earlier builds;
+- runs `tools/apkcheck.sh` on the exact file it is about to publish;
+- verifies the signature, and writes the file's SHA-256 and the signing
+  certificate's SHA-256 into the release notes;
+- publishes the APK and a `SHA256SUMS` file as a GitHub release;
+- deletes the key from the machine, whether or not anything failed.
+
+These steps were rehearsed on this project's Mac, with the development key
+standing in for the secrets and everything except publishing and the final
+deletion run as written. The key came back from its encoded form byte for
+byte, the build was signed with it, every check in `tools/apkcheck.sh`
+passed, and the notes came out with both fingerprints. It has not yet run
+on GitHub itself.

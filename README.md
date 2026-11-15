@@ -127,8 +127,10 @@ not needed, and `./gradlew` fetches the right Gradle by itself.
 ./gradlew assembleRelease    # unsigned unless you set up a key
 ```
 
-Setting up a signing key, installing over USB, the helper scripts, and the
-project's layout are in [docs/building.md](docs/building.md).
+Setting up a signing key, installing over USB, the helper scripts, the
+project's layout, continuous integration and
+[how releases are made](docs/building.md#releasing) are in
+[docs/building.md](docs/building.md).
 
 ## Tests
 

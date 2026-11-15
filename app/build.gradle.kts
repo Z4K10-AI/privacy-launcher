@@ -132,6 +132,15 @@ android {
         generateLocaleConfig = false
     }
 
+    // The Android build normally hides an encrypted list of the app's
+    // libraries inside the APK's signature area, for Google Play's use. Nobody
+    // else can read it, and F-Droid rejects any APK that carries it. Off.
+    // tools/apkcheck.sh fails the build's checks if it ever comes back.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     lint {
         // Keep the build honest: any new lint error should stop it.
         abortOnError = true

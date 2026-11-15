@@ -4,6 +4,34 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Continuous integration and releases from tags
+
+- **`ci.yml`**, on every push and pull request: builds debug and release,
+  lint, the JVM tests, and four checks: the new `tools/apkcheck.sh`, colour
+  contrast, the licence of every library, and every documentation link.
+- **`emulator-tests.yml`**, weekly and on demand: every device test on
+  emulators running Android 11 and Android 15.
+- **`release.yml`**, on a `launcher-v…` tag: builds from scratch, signs with
+  a key that exists only in four repository secrets (written outside the
+  project for the build and deleted after), refuses to publish an unsigned
+  build or one whose version does not match the tag, checks the exact file
+  it publishes, and puts the file's and the certificate's SHA-256 in the
+  release notes. Rehearsed on the Mac with the development key in place of
+  the secrets; not yet run on GitHub.
+- Every outside action is pinned to an exact commit.
+- **`tools/apkcheck.sh`** reads the promises off a built APK: exactly the
+  expected permissions, no emoji-font helper, no dependency-information
+  block, under 10 MB. Its first run failed on the release build, correctly:
+
+### The APK no longer carries an encrypted list of its libraries
+
+The Android build was adding a 5.5 KB block to the APK's signature area:
+the app's library list, encrypted with a Google key for Google Play's use.
+Nobody else can read it, and F-Droid rejects any APK that carries it. It is
+switched off (`dependenciesInfo` in `app/build.gradle.kts`), and
+`tools/apkcheck.sh` fails if it ever comes back. The release APK is now
+2,289,518 bytes.
+
 ### Ready for strangers: licence, README, guides
 
 - **Licence: Apache 2.0.** `LICENSE` is the official text, byte for byte.
