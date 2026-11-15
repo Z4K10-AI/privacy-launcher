@@ -127,6 +127,10 @@ not needed, and `./gradlew` fetches the right Gradle by itself.
 ./gradlew assembleRelease    # unsigned unless you set up a key
 ```
 
+The release build is **reproducible**: the same commit gives the same APK,
+byte for byte, wherever it is built, so anyone can check that a published
+APK matches this source. `tools/reproducible.sh` shows it.
+
 Setting up a signing key, installing over USB, the helper scripts, the
 project's layout, continuous integration and
 [how releases are made](docs/building.md#releasing) are in

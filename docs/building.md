@@ -418,3 +418,41 @@ deletion run as written. The key came back from its encoded form byte for
 byte, the build was signed with it, every check in `tools/apkcheck.sh`
 passed, and the notes came out with both fingerprints. It has not yet run
 on GitHub itself.
+
+## Reproducible builds, and F-Droid
+
+**The release build is reproducible**: the same commit gives the same APK,
+byte for byte, wherever it is built. `tools/reproducible.sh` checks it by
+cloning the project into a new folder, building the release there and here
+from clean with Gradle's build cache off, and comparing the two files. On
+15 November 2026, at commit `e543b11`, both came out as
+`9144b6c9f1002c57…f3f53891`, twice.
+
+What makes that possible, and keeps the project ready for an F-Droid
+listing:
+
+- **Nothing proprietary.** Every library is open source
+  ([docs/dependencies.md](dependencies.md)), there is no Google Play
+  Services, Firebase or other closed SDK, and nothing in the repository is
+  a binary blob apart from the font, the screenshots, the icon and the
+  Gradle wrapper, which CI checks against Gradle's published fingerprints.
+- **Every version pinned.** The version catalogue names exact versions,
+  with no `+` or `latest`; the Gradle wrapper pins Gradle and the checksum
+  of its download; every GitHub Action is pinned to a commit.
+- **Public repositories only**: Maven Central, Google's Maven repository and
+  the Gradle Plugin Portal.
+- **No dependency-information block** in the APK. The Android build adds one
+  by default, an encrypted list of libraries for Google Play, and F-Droid
+  rejects APKs that carry it. It is switched off, and `tools/apkcheck.sh`
+  fails if it comes back.
+- **The listing is written**: `fastlane/metadata/android/en-US/` has the
+  title, summary, description, release notes, screenshots and icon in the
+  layout F-Droid reads. `tools/screenshots.sh` takes the screenshots again.
+
+The APK also records the git commit it was built from, in
+`META-INF/version-control-info.textproto`, so a release can be traced back
+to its source.
+
+Not done, because it needs the project to be public first: submitting the
+app to F-Droid itself, which is a merge request to F-Droid's own `fdroiddata`
+repository with a build recipe pointing at this repository and tag.

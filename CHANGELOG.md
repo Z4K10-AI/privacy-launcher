@@ -4,6 +4,20 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Reproducible, and ready for F-Droid
+
+- **The release build is reproducible.** Built from clean in two different
+  folders, the two APKs are identical, byte for byte (SHA-256
+  `9144b6c9…f3f53891` at commit `e543b11`, twice). `tools/reproducible.sh`
+  repeats the check: it clones the project into a new folder, builds there
+  and here, and compares.
+- **The Gradle download is pinned to its published checksum**, so a
+  download that does not match is refused.
+- No floating versions anywhere, only public repositories, no
+  dependency-information block, and the F-Droid listing written in
+  `fastlane/`. What is left for an F-Droid listing needs the repository to
+  be public: a build recipe submitted to F-Droid's own `fdroiddata`.
+
 ### Continuous integration and releases from tags
 
 - **`ci.yml`**, on every push and pull request: builds debug and release,
