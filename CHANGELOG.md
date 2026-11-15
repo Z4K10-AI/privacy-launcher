@@ -4,6 +4,23 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### Screenshots, an icon and an F-Droid listing
+
+- `tools/screenshots.sh` takes the pictures for the README and the F-Droid
+  listing from an emulator, the same way each time. It installs the
+  release build, clears its data, walks the welcome pages, sets up a home
+  screen as a person might (apps through the drawer's own menu, a folder
+  made by dragging one icon onto another and renamed, a dock, one app
+  hidden), and photographs seven screens. The status bar is put in
+  Android's demo mode for a fixed time and full signal, and everything it
+  changes on the emulator is put back.
+- `fastlane/metadata/android/en-US/` holds what F-Droid reads: a title, a
+  77-character summary, a full description that names every optional
+  permission and what it is for, the notes for version 1.0, the seven
+  screenshots and a 512 by 512 icon drawn by Android from the app's own
+  icon. Each text is inside F-Droid's length limit.
+- The app's version name is now 1.0, to match the `launcher-v1.0` tag.
+
 ### A folder's new name no longer comes out as "WebFolder"
 
 Found by the new screenshot script, not by a test: it deleted a folder's

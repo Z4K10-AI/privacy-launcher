@@ -1,0 +1,1 @@
+A home screen that cannot reach the internet, with a tracker scanner built in

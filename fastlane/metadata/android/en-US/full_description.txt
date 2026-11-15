@@ -1,0 +1,28 @@
+Privacy Launcher is a home screen for Android that cannot reach the internet. It has no internet permission at all, no analytics, no crash reporting, no ads and no Google Play Services. Everything it knows stays on the phone.
+
+What it does
+
+- A home screen with a clock, an offline line for the next alarm and the battery, an editable grid with folders, and a dock. Icons can be dragged between the grid, the dock and the app drawer.
+- An app drawer that follows your finger, with instant search that forgives typos and a letter bar. It finds contacts and Android's own settings screens too, but only once you switch each of those on.
+- Hidden apps, behind your phone's own PIN, pattern or fingerprint if you want.
+- A privacy dashboard: a privacy score with its working shown, which apps hold each sensitive permission, and a scan for the advertising and analytics code catalogued by Exodus Privacy. The scan runs on the phone, from a list built into the app.
+- Quick controls that are honest about what an app may still change. The flashlight and Lock down work from the panel; the rest show their state and open Android's own screen.
+- Lock down: shuts the phone so that only your PIN, pattern or password opens it, with fingerprint and face unlock off until you have typed it once.
+- Focus mode, a text-only minimal home screen, light and dark themes, large text, and backup and restore to a file you choose.
+
+Permissions, all of them optional
+
+- Contacts: only if you switch on contact search.
+- Modify system settings: only for the brightness slider.
+- An accessibility service: only for swipe-down-for-notifications and double-tap-to-lock. It is set up so that it cannot read the screen.
+- Device admin: only if you turn on Lock down. It is allowed to lock the screen and nothing else. While it is on, Android will not uninstall the launcher, so turn it off in the launcher's Settings first.
+
+Not there yet
+
+Apps in a work profile are not shown, and there are no widgets, icon packs or notification dots.
+
+Status
+
+Version 1.0 has been tested on Android emulators (Android 11 and 15, seven screen shapes from a small phone to an opened folding phone) but not yet on a physical phone. It runs on Android 8.0 and later.
+
+Tracker list from Exodus Privacy, under the Open Database License 1.0.

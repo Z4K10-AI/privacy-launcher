@@ -1,0 +1,1 @@
+First release. A home screen that cannot reach the internet: editable grid, folders and a dock with drag and drop; an app drawer with typo-tolerant search; hidden apps behind your PIN; a privacy dashboard with an on-phone tracker scan; honest quick controls and a PIN-only Lock down; focus and minimal modes; local backup. Tested on emulators only so far.
