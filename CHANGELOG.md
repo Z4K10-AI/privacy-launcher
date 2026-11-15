@@ -22,6 +22,13 @@ eight minutes, with 10 launch timeouts and every test failing.
 `tools/devtest.sh` now hands the home role to Android's own launcher before
 running the tests. The same setup then passed 19 of 19 in 27 seconds.
 
+In the same round, the soak's tracker-scan step failed once more on the
+small-screen emulator, while the step after it, which needs the scan to
+have finished, passed. On a short screen with large text the card changes
+height as the scan ends and can leave its button above the visible part of
+the screen; the script only ever scrolled down. It now looks both ways, and
+passed three times running.
+
 ### Reproducible, and ready for F-Droid
 
 - **The release build is reproducible.** Built from clean in two different

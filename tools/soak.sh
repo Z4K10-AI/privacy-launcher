@@ -184,6 +184,18 @@ back()   { $ADB shell input keyevent KEYCODE_BACK; }
 up()     { $ADB shell input swipe $MIDX $((H * 75 / 100)) $MIDX $((H * 25 / 100)) 250; }
 left()   { $ADB shell input swipe $((W * 85 / 100)) $((H / 2)) $((W * 15 / 100)) $((H / 2)) 250; }
 scroll() { $ADB shell input swipe $MIDX $((H * 68 / 100)) $MIDX $((H * 30 / 100)) 400; }
+# The other way: back up the page.
+scroll_back() { $ADB shell input swipe $MIDX $((H * 30 / 100)) $MIDX $((H * 68 / 100)) 400; }
+
+# Like scroll_until, but looks above as well as below: a card that changes
+# height can leave what it holds on either side of the screen.
+find_either_way() {
+  local want="$1" i
+  present "$want" && return 0
+  for i in 1 2 3; do scroll; sleep 1; present "$want" && return 0; done
+  for i in 1 2 3 4 5 6; do scroll_back; sleep 1; present "$want" && return 0; done
+  return 1
+}
 
 run_suite() {
   echo "--- $1 ---"
@@ -502,13 +514,14 @@ scan_for_trackers() {
   fi
   # Until the progress line has gone, then to the button under the answer.
   # The card changes height as it goes from question to progress to answer,
-  # and on a short screen that can leave the button below the edge: so it
-  # is scrolled to, not assumed to be where it was. A minute and a half is
-  # far more than an emulator's couple of dozen apps need.
+  # and on a short screen with large text that can leave the button above
+  # or below the edge: so it is looked for both ways, not assumed to be
+  # where it was. A minute and a half is far more than an emulator's couple
+  # of dozen apps need.
   for i in $(seq 1 45); do
     sleep 2
     present "Reading app" && continue
-    scroll_until "Read every app again" 4 && return 0
+    find_either_way "Read every app again" && return 0
   done
   return 1
 }
