@@ -427,11 +427,12 @@ on GitHub itself.
 byte for byte, in whichever folder it is built. `tools/reproducible.sh`
 checks it by cloning the project into a new folder, building the release
 there and here from clean with Gradle's build cache off, and comparing the
-two files. On 15 November 2026, at commit `e543b11`, both came out as
-`9144b6c9f1002c57…f3f53891`, twice.
+two files. On 15 November 2026, at commit `84f1753`, both came out as
+`b7e8af7e36c4afc6…da59dfeb`, twice, and a copy of the same source with no
+`.git` folder gave the same file again.
 
-Both builds were made on the same Mac. Whether a build made on another
-machine, or on Linux, comes out the same has not been checked yet.
+All of those builds were made on the same Mac. Whether a build made on
+another machine, or on Linux, comes out the same has not been checked yet.
 
 What makes that possible, and keeps the project ready for an F-Droid
 listing:

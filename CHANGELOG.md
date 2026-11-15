@@ -4,6 +4,13 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.0] - 2026-11-15
+
+The first release. Tested on Android emulators only so far, not yet on a
+physical phone.
+
 ### The release build no longer depends on how git stores its own files
 
 The reproducible-build check failed on 15 November, in this project's own
@@ -23,6 +30,11 @@ The record is now left out (`vcsInfo` in `app/build.gradle.kts`), and
 on the old build and passes on the new one. A release is tied to its source
 by its tag, and by anyone being able to rebuild it. The release APK is now
 2,289,433 bytes.
+
+With the record left out, the reproducible-build check passes in the same
+state in which it failed, twice. Built here, in a fresh clone, and from a
+copy of the source with no `.git` folder, all three APKs are identical
+(SHA-256 `b7e8af7e…da59dfeb`, at commit `84f1753`).
 
 ### The device tests' slow, failing runs, explained and fixed
 
@@ -52,10 +64,10 @@ passed three times running.
 ### Reproducible, and ready for F-Droid
 
 - **The release build is reproducible.** Built from clean in two different
-  folders, the two APKs are identical, byte for byte (SHA-256
-  `9144b6c9…f3f53891` at commit `e543b11`, twice). `tools/reproducible.sh`
-  repeats the check: it clones the project into a new folder, builds there
-  and here, and compares.
+  folders, the two APKs were identical, byte for byte, on two runs.
+  `tools/reproducible.sh` repeats the check: it clones the project into a
+  new folder, builds there and here, and compares. (The entry above records
+  the one case it later caught, and the figures after the fix.)
 - **The Gradle download is pinned to its published checksum**, so a
   download that does not match is refused.
 - No floating versions anywhere, only public repositories, no
