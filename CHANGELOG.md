@@ -4,6 +4,27 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### A folder's new name no longer comes out as "WebFolder"
+
+Found by the new screenshot script, not by a test: it deleted a folder's
+name, "Folder", with the backspace key, typed "Web", and the folder came
+out called "WebFolder".
+
+The name is saved on every key press, and a name saved empty reads back as
+the default, "Folder". The name box re-read the saved name after every
+change, so the moment it was empty "Folder" reappeared in it with the
+cursor in front, and anything typed next went in before it. Anyone renaming
+a folder the ordinary way, by deleting the old name first, hit this.
+
+- `FolderRenameTest` (emulator, 3 tests) renames a folder with the real
+  storage underneath: delete letter by letter, then type. Two tests failed
+  on the old code with exactly what the screenshot showed: "WebFolder" and
+  "Work appsFolder".
+- The box now keeps its own text while the folder is open and only writes
+  the name, never reads it back. Each folder starts from its own saved name
+  when it is opened. A folder left with no name at all is still called
+  "Folder".
+
 ### The last full run, and two soak steps made reliable
 
 On 13 November `tools/check.sh all` ran everything on all three emulators.

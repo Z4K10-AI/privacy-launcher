@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -502,6 +503,9 @@ private fun LauncherRoot(
         }
 
         if (openFolder != null) {
+            // Keyed on the folder, so the name box starts from this folder's
+            // own name and never carries over what was typed in another.
+            key(openFolder.id) {
             FolderSheet(
                 name = openFolder.name,
                 entries = openFolder.entries,
@@ -513,6 +517,7 @@ private fun LauncherRoot(
                 onRemoveFromFolder = { viewModel.removeFromFolder(openFolder.id, it) },
                 onDismiss = viewModel::closeFolder,
             )
+            }
         }
 
         // Positioned by a graphicsLayer rather than an animation, so it

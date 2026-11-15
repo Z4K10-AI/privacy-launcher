@@ -143,8 +143,18 @@ fun FolderSheet(
 
 @Composable
 private fun FolderNameField(name: String, onRename: (String) -> Unit) {
-    // Local copy so typing stays responsive; the store is updated as we go.
-    var text by remember(name) { mutableStateOf(name) }
+    // The box keeps its own text while it is open, and the saved name is
+    // only written to, never read back, until the sheet is opened again.
+    //
+    // It used to read the saved name back after every key press, and a
+    // name saved empty reads back as the default, "Folder". So deleting a
+    // name letter by letter brought "Folder" straight back into the box the
+    // moment it was empty, with the cursor in front of it, and a new name
+    // typed after that came out as "WebFolder". FolderRenameTest.
+    //
+    // Each folder gets a fresh box: MainActivity keys the sheet on the
+    // folder's id.
+    var text by remember { mutableStateOf(name) }
     val nameLabel = stringResource(R.string.folder_name_hint)
 
     BasicTextField(
