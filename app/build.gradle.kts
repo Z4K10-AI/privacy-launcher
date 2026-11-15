@@ -104,6 +104,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Leave the git commit out of the APK. A release build records
+            // it by default, in META-INF/version-control-info.textproto,
+            // read from git's own files in the project folder. That made the
+            // APK depend on something that is not source: once git had
+            // packed the branch pointers (`git gc`), or in a copy with no
+            // .git folder at all, the same source built a different APK. A
+            // release is tied to its source by its tag, and anyone can
+            // rebuild it to check (tools/reproducible.sh).
+            vcsInfo {
+                include = false
+            }
         }
     }
 

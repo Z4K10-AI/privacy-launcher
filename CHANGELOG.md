@@ -4,6 +4,26 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### The release build no longer depends on how git stores its own files
+
+The reproducible-build check failed on 15 November, in this project's own
+folder. Built here and in a fresh clone of the same commit, the two APKs
+differed in one file, `META-INF/version-control-info.textproto`.
+
+A release build records the git commit it was built from in that file, and
+the Android build reads the commit from git's own files in the project
+folder. It could not read them once git had packed the branch pointers into
+one file, which `git gc` does: the build here wrote an error marker where
+the fresh clone wrote the commit. A copy of the source with no `.git`
+folder, such as a downloaded ZIP, would have done the same. So the same
+source could build two different APKs.
+
+The record is now left out (`vcsInfo` in `app/build.gradle.kts`), and
+`tools/apkcheck.sh` has a new check that fails if it comes back: it failed
+on the old build and passes on the new one. A release is tied to its source
+by its tag, and by anyone being able to rebuild it. The release APK is now
+2,289,433 bytes.
+
 ### The device tests' slow, failing runs, explained and fixed
 
 Phase 1 recorded one run of the device tests in which every test waited

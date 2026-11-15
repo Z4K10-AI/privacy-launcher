@@ -346,7 +346,9 @@ runs cannot change unless the file does.
 `tools/apkcheck.sh` checks the promises that can be read straight off an
 APK: exactly the expected permissions, no emoji-font start-up helper, no
 dependency-information block (an encrypted list of libraries the Android
-build adds for Google Play, which F-Droid rejects), and the size budget.
+build adds for Google Play, which F-Droid rejects), no record of the git
+commit (see [Reproducible builds](#reproducible-builds-and-f-droid)), and
+the size budget.
 
 ## Releasing
 
@@ -421,12 +423,15 @@ on GitHub itself.
 
 ## Reproducible builds, and F-Droid
 
-**The release build is reproducible**: the same commit gives the same APK,
-byte for byte, wherever it is built. `tools/reproducible.sh` checks it by
-cloning the project into a new folder, building the release there and here
-from clean with Gradle's build cache off, and comparing the two files. On
-15 November 2026, at commit `e543b11`, both came out as
+**The release build is reproducible**: the same source gives the same APK,
+byte for byte, in whichever folder it is built. `tools/reproducible.sh`
+checks it by cloning the project into a new folder, building the release
+there and here from clean with Gradle's build cache off, and comparing the
+two files. On 15 November 2026, at commit `e543b11`, both came out as
 `9144b6c9f1002c57…f3f53891`, twice.
+
+Both builds were made on the same Mac. Whether a build made on another
+machine, or on Linux, comes out the same has not been checked yet.
 
 What makes that possible, and keeps the project ready for an F-Droid
 listing:
@@ -445,13 +450,20 @@ listing:
   by default, an encrypted list of libraries for Google Play, and F-Droid
   rejects APKs that carry it. It is switched off, and `tools/apkcheck.sh`
   fails if it comes back.
+- **No record of the git commit** in the APK. A release build adds one by
+  default (`META-INF/version-control-info.textproto`), and reads the commit
+  from git's own files in the project folder, so the APK depended on
+  something that is not source. On 15 November 2026 the check above failed
+  for exactly that reason. Git had packed the branch pointers into one file,
+  as `git gc` does; the build could no longer read the commit and wrote an
+  error marker in its place, while a fresh clone of the same commit wrote
+  the commit. A copy of the source with no `.git` folder would have done the
+  same. The record is switched off (`vcsInfo` in `app/build.gradle.kts`),
+  and `tools/apkcheck.sh` fails if it comes back. A release is tied to its
+  source by its tag, and by anyone being able to rebuild it.
 - **The listing is written**: `fastlane/metadata/android/en-US/` has the
   title, summary, description, release notes, screenshots and icon in the
   layout F-Droid reads. `tools/screenshots.sh` takes the screenshots again.
-
-The APK also records the git commit it was built from, in
-`META-INF/version-control-info.textproto`, so a release can be traced back
-to its source.
 
 Not done, because it needs the project to be public first: submitting the
 app to F-Droid itself, which is a merge request to F-Droid's own `fdroiddata`

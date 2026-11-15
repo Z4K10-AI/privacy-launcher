@@ -127,9 +127,11 @@ not needed, and `./gradlew` fetches the right Gradle by itself.
 ./gradlew assembleRelease    # unsigned unless you set up a key
 ```
 
-The release build is **reproducible**: the same commit gives the same APK,
-byte for byte, wherever it is built, so anyone can check that a published
-APK matches this source. `tools/reproducible.sh` shows it.
+The release build is **reproducible**: built from clean in different
+folders, the same source gives the same APK, byte for byte, which is what
+lets anyone check that a published APK matches this source.
+`tools/reproducible.sh` shows it. So far that has only been tried on one
+Mac; a build made on another machine has not been compared yet.
 
 Setting up a signing key, installing over USB, the helper scripts, the
 project's layout, continuous integration and

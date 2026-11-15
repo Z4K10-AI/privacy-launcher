@@ -16,6 +16,10 @@
 #   - No "dependency information" block, an encrypted list of libraries the
 #     Android build adds for Google Play. F-Droid rejects APKs that carry it,
 #     and nobody can check what is in it.
+#   - No record of the git commit. The Android build adds one to release
+#     builds, read from git's own files in the project folder, and with it
+#     the same source could build two different APKs (see docs/building.md,
+#     "Reproducible builds").
 #   - The APK is under the 10 MB budget.
 set -u
 APK="${1:-}"
@@ -77,6 +81,19 @@ then
   ok "no dependency-information block"
 else
   bad "the APK carries a dependency-information block (F-Droid rejects it)"
+fi
+
+# Listed with Python rather than unzip, so the check needs nothing the
+# signing-block check above does not already need.
+if python3 - "$APK" <<'PY'
+import sys, zipfile
+names = zipfile.ZipFile(sys.argv[1]).namelist()
+sys.exit(1 if any("version-control-info" in n for n in names) else 0)
+PY
+then
+  ok "no record of the git commit"
+else
+  bad "the APK records the git commit it was built from (so it depends on git's own files, not only on the source)"
 fi
 
 BYTES="$(wc -c < "$APK" | tr -d ' ')"
