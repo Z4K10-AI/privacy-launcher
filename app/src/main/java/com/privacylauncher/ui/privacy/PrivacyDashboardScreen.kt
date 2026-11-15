@@ -404,8 +404,8 @@ private fun TrackersCard(
         if (report.listSize > 0) {
             Spacer(Modifier.height(Spacing.xs))
             Text(
-                text = stringResource(
-                    R.string.tracker_credit, report.snapshot, report.listSize,
+                text = pluralStringResource(
+                    R.plurals.tracker_credit, report.listSize, report.snapshot, report.listSize,
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

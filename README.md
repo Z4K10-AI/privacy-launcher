@@ -27,7 +27,7 @@ screen shapes; not yet tested on a physical phone.**
 Built with current tooling as of November 2026: AGP 9.5.1, Kotlin 2.4.21,
 Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37.
 
-Release APK: 2.1 MB.
+Release APK: 2.3 MB.
 
 **`INTERNET` appears nowhere in the merged release manifest** — checked
 directly, not inferred from the source manifest. The merged manifest holds
@@ -586,9 +586,9 @@ quietly reporting a clean run over a smaller set than you think.
 tools/check.sh                     # all four below on the a30 emulator, with a summary
 tools/check.sh all                 # the same on all three emulators (about an hour)
 ./gradlew :app:testDebugUnitTest   # 259 JVM unit tests, no device needed
-tools/devtest.sh a30               # 120 device tests, on the a30 emulator
+tools/devtest.sh a30               # 122 device tests, on the a30 emulator
 python3 tools/contrast.py          # every colour pair against WCAG AA
-tools/soak.sh a30                  # 58 checks in the real app, on the a30 emulator
+tools/soak.sh a30                  # 61 checks in the real app, on the a30 emulator
 tools/shapes.sh a30                # the device tests and a tour on seven screen shapes
 ```
 
@@ -733,13 +733,13 @@ not been checked against a real A30.
 
 **What an emulator is not.** It copies a phone's screen size, memory and
 Android version. It does not copy its processor, its graphics chip or its
-storage: this Mac is several times faster than an A30, and by default the
-emulator draws the screen in software. A pass here means "works on this
+storage: this Mac is several times faster than a budget phone, and by
+default the emulator draws the screen in software. A pass here means "works on this
 version of Android at this size". It does not mean "fast enough on the
 phone", and every speed figure in this repository is an emulator figure.
-It also runs plain Android rather than Samsung's One UI, which differs in
-icon shapes, in where the home-app picker lives and in how gestures are
-handled.
+It also runs plain Android. Phone makers ship their own versions (Samsung's
+One UI, Xiaomi's HyperOS and so on), which differ in icon shapes, in where
+the home-app picker lives and in how gestures are handled.
 
 Three code paths differ below Android 12, which is what the `a30` profile
 runs:
@@ -751,8 +751,8 @@ runs:
 | Privacy dashboard | older `getInstalledPackages` overload | reads all 36 packages, no crash |
 
 Those three were checked by hand on the earlier Android 11 emulator, and
-none of them depends on screen size. On `a30` itself, as of 12 November
-2026, all 58 soak checks and all 120 device tests pass.
+none of them depends on screen size. On `a30` itself, as of 13 November
+2026, all 61 soak checks and all 122 device tests pass.
 
 ### Why a narrow screen has its own profile
 
@@ -776,7 +776,10 @@ the app's.
 
 ### Compose UI tests
 
-Sixteen, on a device, for the things only the semantics tree shows.
+On a device, for the things only a real screen shows: 122 tests in sixteen
+classes. The sections after this one describe the larger groups (dragging,
+other screen shapes, the tracker scan). Two of the oldest are worth a
+paragraph each because of what they caught.
 
 `SettingsRowSemanticsTest` exists because of a bug nothing else could have
 caught. A settings switch was a `clickable` row with `Role.Button` wrapping
@@ -797,7 +800,12 @@ None of this ships. The instrumentation tests build a separate APK;
 `ui-test-manifest` is the one piece in the app module and it is
 `debugImplementation`, so it is absent from release. Verified rather than
 assumed: the release APK contains no `androidx/test`, `junit` or
-`ui-test` entries, and is still 2.1 MB with three manifest permissions.
+`ui-test` entries, and is 2.3 MB with the same three manifest permissions.
+
+`DrawerResetTest` is the newest. The drawer is kept built between openings
+(see [docs/performance.md](docs/performance.md) for why), so it no longer
+starts afresh by being thrown away. The test closes and reopens it and
+requires the list back at the top and any app menu gone.
 
 ### A finger on the real home grid
 
@@ -956,7 +964,15 @@ the PIN, and prints it on request. An ordinary lock leaves it at 0. The
 check presses the Lock down tile and requires the phone to be asleep and
 that number to be 2, types the PIN and requires it to be 0 again, then
 turns Lock down off through the launcher's own Settings and requires
-Android to agree it is off. That is 54 checks in all.
+Android to agree it is off.
+
+And one part checks that nothing happens when nothing should. It reads how
+many frames Android says the launcher has drawn, waits six seconds on the
+home screen, and reads it again: the two must be equal. Then it opens and
+closes the drawer and does the same, because the drawer is kept built while
+closed and a search box left with the cursor would blink it, unseen, for
+ever. That is 61 checks in all, and the signed release build passes them
+too.
 
 It clears the crash buffer before each step and checks it after, so a crash
 is attributed to the step that caused it rather than appearing as a wall of
@@ -976,11 +992,19 @@ state, it passed all 27 of the checks it had at the time.
 
 ### What is not tested
 
-Layout at large font and display sizes has been checked by eye on the
-emulator, not asserted. TalkBack has not been run against it; the
-accessibility tests read the same information TalkBack would, but nobody
-has listened to it. And none of it has run on a real phone: every result
-in this file comes from an emulator.
+- **A real phone.** Every result in this file comes from an emulator.
+- **Android 8, 9, 10, 12, 13, 14 and 16.** The emulators run 11 and 15.
+  See [Which phones it runs on](#which-phones-it-runs-on) for what stands
+  in for a test there.
+- **Any phone maker's own version of Android.** The emulators run plain
+  Android.
+- **TalkBack itself.** The accessibility tests read the same information
+  TalkBack is given, but nobody has listened to it.
+- **How it looks** at large font and display sizes. The tests show nothing
+  is cut off, too small to press, or missing. They cannot show it looks
+  right; that has only been checked by eye, on emulators.
+- **Whether frames are dropped.** See
+  [docs/performance.md](docs/performance.md): an emulator cannot settle it.
 
 ## Dependencies and licences
 
@@ -1115,6 +1139,11 @@ privacy-launcher/
 - Icons are decoded on a background thread, scaled to 128×128 (~64 KB each) and
   held in an `LruCache` capped at 160 entries — about 10 MB at worst.
 - The clock wakes once a minute, on the minute, not once a second.
+- An idle home screen draws nothing at all. The soak reads Android's own
+  frame counter to check it.
+- The drawer is built once, a moment after the home screen appears, and
+  kept while the launcher is in front, so opening it is a slide and not a
+  rebuild. It is let go when the launcher leaves the screen.
 - Release builds run R8 with resource shrinking.
 - `buildConfig` is off and no test or tooling libraries are in the build.
 - Every state class that crosses into composition is `@Immutable`. They all
@@ -1127,30 +1156,40 @@ privacy-launcher/
 
 ### APK size
 
-The signed release APK is **2.1 MB**, against a 10 MB target. Its largest
-single item is the bundled Inter typeface at 880 KB — 42% of the APK. That
+The signed release APK is **2.3 MB** (2,293,610 bytes), against a 10 MB
+target. Its largest single item is the bundled Inter typeface at 880 KB,
+well over a third of the APK. That
 is the obvious thing to cut if size ever matters more than it does now:
 dropping to the system font would roughly halve it.
 
 ### Measured startup and frame timing
 
-`tools/bench.sh` measures cold start and frame timing with Macrobenchmark.
-[docs/performance.md](docs/performance.md) keeps the baseline, how it was
+`tools/bench.sh` measures cold start and frame timing with Macrobenchmark,
+and `tools/uiwork.sh` measures the launcher's own share of each frame.
+[docs/performance.md](docs/performance.md) keeps every figure, how it was
 taken, and what it can and cannot tell you. In short, on the `a30` emulator
-(Android 11, 1080x2340, 4 GB RAM), measured on 12 November 2026:
+(Android 11, 1080x2340, 4 GB RAM), measured on 12 and 13 November 2026:
 
-| | Drawing in software | Drawing on the Mac's GPU |
-|---|---|---|
-| Cold start, median | 212 to 240 ms | 132 to 134 ms |
-| Drawer animation frames over 16.7 ms | 96% | 0.7% to 1.2% |
+| | Result |
+|---|---|
+| Cold start, median of ten | 176 to 188 ms drawing in software, 138 to 145 ms on the Mac's GPU. The budget is 500 |
+| The launcher's own work per frame, drawer opening and closing | Half of frames under 1 ms, 99% under 4 ms, the worst 12 ms, of 16.7 available |
+| Frames late end to end | From none in most rounds to 8% of them, depending on how busy the Mac's graphics chip was with other things |
+| Memory held on the home screen | 34 MB (Android's own launcher on the same emulator: 47 MB) |
+| Frames drawn while idle | None |
 
 **These are emulator figures.** This Mac's processor is several times
-faster than a Galaxy A30's, so they are for comparing one build with the
-next and say nothing reliable about the phone. The 96% is the emulator
-painting every pixel on the processor, not the launcher being slow, which
-is why the same build is measured both ways. The budget is no dropped
-frames at all, and even on the Mac's GPU that is **not met yet**: a few
-frames in each drawer run take 17 to 25 ms.
+faster than a budget phone's, so they are for comparing one build with the
+next and say little about any phone.
+
+The budget is no dropped frames, and on an emulator that **cannot be
+settled either way**. One real cause was found and removed in Phase 2: the
+drawer was being thrown away each time it closed and rebuilt when the next
+swipe began, which cost the first frames of every opening. It is now built
+in advance and kept while the launcher is in front. What slowness remains
+is in handing finished frames to a graphics chip the emulator shares with
+the rest of the Mac. Only a phone can say whether frames are dropped on a
+phone.
 
 Earlier versions of this file quoted 2097 ms and 2306 ms for cold start,
 and those were worse than noise. The benchmark installed the app fresh, a
@@ -1359,10 +1398,14 @@ investigated.
 
 ## Install on a phone over USB
 
-On the phone: **Settings → About phone → Software information**, tap **Build
-number** seven times to unlock Developer options, then **Settings → Developer
-options → USB debugging** on. Plug in the USB cable and accept the
-"Allow USB debugging?" prompt that appears on the phone.
+This has not been tried yet: the project has only run on emulators so far.
+The steps are the standard ones for any Android phone.
+
+On the phone: **Settings → About phone**, find **Build number** (on some
+phones it is one level further in, under Software information) and tap it
+seven times to unlock Developer options. Then **Settings → Developer
+options → USB debugging** on. Plug in the USB cable and accept the "Allow
+USB debugging?" prompt that appears on the phone.
 
 ```bash
 adb devices
@@ -1464,9 +1507,12 @@ adb exec-out screencap -p > shot.png
 The app cannot do this itself — only you can, in system settings. Either:
 
 - open Privacy Launcher's settings button and tap **Set as default home app**, or
-- **Settings → Apps → Choose default apps → Home app → Privacy Launcher**.
+- in Android's Settings, find **Default apps** (usually under Apps) and then
+  **Home app**, and choose Privacy Launcher. Phone makers put this screen in
+  slightly different places; searching Settings for "home app" finds it.
 
-To go back to Samsung's launcher, pick **One UI Home** on that same screen.
+To go back to the launcher the phone came with, pick it on that same
+screen. On a Pixel it is called Pixel Launcher, on a Samsung One UI Home.
 
 ## Uninstall
 

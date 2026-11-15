@@ -4,6 +4,104 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### The last full run, and two soak steps made reliable
+
+On 13 November `tools/check.sh all` ran everything on all three emulators.
+Android 11 (`a30`) passed all of it: 259 JVM tests, 122 device tests, 61
+soak checks. On both Android 15 emulators all 122 device tests passed, but
+the soak did not: 3 checks failed on `modern` and 2 on `small`. Each was the
+soak script being unreliable on a slower emulator rather than the launcher
+going wrong, and each is fixed:
+
+- **Unlocking with the PIN after Lock down** (`modern`). Lock down itself
+  worked: Android's PIN-required number went to 2, as it should. Then the
+  PIN pad was not yet up when the script typed the digits, the phone stayed
+  locked, and the next two checks failed with it. The script now tries up
+  to three times, deleting anything half-typed first, and judges success by
+  that number returning to 0 and the home screen being in front. Its
+  clean-up now waits for the home screen before turning Lock down off: the
+  failed run had left the launcher still allowed to lock that emulator's
+  screen.
+- **The idle check, after using the drawer** (`small`). Frames were drawn
+  during the six seconds, and the old check did not say how many. The
+  likeliest cause is the clock, which redraws on the minute as it must,
+  falling inside the window. The window now cannot take in a minute's turn,
+  and the check prints how many frames were drawn. Three runs in a row then
+  drew none.
+- **Waiting for the tracker scan to finish** (`small`). On a short screen the
+  card changes height as it goes from question to progress to answer, which
+  can leave the button the script waits for below the edge. It now scrolls
+  to it. The check after it, that the answer is shown and remembered, had
+  passed.
+
+Run again with those fixes, both Android 15 emulators passed all 61 soak
+checks, and each was left as it was found: no PIN, and the launcher not
+allowed to lock the screen.
+
+Also, lint found one new warning: the tracker card's credit line counted
+trackers with a plain "%d trackers", which reads wrongly for a count of one
+and cannot be translated properly. It is a plural now, and lint is back to
+no errors and the one deliberate warning (`OldTargetApi`).
+
+### The drawer no longer rebuilds itself every time it opens
+
+Phase 1 left one budget line unmet: no dropped frames in the drawer
+animation, with "19 frames in 2,689 over 16.7 ms" as the number to beat and
+no idea why.
+
+Looking at *which* frames were slow gave the why. In every measured round
+they were the same ones: the first two or three of each opening, and no
+others. The drawer was being thrown away each time it closed and built
+again from nothing when the next swipe began.
+
+- It is now built once, a moment after the home screen first appears, and
+  kept, off screen, while the launcher is in front. It is let go when the
+  launcher leaves the screen, because its cells hold their icons and a
+  launcher in the background is asked to give those back.
+- Kept, it no longer resets itself for free, so it does so on purpose when
+  it closes: the search box gives up the cursor, an app's open menu is
+  dismissed, and the list goes back to the top (`DrawerResetTest`).
+- While it is parked it tells accessibility services nothing, and the soak
+  checks an idle home screen draws no frames at all, before and after the
+  drawer has been used.
+
+Measured on emulator `a30`, release build, with the Mac's GPU:
+
+| | Before | After |
+|---|---|---|
+| Rounds (of 8) with a slow frame at the start of an opening | 7 | 0 |
+| Rounds with no slow frame at all | 1 | 5 |
+| The launcher's worst main-thread frame while opening | 23.2 ms | 4.6 ms and 11.7 ms in two runs |
+
+**The budget line is still not proven met, and on an emulator it cannot
+be.** What remains comes in runs of consecutive frames at about 18 ms, far
+more of them when the Mac is busy with something else: the same build
+measured 23 slow frames, and twenty-five minutes later, with a browser
+drawing in another window, 213. That is the emulator sharing the Mac's
+graphics chip. `tools/uiwork.sh` was written to take that out of the
+picture: it reports the main thread's own work per frame, which was under
+1 ms for half of all frames and never over 12.
+
+Also in this step:
+
+- **The start-up profile was recorded again** for the code as it now is
+  (23,900 rules, up from 20,757), over a longer journey that adds search,
+  the quick controls panel and the privacy dashboard. `tools/profile.sh`
+  does it and refuses a recording that missed a screen.
+- **Recording and benchmarking were failing now and then**, saying the app
+  "is not running". With two launchers installed and no choice made, every
+  press of Home raised Android's chooser. The journey now makes Android's
+  own launcher the home app after installing the one under test.
+- **Cold start**: 176 to 188 ms in software and 138 to 145 ms on the Mac's
+  GPU, against 212 to 240 and 132 to 134 in Phase 1. Within the 40 ms two
+  runs of one build can differ by: no slower, after everything this phase
+  added.
+- **Memory**: 34 MB on the home screen, 38 MB with the drawer open.
+  Android's own launcher on the same emulator holds 47 MB.
+- **The release build**: 2,293,610 bytes (61 KB more than at the end of
+  Phase 1), the same two permissions, signed with the development key from
+  its place outside the project. It passes all 61 soak checks.
+
 ### For any phone, not one phone
 
 The launcher was always meant for any phone on Android 8.0 or later, and

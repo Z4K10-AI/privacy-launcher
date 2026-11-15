@@ -277,22 +277,36 @@ frames_drawn() {
   $ADB shell dumpsys gfxinfo "$PKG" 2>/dev/null | grep -m1 'Total frames rendered' | tr -dc '0-9'
 }
 
+# How many frames the last look drew. Printed when a look fails, so a
+# failure says whether it was one frame or a stream of them.
+IDLE_DRAWN=0
+
 draws_nothing_for_six_seconds() {
-  local before after
+  local before after second
   sleep 3
+  # The clock changes on the minute, and must be redrawn when it does. The
+  # six seconds are started where they cannot take in the turn of a minute,
+  # because that one frame is the home screen doing its job.
+  second="$($ADB shell date +%S 2>/dev/null | tr -dc '0-9')"
+  second=$((10#${second:-0}))
+  if [ "$second" -gt 50 ]; then sleep $((62 - second)); fi
   before="$(frames_drawn)"
   sleep 6
   after="$(frames_drawn)"
+  IDLE_DRAWN=$(( ${after:-0} - ${before:-0} ))
   [ -n "$before" ] && [ "$before" = "$after" ]
 }
 
 run_idle() {
   echo "--- nothing to do, nothing done ---"
+  local ok
   home; sleep 2
-  report "the idle home screen draws nothing"              draws_nothing_for_six_seconds
+  draws_nothing_for_six_seconds; ok=$?
+  report "the idle home screen draws nothing (drew $IDLE_DRAWN)"              test "$ok" -eq 0
   retry_until "Search apps" up >/dev/null 2>&1
   home; sleep 2
-  report "nor after the drawer has been opened and closed" draws_nothing_for_six_seconds
+  draws_nothing_for_six_seconds; ok=$?
+  report "nor after the drawer has been opened and closed (drew $IDLE_DRAWN)" test "$ok" -eq 0
   check  "and the closed drawer is not on screen"   "$HOME_MARK+!Close app drawer+!Search apps"   home
 }
 
@@ -486,11 +500,15 @@ scan_for_trackers() {
   else
     tap_on 're:scan \d+ apps?'
   fi
-  # Until the progress line has gone and the results are up. A minute and
-  # a half is far more than an emulator's couple of dozen apps need.
+  # Until the progress line has gone, then to the button under the answer.
+  # The card changes height as it goes from question to progress to answer,
+  # and on a short screen that can leave the button below the edge: so it
+  # is scrolled to, not assumed to be where it was. A minute and a half is
+  # far more than an emulator's couple of dozen apps need.
   for i in $(seq 1 45); do
     sleep 2
-    present_all "Read every app again+!Reading app" && return 0
+    present "Reading app" && continue
+    scroll_until "Read every app again" 4 && return 0
   done
   return 1
 }
@@ -588,11 +606,29 @@ admin_gone() {
   return 1
 }
 
+# Wakes the phone, swipes the lock screen up and types the PIN.
+#
+# Up to three goes, because on a slow emulator the PIN pad is sometimes not
+# up yet when the digits arrive: they go nowhere and the phone stays locked.
+# Each go first deletes anything a previous go left in the PIN box, so a
+# retry never types the PIN on top of half of it. Three is also well short
+# of the five wrong PINs after which Android makes everyone wait.
+#
+# "Unlocked" is judged by Android's own strong-authentication number going
+# back to 0 and the home screen being in front, not by any one version's
+# wording of its lock screen.
 unlock_with_pin() {
-  $ADB shell input keyevent KEYCODE_WAKEUP; sleep 1
-  $ADB shell input swipe $MIDX $((H * 77 / 100)) $MIDX $((H * 25 / 100)) 200; sleep 2
-  $ADB shell input text "$LOCK_PIN"
-  $ADB shell input keyevent KEYCODE_ENTER; sleep 3
+  local try
+  for try in 1 2 3; do
+    $ADB shell input keyevent KEYCODE_WAKEUP; sleep 2
+    $ADB shell input swipe $MIDX $((H * 77 / 100)) $MIDX $((H * 25 / 100)) 200; sleep 3
+    $ADB shell input keyevent KEYCODE_DEL KEYCODE_DEL KEYCODE_DEL KEYCODE_DEL \
+      KEYCODE_DEL KEYCODE_DEL KEYCODE_DEL KEYCODE_DEL >/dev/null 2>&1
+    $ADB shell input text "$LOCK_PIN"; sleep 1
+    $ADB shell input keyevent KEYCODE_ENTER; sleep 4
+    if [ "$(auth_flags)" = "0" ] && present "$HOME_MARK"; then return 0; fi
+  done
+  return 1
 }
 
 # Through the launcher's own Settings: Gestures, Lock down, Turn off.
@@ -605,11 +641,22 @@ turn_lockdown_off() {
 }
 
 lockdown_cleanup() {
-  # Whatever state it was left in: no PIN, awake, not a device admin.
+  # Whatever state it was left in: no PIN, awake, unlocked, and not a
+  # device admin. Each step is given time: this runs when something has
+  # already gone wrong, usually on an emulator that is being slow.
+  local try
   $ADB shell locksettings clear --old "$LOCK_PIN" >/dev/null 2>&1
-  $ADB shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
-  $ADB shell wm dismiss-keyguard >/dev/null 2>&1
-  if admin_on; then turn_lockdown_off >/dev/null 2>&1; fi
+  for try in 1 2 3; do
+    $ADB shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1; sleep 2
+    $ADB shell wm dismiss-keyguard >/dev/null 2>&1; sleep 2
+    $ADB shell input keyevent KEYCODE_HOME >/dev/null 2>&1; sleep 2
+    present "$HOME_MARK" && break
+  done
+  for try in 1 2; do
+    admin_on || break
+    turn_lockdown_off >/dev/null 2>&1
+    admin_gone && break
+  done
   if admin_on; then
     echo "  NOTE    the launcher is still allowed to lock this emulator's screen."
     echo "          Turn it off: launcher Settings, Gestures, Lock down. Until"
