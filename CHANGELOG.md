@@ -4,6 +4,24 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### The device tests' slow, failing runs, explained and fixed
+
+Phase 1 recorded one run of the device tests in which every test waited
+about 48 seconds and failed with "Activity never becomes requested state",
+and it could not be made to happen again, so it stayed on the list of
+things not understood. It happened again on 15 November, on the Android 11
+emulator, and this time it was reproduced on purpose.
+
+The cause was the test setup, not the launcher. After a soak the launcher
+is the emulator's home app, and once Android has saved that it survives a
+reboot. The next test run reinstalls the app, Android relaunches its home
+screen straight away, and the test process starts beside a launcher that is
+already in front. Set up that way, 19 tests that take 22 seconds took over
+eight minutes, with 10 launch timeouts and every test failing.
+
+`tools/devtest.sh` now hands the home role to Android's own launcher before
+running the tests. The same setup then passed 19 of 19 in 27 seconds.
+
 ### Reproducible, and ready for F-Droid
 
 - **The release build is reproducible.** Built from clean in two different

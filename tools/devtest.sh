@@ -22,6 +22,19 @@ if is_profile "${1:-}"; then PROFILE="$1"; shift; fi
 pick_device "$PROFILE" || exit 2
 echo "device tests on $(describe_device)"
 
+# Never run the tests while the launcher under test is the phone's home app.
+#
+# The test run reinstalls the app. If it is the home app, Android relaunches
+# it as the home screen the moment it is replaced, and then starts the test
+# process alongside a launcher that is already in front. The test screens
+# cannot come forward, every test waits about 48 seconds and fails, and the
+# run that normally takes two minutes takes hours. Seen twice, both times on
+# the first run after a reboot that kept the launcher as home; reproduced on
+# 15 November 2026 by doing exactly that (19 tests: 22 seconds before, then
+# 10 launch timeouts and every test failing). tools/install.sh --home makes
+# it the home app again afterwards, for the soak.
+use_system_home
+
 ARG=""
 if [ -n "${1:-}" ]; then
     case "$1" in

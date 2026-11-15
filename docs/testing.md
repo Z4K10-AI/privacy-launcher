@@ -116,6 +116,29 @@ printing failures that belong to it rather than the app. The quick-panel
 check also asserted nothing at all, so it passed while the eight checks
 around it failed; it names a string on the panel now.
 
+### A test run that took hours because the launcher was the home app
+
+Twice, once in each of the first two phases, a run of the device tests
+that normally takes two minutes crawled instead: every test waited about
+48 seconds and then failed with "Activity never becomes requested state",
+and the device log filled with "Launch timeout has expired". Both times it
+was the first run after a reboot, and both times it went away on its own,
+so it stayed on the list of things not understood.
+
+It is understood now, and was reproduced on demand on 15 November 2026. The
+soak makes the launcher under test the phone's home app, and Android keeps
+that choice across a reboot once it has been saved. The next test run then
+reinstalls the app; Android, having just lost its home screen, relaunches
+it at once; and the test process starts next to a launcher that is already
+in front, whose screens the tests cannot bring forward. Set up that way on
+purpose, 19 tests that took 22 seconds took over eight minutes, with 10
+launch timeouts, and failed one after another.
+
+`tools/devtest.sh` now gives the home role to Android's own launcher before
+every run (the benchmarks already did). The same setup then passed, 19 of
+19, in 27 seconds. `tools/install.sh --home` makes the launcher the home
+app again afterwards, for the soak.
+
 ### The emulators
 
 Everything here is tested on emulators, and on three of them, each there
