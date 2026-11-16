@@ -7,9 +7,13 @@ android_app_import {
     name: "PrivacyLauncher",
     apk: "PrivacyLauncher.apk",
 
-    // Privileged, so it lands in /system/priv-app. A home app does not
-    // strictly need privileged status, but priv-app is what keeps it out of
-    // the user-removable set and makes it survive a factory reset.
+    // Privileged, so it lands in /system/priv-app. This is what makes it
+    // the home screen with no question asked: the launcher's manifest gives
+    // its home screen a priority of 1, and Android only honours a priority
+    // above 0 for privileged apps in the system image. In /system/app the
+    // priority would be set back to 0 and the first boot would ask the user
+    // to choose between this and Android's own launcher. Checked in the
+    // emulator by tools/os-preview.sh; see docs/os.md.
     privileged: true,
 
     // PRESIGNED keeps the launcher's own signature rather than re-signing

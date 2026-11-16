@@ -31,8 +31,9 @@ quick buttons such as the flashlight.
 Three things to know first:
 
 - **It is an app, not an operating system.** It runs on the Android your
-  phone already has. Building it into an Android system of its own is a
-  later goal.
+  phone already has. A first preview of Android with it built in runs in
+  the emulator; nothing like that exists for a real phone yet.
+  [docs/os.md](docs/os.md) has the pictures and the reasons.
 - **It has only been tried on emulators**, which are pretend phones on a
   computer, and not yet on a real phone.
 - **There is no app-store listing.** Once a release is on the Releases
@@ -199,6 +200,7 @@ each of them, and what none of them can show.
 | [docs/performance.md](docs/performance.md) | Start-up time, frame timing, memory, all measured on emulators |
 | [docs/building.md](docs/building.md) | Building, signing, installing, the helper scripts, the project's layout |
 | [docs/dependencies.md](docs/dependencies.md) | Every library inside the app, with its licence |
+| [docs/os.md](docs/os.md) | Android with the launcher built in: the emulator preview, and what a real phone would need |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, and what was found along the way |
 
 ## Dependencies and licences

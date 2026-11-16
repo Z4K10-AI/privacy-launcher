@@ -90,8 +90,20 @@
             android:theme="@style/Theme.PrivacyLauncher"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- This filter is what makes the app eligible to be the home screen. -->
-            <intent-filter>
+            <!--
+              This filter is what makes the app eligible to be the home screen.
+
+              The priority does nothing when the app is installed the
+              ordinary way: Android sets it back to 0 for every app that is
+              not a privileged part of the system image, and the user picks
+              a home app as before. It only counts when the launcher is
+              built into an operating system (rom/, tools/os-preview.sh).
+              There it puts this home screen ahead of Android's own, so the
+              system uses it from the first boot without asking. Android's
+              own launcher has to stay whole in such an image, because the
+              recent-apps screen and the navigation buttons live inside it.
+            -->
+            <intent-filter android:priority="1">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />

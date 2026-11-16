@@ -4,7 +4,8 @@ Built with the tooling current in November 2026: Android Gradle Plugin
 9.5.1, Kotlin 2.4.21, Compose BOM 2026.09.00, Gradle 9.9.0, compileSdk 37,
 JDK 17. The launcher is written so it can later be built into an
 Android-based system image (a LineageOS-based ROM) as the default home
-screen; `rom/` holds the start of that.
+screen; `rom/` holds the start of that, and [docs/os.md](os.md) shows it
+working in an emulator.
 
 ## Prerequisites
 
@@ -274,6 +275,15 @@ Take a screenshot of whatever is on screen:
 adb exec-out screencap -p > shot.png
 ```
 
+See the launcher as part of Android itself, in a separate emulator
+(what this is and is not: [docs/os.md](os.md)):
+
+```bash
+./gradlew assembleRelease
+tools/os-preview.sh build            # make it, factory-reset it, check it
+tools/os-preview.sh start --window
+```
+
 ## Project layout
 
 ```
@@ -293,9 +303,12 @@ privacy-launcher/
 │   ├── devtest.sh             runs the on-device tests
 │   ├── soak.sh                drives every screen and checks it came up
 │   ├── contrast.py            checks the palette against WCAG AA
-│   └── trackers.py            makes the tracker list the app carries
+│   ├── trackers.py            makes the tracker list the app carries
+│   └── os-preview.sh          Android 15 with the launcher built in, in an emulator
+├── rom/                       what goes into an Android source tree to build it in
 ├── docs/
-│   └── performance.md         the measured baseline, and what it is worth
+│   ├── performance.md         the measured baseline, and what it is worth
+│   └── os.md                  the operating-system preview, and what a phone needs
 ├── licenses/                  licences of the bundled font and tracker list
 └── app/
     ├── build.gradle.kts          the app module's build config

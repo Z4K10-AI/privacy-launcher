@@ -4,6 +4,44 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
+### A preview of Android with the launcher built in, in the emulator
+
+`tools/os-preview.sh` puts the launcher into the system partition of an
+Android 15 emulator, where a real build would put it, factory-resets that
+emulator and checks what Android makes of it. It boots straight into the
+launcher with no "choose a home app" question, counts it as a privileged
+part of the system, and will not uninstall it. This is the emulator's own
+Android with one app moved into it: it is not an operating system built
+from source and it cannot be installed on a phone.
+[docs/os.md](docs/os.md) has the pictures, the checks, and what a phone
+would need.
+
+Getting there showed that the build instructions in `rom/` were wrong, and
+needed one change to the app:
+
+- **`rom/privacy-launcher.mk` removed Android's own launcher from the
+  image**, so that there would be only one home app. On Android 15 the
+  recent-apps screen and the navigation buttons are a service inside that
+  launcher. With it taken away, the new check reports no navigation service
+  and no recent-apps screen. The file no longer removes it.
+- **Switching off only the stock launcher's home screen does not work
+  either.** The same service then crashes each time it starts, with a
+  `NullPointerException` in `OverviewComponentObserver`, and the same two
+  checks fail.
+- **The fix is in the app's manifest: its home screen now has a priority of
+  1.** Android honours that only for a privileged app in the system image,
+  where it puts this home screen ahead of the stock one from the first
+  boot. Installed the ordinary way, Android sets it back to 0: the same
+  build on the Android 15 test emulator is listed with `priority=0`, as
+  before. All ten checks then pass after a factory reset.
+- **Found, not fixed: "Modify system settings" is allowed from the first
+  boot in a system build.** Android grants it to every app in the system
+  image without asking. As an installed app it still starts off, which is
+  what the README describes.
+- **The emulator's `-wipe-data` is not a factory reset.** It also discards
+  the emulator's writable copy of the system partition, launcher included.
+  The script's `reset` empties only the user-data disks.
+
 ### A plain-words introduction in the README
 
 The README opened with permissions, file sizes and build tools, and a
