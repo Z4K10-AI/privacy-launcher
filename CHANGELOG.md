@@ -4,7 +4,15 @@ All notable changes to Privacy Launcher. Newest first.
 
 ## [Unreleased]
 
-Nothing yet.
+### A plain-words introduction in the README
+
+The README opened with permissions, file sizes and build tools, and a
+reader who is not a programmer could not tell from it what the project is.
+It now starts with a short section, "In plain words": what a home screen
+is, what this one does differently, and three things to know first. It is
+an app and not an operating system, it has only run on emulators, and
+there is nothing to download until a release is published. Nothing in the
+app changed.
 
 ## [1.0] - 2026-11-15
 

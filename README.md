@@ -2,17 +2,51 @@
 
 A home screen for Android that cannot reach the internet.
 
-It has no internet permission at all. It asks for two permissions, and
-neither does anything until you switch on the feature that needs it. Everything it knows
-stays on the phone. It is about 2.3 MB, written in Kotlin with Jetpack
-Compose, and runs on Android 8.0 and later.
-
 <p>
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="24%" alt="The home screen: the time and date, a battery line, a grid of apps with a folder, and a dock">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" width="24%" alt="The app drawer: a search box above a grid of apps">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" width="24%" alt="The privacy dashboard after a tracker scan, explaining what the result does and does not mean">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" width="24%" alt="Quick controls: a brightness slider and eight tiles">
 </p>
+
+## In plain words
+
+The home screen is what you see when you press the Home button on a phone:
+the clock and your app icons. Every Android phone comes with one. Privacy
+Launcher is another one, which you can install and use instead.
+
+It is built so that it cannot spy on you:
+
+- **It cannot use the internet at all**, so it cannot send anything about
+  you anywhere.
+- **No ads and no tracking.**
+- **It checks your other apps for you.** It shows which of them contain
+  known trackers, and which can use your camera, microphone, location and
+  so on.
+
+Apart from that it does what a home screen does. You see your apps, put
+them in folders, search them, hide some behind your PIN, and reach a few
+quick buttons such as the flashlight.
+
+Three things to know first:
+
+- **It is an app, not an operating system.** It runs on the Android your
+  phone already has. Building it into an Android system of its own is a
+  later goal.
+- **It has only been tried on emulators**, which are pretend phones on a
+  computer, and not yet on a real phone.
+- **There is no app-store listing.** Once a release is on the Releases
+  page, installing it means downloading one file and opening it. Until
+  then it takes developer tools.
+
+The rest of this page goes into detail. "The privacy promise", "What it
+does" and "Which phones it runs on" are for everyone. From "Build from
+source" onwards it is written for programmers.
+
+**At a glance, for the technical reader:** no internet permission at all;
+two permissions, and neither does anything until you switch on the feature
+that needs it; everything it knows stays on the phone; about 2.3 MB;
+written in Kotlin with Jetpack Compose; runs on Android 8.0 and later.
 
 > **Tested on emulators only.** Version 1.0 has been run on Android
 > emulators: Android 11 and Android 15, on seven screen shapes from a
